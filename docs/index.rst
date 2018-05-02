@@ -1,15 +1,22 @@
-.. Seidr documentation master file, created by
-   sphinx-quickstart on Wed May  2 21:56:40 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. _index-label:
 
 Welcome to Seidr's documentation!
 =================================
 
+Seidr is a toolkit to create crowd networks. We provide fast implementations
+of several highly regarded algorithms as well as utility programs to create
+and explore crowd networks.
+
+If you have any questions, contact me at:
+`bastian.schiffthaler@umu.se <mailto:bastian.schiffthaler@umu.se>`_
+
+
 .. toctree::
    :maxdepth: 2
 
-   seidrfile
+   source/seidrfile/seidrfile
+   source/compare/compare
+   source/import/import
 
 
 
