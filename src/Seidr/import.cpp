@@ -266,7 +266,7 @@ int import(int argc, char * argv[]) {
     std::vector<std::string> type_constraints{"el", "lm", "m", "ara"};
     TCLAP::ValuesConstraint<std::string> t_constraints(type_constraints);
     TCLAP::ValueArg<std::string>
-    arg_format("f", "format", "Input file format.", false,
+    arg_format("F", "format", "Input file format.", false,
                "el", &t_constraints);
     cmd.add(arg_format);
 
@@ -287,18 +287,18 @@ int import(int argc, char * argv[]) {
     cmd.add(arg_name);
 
 // Switches
-    TCLAP::SwitchArg 
+    TCLAP::SwitchArg
     arg_absolute("A", "absolute", "Rank absolutes of values.", cmd, false);
 
-    TCLAP::SwitchArg 
+    TCLAP::SwitchArg
     arg_reverse("r", "reverse", "Higher scores/values are better.", cmd, false);
 
-    TCLAP::SwitchArg 
-    arg_drop_zero("z", "drop_zero", 
+    TCLAP::SwitchArg
+    arg_drop_zero("z", "drop_zero",
                   "Drop edges with scores of zero from the network", cmd, false);
 
-    TCLAP::SwitchArg 
-    arg_undirected("u", "undirected", 
+    TCLAP::SwitchArg
+    arg_undirected("u", "undirected",
                    "Force edges to be interpreted as undirected.", cmd, false);
 
     TCLAP::SwitchArg
@@ -423,8 +423,6 @@ int import(int argc, char * argv[]) {
         inx.first = g_map[gi];
         inx.second = g_map[gj];
         e.w = v;
-        if (force_undirected)
-          e.d = 3;
         X.insert(inx, e, rev, drop_zero);
         pr++;
       }
@@ -467,8 +465,6 @@ int import(int argc, char * argv[]) {
         inx.first = i;
         inx.second = j;
         e.w = x;
-        if (force_undirected)
-          e.d = 3; // Force undirected
         X.insert(inx, e, rev, drop_zero);
         if (pr._i % 1000000 == 0)
         {
@@ -505,8 +501,6 @@ int import(int argc, char * argv[]) {
         inx.first = i;
         inx.second = j;
         e.w = x;
-        if (force_undirected)
-          e.d = 3;
         X.insert(inx, e, rev, drop_zero);
         pr++;
       }
@@ -553,8 +547,6 @@ int import(int argc, char * argv[]) {
           inx.first = i;
           inx.second = j;
           e.w = x;
-          if (force_undirected)
-            e.d = 3;
           X.insert(inx, e, rev, drop_zero);
           pr++;
         }
@@ -669,19 +661,27 @@ int import(int argc, char * argv[]) {
         e.scores.push_back(s);
 
         EDGE_SET_EXISTING(e.attr.flag);
-        switch (vs[i]->d)
+
+        if (force_undirected)
         {
-        case 0:
           EDGE_SET_UNDIRECTED(e.attr.flag);
-          break;
-        case 1:
-          EDGE_SET_AB(e.attr.flag);
-          break;
-        case 2:
-          EDGE_SET_BA(e.attr.flag);
-          break;
-        default:
-          throw std::runtime_error("Unknown edge direction\n");
+        }
+        else
+        {
+          switch (vs[i]->d)
+          {
+          case 0:
+            EDGE_SET_UNDIRECTED(e.attr.flag);
+            break;
+          case 1:
+            EDGE_SET_AB(e.attr.flag);
+            break;
+          case 2:
+            EDGE_SET_BA(e.attr.flag);
+            break;
+          default:
+            throw std::runtime_error("Unknown edge direction\n");
+          }
         }
         e.serialize(ostr, h);
         cnt++;
