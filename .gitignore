@@ -1,0 +1,13 @@
+*.bin
+*.tsv
+*.o
+*.sf
+a.out
+build/
+bin/
+example
+*~
+test/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
