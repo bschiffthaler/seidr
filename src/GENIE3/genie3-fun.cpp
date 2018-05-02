@@ -128,7 +128,7 @@ void seidr_mpi_genie3::finalize()
     }
 }
 
-class SeidrForestData : public DataDouble {
+class SeidrForestData : public ranger::DataDouble {
 public:
   SeidrForestData(arma::mat& gm, std::vector<std::string>& genes);
 };
@@ -148,24 +148,26 @@ SeidrForestData::SeidrForestData(arma::mat& gm,
       set(j, i, gm(i, j), error);
 }
 
-class SeidrForest : public ForestRegression {
+class SeidrForest : public ranger::ForestRegression {
 public:
-  SeidrForest(std::string dependent_variable_name, Data* input_data,
+  SeidrForest(std::string dependent_variable_name, ranger::Data* input_data,
               size_t ntree, size_t mtry,
               size_t min_node_size, double alpha, double minprop,
               std::ostream& ostream);
 };
 
 SeidrForest::SeidrForest(std::string dependent_variable_name,
-                         Data* input_data, size_t ntree, size_t mtry,
+                         ranger::Data* input_data, size_t ntree, size_t mtry,
                          size_t min_node_size, double alpha, double minprop,
                          std::ostream& ostream){
   std::vector<std::string> catvars;
-  MemoryMode M = MEM_DOUBLE;
-  ImportanceMode I = IMP_GINI;
-  SplitRule S = LOGRANK;
-  PredictionType P = RESPONSE;
+  ranger::MemoryMode M = ranger::MEM_DOUBLE;
+  ranger::ImportanceMode I = ranger::IMP_GINI;
+  ranger::SplitRule S = ranger::LOGRANK;
+  ranger::PredictionType P = ranger::RESPONSE;
   
+  std::vector<double> sample_fraction_vector = { 1 };
+
   init(dependent_variable_name, M, input_data, mtry,
        //output_prefix, num_tree, seed, threads, importance mode
        "ranger_out_s", ntree, 314159265, 1, I,
@@ -175,9 +177,9 @@ SeidrForest::SeidrForest(std::string dependent_variable_name,
        //categorical vars, save memory, split rule (1 = default/variance)
        catvars, false, S,
        //predict all, sample fraction, alpha, min prop, holdout
-       false, 1, alpha, minprop, false,
+       false, sample_fraction_vector, alpha, minprop, false,
        //prediciton mode (1=response), number of random splits
-       P, 1);
+       P, 1, false);
   // Catch random log messages in a string sink
   verbose_out = &ostream;
 }
@@ -201,7 +203,8 @@ void genie3(arma::mat gm, std::vector<std::string> genes,
 
       log << "Gene: " << pred[i] << '\n';
       log.send(LOG_INFO);
-      Data* data = new DataDouble(gm.memptr(), genes, gm.n_rows, gm.n_cols);
+      ranger::Data* data = new ranger::DataDouble(gm.memptr(), genes, gm.n_rows, 
+                                                  gm.n_cols);
       //Forest* forest = new ForestRegression;
       //forest->verbose_out=&std::cout;
       std::vector<std::string> catvars;
