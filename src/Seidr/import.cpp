@@ -294,7 +294,7 @@ int import(int argc, char * argv[]) {
     arg_reverse("r", "reverse", "Higher scores/values are better.", cmd, false);
 
     TCLAP::SwitchArg
-    arg_drop_zero("z", "drop_zero",
+    arg_drop_zero("z", "drop-zero",
                   "Drop edges with scores of zero from the network", cmd, false);
 
     TCLAP::SwitchArg
