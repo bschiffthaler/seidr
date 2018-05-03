@@ -345,6 +345,8 @@ int import(int argc, char * argv[]) {
     {
       throw std::runtime_error("Cannot read file " + gene_file);
     }
+    if (file_exists(out_file) && ! force)
+      throw std::runtime_error("File exists: " + out_file);
     if (! file_can_create(out_file.c_str()))
     {
       throw std::runtime_error("Cannot create file " + out_file);
@@ -353,8 +355,6 @@ int import(int argc, char * argv[]) {
     {
       throw std::runtime_error("Exactly one input format must be specified");
     }
-    if (file_exists(out_file) && ! force)
-      throw std::runtime_error("File exists: " + out_file);
   }
   catch (std::exception& except)
   {

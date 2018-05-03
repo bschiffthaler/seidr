@@ -352,6 +352,7 @@ int aggregate(int argc, char * argv[])
   std::vector<std::string> infs;
   std::string method;
   std::string out_file;
+  bool force = false;
 
   // We ignore the first argument, the function name
 #ifndef TEST_BUILD
@@ -373,13 +374,23 @@ int aggregate(int argc, char * argv[])
     TCLAP::ValuesConstraint<std::string> constraints_m(method_constraints);
     // Add arguments from the command line
     TCLAP::CmdLine cmd("Aggregate a set of ranked representation networks.", ' ', version);
-    TCLAP::ValueArg<std::string> arg_method("m", "method", "Method to aggregate networks.", false,
+    TCLAP::ValueArg<std::string> 
+    arg_method("m", "method", "Method to aggregate networks.", false,
                                             "top1", &constraints_m);
     cmd.add(arg_method);
-    TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Where to write the output file.", false,
+
+    TCLAP::ValueArg<std::string> 
+    arg_outfile("o", "outfile", "Where to write the output file.", false,
         "rankf_aggr.bin", "string");
     cmd.add(arg_outfile);
-    TCLAP::UnlabeledMultiArg<std::string> arg_input_files("infiles", "Input files", true, "", "string");
+
+    TCLAP::SwitchArg
+    switch_force("f", "force", "Force overwrite if output already exists", cmd,
+                 false);
+
+    TCLAP::UnlabeledMultiArg<std::string> 
+    arg_input_files("infiles", "Input files", true, "", "string");
+
     cmd.add(arg_input_files);
 
     // Parse arguments
@@ -387,6 +398,7 @@ int aggregate(int argc, char * argv[])
     method = arg_method.getValue();
     infs = arg_input_files.getValue();
     out_file = std::string(arg_outfile.getValue());
+    force = switch_force.getValue();
   }
   catch (TCLAP::ArgException& except)
   {
@@ -394,13 +406,17 @@ int aggregate(int argc, char * argv[])
     return EINVAL;
   }
 
-  log(LOG_INFO) << "Testing read/write\n";
   try
   {
     log(LOG_INFO) << out_file << '\n';
     out_file = to_absolute(out_file);
+
+    if (file_exists(out_file) && ! force)
+      throw std::runtime_error("File exists: " + out_file);
+
     if (! file_can_create(out_file))
       throw std::runtime_error("Can't create file " + out_file + "\n");
+
     for (size_t i = 0; i < infs.size(); i++)
     {
       infs[i] = to_canonical(infs[i]);
@@ -408,6 +424,7 @@ int aggregate(int argc, char * argv[])
         throw std::runtime_error("Can't read file " + infs[i] + "\n");
       log(LOG_INFO) << "Have file " << infs[i] << '\n';
     }
+
   }
   catch (std::runtime_error& except)
   {

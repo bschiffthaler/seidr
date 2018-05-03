@@ -130,7 +130,6 @@ int main(int argc, char ** argv) {
     if (! force && file_exists(outfile))
       throw std::runtime_error("File exists: " + outfile);
 
-
   }
   catch (std::runtime_error& e)
   {

@@ -71,13 +71,13 @@ int adjacency(int argc, char * argv[]) {
              8, "8");
     cmd.add(arg_prec);
 
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_infile("infile", "Input file (aggregated gene counts)", true,
-               "", "");
-
     TCLAP::SwitchArg
     switch_force("f", "force", "Force overwrite if output already exists", cmd,
                  false);
+
+    TCLAP::UnlabeledValueArg<std::string>
+    arg_infile("infile", "Input file (aggregated gene counts)", true,
+               "", "");
 
     cmd.add(arg_infile);
 
