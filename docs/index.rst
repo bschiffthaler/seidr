@@ -12,11 +12,31 @@ If you have any questions, contact me at:
 
 
 .. toctree::
+   :caption: Basics
+   :maxdepth: 2
+
+   source/paradigm/paradigm
+   source/import/import
+
+.. toctree::
+   :caption: Algorithms
+   :maxdepth: 2
+
+   source/algorithms/anoverence
+   source/algorithms/aracne
+
+.. toctree::
+   :caption: Workflows
+   :maxdepth: 2
+
+   source/compare/compare
+
+.. toctree::
+   :caption: Implementation Details
    :maxdepth: 2
 
    source/seidrfile/seidrfile
-   source/compare/compare
-   source/import/import
+   
 
 
 
