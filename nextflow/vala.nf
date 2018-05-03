@@ -2,6 +2,10 @@
 
 expr = file(params.expr)
 genes = file(params.genes)
+targets = file(params.targets)
+if (targets != '' ) {
+  targets = '-t ' + targets
+}
 
 if (params.clr) {
 
@@ -12,6 +16,7 @@ if (params.clr) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'clr_network.tsv' into clr_network_raw
 
@@ -20,7 +25,7 @@ if (params.clr) {
     mpirun -x OMP_NUM_THREADS --oversubscribe -np ${params.clr_settings.cores} \
     mi -m CLR -o clr_network.tsv -B ${params.aracne_settings.batchsize} \
        -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
-       -i ${expr}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -35,11 +40,23 @@ if (params.clr) {
     output:
     file 'clr_network.sf' into clr_sf
 
-    """
-    export OMP_NUM_THREADS=${params.clr_settings.importcores}
-    seidr import -F lm -u -r -z -n ${params.clr_settings.importname} \
-                 -i ${clr_net} -g ${genes} -o clr_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.clr_settings.importcores}
+      seidr import -F lm -u -r -z -n ${params.clr_settings.importname} \
+                   -i ${clr_net} -g ${genes} -o clr_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.clr_settings.importcores}
+      seidr import -F el -u -r -z -n ${params.clr_settings.importname} \
+                   -i ${clr_net} -g ${genes} -o clr_network.sf
+      """
+    }
   }
 }
 
@@ -52,6 +69,7 @@ if (params.aracne) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'aracne_network.tsv' into aracne_network_raw
 
@@ -60,7 +78,7 @@ if (params.aracne) {
     mpirun -x OMP_NUM_THREADS --oversubscribe -np ${params.aracne_settings.cores} \
     mi -m ARACNE -o aracne_network.tsv -B ${params.aracne_settings.batchsize} \
        -b ${params.aracne_settings.bins} -s ${params.aracne_settings.spline} \
-       -i ${expr}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -75,11 +93,23 @@ if (params.aracne) {
     output:
     file 'aracne_network.sf' into aracne_sf
 
-    """
-    export OMP_NUM_THREADS=${params.aracne_settings.importcores}
-    seidr import -F lm -u -r -z -n ${params.aracne_settings.importname} \
-                 -i ${aracne_net} -g ${genes} -o aracne_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.aracne_settings.importcores}
+      seidr import -F lm -u -r -z -n ${params.aracne_settings.importname} \
+                   -i ${aracne_net} -g ${genes} -o aracne_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.aracne_settings.importcores}
+      seidr import -F el -u -r -z -n ${params.aracne_settings.importname} \
+                   -i ${aracne_net} -g ${genes} -o aracne_network.sf
+      """
+    }
   }
 }
 
@@ -93,13 +123,14 @@ if (params.anova) {
     file expr
     file genes
     file params.anova_settings.meta_file
+    val targets
     output:
     file 'anova_network.tsv' into anova_network_raw
 
     """
     export OMP_NUM_THREADS=1
     anoverence -i ${expr} -g ${genes} -e ${params.anova_settings.meta_file} \
-               -w ${params.anova_settings.weight}
+               -w ${params.anova_settings.weight} ${targets}
     """
   }
 
@@ -114,11 +145,23 @@ if (params.anova) {
     output:
     file 'anova_network.sf' into anova_sf
 
-    """
-    export OMP_NUM_THREADS=${params.anova_settings.importcores}
-    seidr import -F lm -u -r -z -n ${params.anova_settings.importname} \
-                 -i ${aracne_net} -g ${genes} -o anova_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.anova_settings.importcores}
+      seidr import -F lm -u -r -z -n ${params.anova_settings.importname} \
+                   -i ${aracne_net} -g ${genes} -o anova_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.anova_settings.importcores}
+      seidr import -F el -u -r -z -n ${params.anova_settings.importname} \
+                   -i ${aracne_net} -g ${genes} -o anova_network.sf
+      """
+    }
   }
 }
 
@@ -130,14 +173,16 @@ if (params.pearson) {
     publishDir params.out + '/networks/pearson'
     input:
     file expr
+    file genes
+    val targets
     output:
     file 'pearson_network.tsv' into pearson_network_raw
 
     """
     export OMP_NUM_THREADS=1
-    correlation -m pearson -i ${expr} -o pearson_network.tsv \
+    correlation -m pearson -i ${expr} -g ${genes} -o pearson_network.tsv \
                 ${params.pearson_settings.scale} \
-                ${params.pearson_settings.absolute}
+                ${params.pearson_settings.absolute} ${targets}
     """
   }
 
@@ -152,11 +197,23 @@ if (params.pearson) {
     output:
     file 'pearson_network.sf' into pearson_sf
 
-    """
-    export OMP_NUM_THREADS=${params.pearson_settings.importcores}
-    seidr import -F lm -A -u -r -z -n ${params.pearson_settings.importname} \
-                 -i ${pearson_net} -g ${genes} -o pearson_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.pearson_settings.importcores}
+      seidr import -F lm -A -u -r -z -n ${params.pearson_settings.importname} \
+                   -i ${pearson_net} -g ${genes} -o pearson_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.pearson_settings.importcores}
+      seidr import -F el -A -u -r -z -n ${params.pearson_settings.importname} \
+                   -i ${pearson_net} -g ${genes} -o pearson_network.sf
+      """
+    }
   }
 }
 
@@ -168,14 +225,16 @@ if (params.spearman) {
     publishDir params.out + '/networks/spearman'
     input:
     file expr
+    file genes
+    val targets
     output:
     file 'spearman_network.tsv' into spearman_network_raw
 
     """
     export OMP_NUM_THREADS=1
-    correlation -m spearman -i ${expr} -o spearman_network.tsv \
+    correlation -m spearman -i ${expr} -g ${genes} -o spearman_network.tsv \
                 ${params.spearman_settings.scale} \
-                ${params.spearman_settings.absolute}
+                ${params.spearman_settings.absolute} ${targets}
     """
   }
 
@@ -190,11 +249,23 @@ if (params.spearman) {
     output:
     file 'spearman_network.sf' into spearman_sf
 
-    """
-    export OMP_NUM_THREADS=${params.spearman_settings.importcores}
-    seidr import -F lm -A -u -r -z -n ${params.spearman_settings.importname} \
-                 -i ${spearman_net} -g ${genes} -o spearman_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.spearman_settings.importcores}
+      seidr import -F lm -A -u -r -z -n ${params.spearman_settings.importname} \
+                   -i ${spearman_net} -g ${genes} -o spearman_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.spearman_settings.importcores}
+      seidr import -F el -A -u -r -z -n ${params.spearman_settings.importname} \
+                   -i ${spearman_net} -g ${genes} -o spearman_network.sf
+      """
+    }
   }
 }
 
@@ -207,6 +278,7 @@ if (params.elnet) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'elnet_network.tsv' into elnet_network_raw
 
@@ -221,7 +293,7 @@ if (params.elnet) {
        -P ${params.elnet_settings.max_predictor_size} \
        -p ${params.elnet_settings.min_predictor_size} \
        -e ${params.elnet_settings.ensemble} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -236,11 +308,23 @@ if (params.elnet) {
     output:
     file 'elnet_network.sf' into elnet_sf
 
-    """
-    export OMP_NUM_THREADS=${params.elnet_settings.importcores}
-    seidr import -F m -r -z -n ${params.elnet_settings.importname} \
-                 -i ${elnet_net} -g ${genes} -o elnet_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.elnet_settings.importcores}
+      seidr import -F m -r -z -n ${params.elnet_settings.importname} \
+                   -i ${elnet_net} -g ${genes} -o elnet_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.elnet_settings.importcores}
+      seidr import -F el -r -z -n ${params.elnet_settings.importname} \
+                   -i ${elnet_net} -g ${genes} -o elnet_network.sf
+      """
+    }
   }
 }
 
@@ -253,6 +337,7 @@ if (params.svm) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'svm_network.tsv' into svm_network_raw
 
@@ -265,7 +350,7 @@ if (params.svm) {
        -P ${params.svm_settings.max_predictor_size} \
        -p ${params.svm_settings.min_predictor_size} \
        -e ${params.svm_settings.ensemble} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -280,11 +365,23 @@ if (params.svm) {
     output:
     file 'svm_network.sf' into svm_sf
 
-    """
-    export OMP_NUM_THREADS=${params.svm_settings.importcores}
-    seidr import -F m -r -z -n ${params.svm_settings.importname} \
-                 -i ${svm_net} -g ${genes} -o svm_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.svm_settings.importcores}
+      seidr import -F m -r -z -n ${params.svm_settings.importname} \
+                   -i ${svm_net} -g ${genes} -o svm_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.svm_settings.importcores}
+      seidr import -F el -r -z -n ${params.svm_settings.importname} \
+                   -i ${svm_net} -g ${genes} -o svm_network.sf
+      """
+    }
   }
 }
 
@@ -297,6 +394,7 @@ if (params.llr) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'llr_network.tsv' into llr_network_raw
 
@@ -309,7 +407,7 @@ if (params.llr) {
        -P ${params.llr_settings.max_predictor_size} \
        -p ${params.llr_settings.min_predictor_size} \
        -e ${params.llr_settings.ensemble} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -324,11 +422,23 @@ if (params.llr) {
     output:
     file 'llr_network.sf' into llr_sf
 
-    """
-    export OMP_NUM_THREADS=${params.llr_settings.importcores}
-    seidr import -F m -r -z -n ${params.llr_settings.importname} \
-                 -i ${llr_net} -g ${genes} -o llr_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.llr_settings.importcores}
+      seidr import -F m -r -z -n ${params.llr_settings.importname} \
+                   -i ${llr_net} -g ${genes} -o llr_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.llr_settings.importcores}
+      seidr import -F el -r -z -n ${params.llr_settings.importname} \
+                   -i ${llr_net} -g ${genes} -o llr_network.sf
+      """
+    }
   }
 }
 
@@ -340,12 +450,15 @@ if (params.pcor) {
     publishDir params.out + '/networks/pcor'
     input:
     file expr
+    file genes
+    val targets
     output:
     file 'pcor_network.tsv' into pcor_network_raw
 
     """
     export OMP_NUM_THREADS=1
-    pcor -i ${expr} -o pcor_network.tsv ${params.pcor_settings.absolute}
+    pcor -i ${expr} -g ${genes} -o pcor_network.tsv \
+         ${params.pcor_settings.absolute} ${targets}
     """
   }
 
@@ -360,11 +473,23 @@ if (params.pcor) {
     output:
     file 'pcor_network.sf' into pcor_sf
 
-    """
-    export OMP_NUM_THREADS=${params.pcor_settings.importcores}
-    seidr import -F lm -A -u -r -z -n ${params.pcor_settings.importname} \
-                 -i ${pcor_net} -g ${genes} -o pcor_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.pcor_settings.importcores}
+      seidr import -F lm -A -u -r -z -n ${params.pcor_settings.importname} \
+                   -i ${pcor_net} -g ${genes} -o pcor_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.pcor_settings.importcores}
+      seidr import -F el -A -u -r -z -n ${params.pcor_settings.importname} \
+                   -i ${pcor_net} -g ${genes} -o pcor_network.sf
+      """
+    }
   }
 }
 
@@ -377,6 +502,7 @@ if (params.narromi) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'narromi_network.tsv' into narromi_network_raw
 
@@ -386,7 +512,7 @@ if (params.narromi) {
     narromi -o narromi_network.tsv -b ${params.narromi_settings.batchsize} \
        -a ${params.narromi_settings.alpha} \
        -m ${params.narromi_settings.method} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -401,11 +527,23 @@ if (params.narromi) {
     output:
     file 'narromi_network.sf' into narromi_sf
 
-    """
-    export OMP_NUM_THREADS=${params.narromi_settings.importcores}
-    seidr import -F m -r -z -n ${params.narromi_settings.importname} \
-                 -i ${narromi_net} -g ${genes} -o narromi_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.narromi_settings.importcores}
+      seidr import -F m -r -z -n ${params.narromi_settings.importname} \
+                   -i ${narromi_net} -g ${genes} -o narromi_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.narromi_settings.importcores}
+      seidr import -F el -r -z -n ${params.narromi_settings.importname} \
+                   -i ${narromi_net} -g ${genes} -o narromi_network.sf
+      """
+    }
   }
 }
 
@@ -418,6 +556,7 @@ if (params.tigress) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'tigress_network.tsv' into tigress_network_raw
 
@@ -428,7 +567,7 @@ if (params.tigress) {
        -n ${params.tigress_settings.nlambda} \
        -l ${params.tigress_settings.min_lambda} \
        ${params.tigress_settings.scale} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -443,11 +582,23 @@ if (params.tigress) {
     output:
     file 'tigress_network.sf' into tigress_sf
 
-    """
-    export OMP_NUM_THREADS=${params.tigress_settings.importcores}
-    seidr import -F m -r -z -n ${params.tigress_settings.importname} \
-                 -i ${tigress_net} -g ${genes} -o tigress_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.tigress_settings.importcores}
+      seidr import -F m -r -z -n ${params.tigress_settings.importname} \
+                   -i ${tigress_net} -g ${genes} -o tigress_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.tigress_settings.importcores}
+      seidr import -F el -r -z -n ${params.tigress_settings.importname} \
+                   -i ${tigress_net} -g ${genes} -o tigress_network.sf
+      """
+    }
   }
 }
 
@@ -460,6 +611,7 @@ if (params.genie3) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'genie3_network.tsv' into genie3_network_raw
 
@@ -473,7 +625,7 @@ if (params.genie3) {
        -m ${params.genie3_settings.mtry} \
        -n ${params.genie3_settings.ntree} \
        ${params.genie3_settings.scale} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -488,11 +640,23 @@ if (params.genie3) {
     output:
     file 'genie3_network.sf' into genie3_sf
 
-    """
-    export OMP_NUM_THREADS=${params.genie3_settings.importcores}
-    seidr import -F m -r -z -n ${params.genie3_settings.importname} \
-                 -i ${genie3_net} -g ${genes} -o genie3_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.genie3_settings.importcores}
+      seidr import -F m -r -z -n ${params.genie3_settings.importname} \
+                   -i ${genie3_net} -g ${genes} -o genie3_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.genie3_settings.importcores}
+      seidr import -F el -r -z -n ${params.genie3_settings.importname} \
+                   -i ${genie3_net} -g ${genes} -o genie3_network.sf
+      """
+    }
   }
 }
 
@@ -505,6 +669,7 @@ if (params.plsnet) {
     input:
     file expr
     file genes
+    val targets
     output:
     file 'plsnet_network.tsv' into plsnet_network_raw
 
@@ -516,7 +681,7 @@ if (params.plsnet) {
        -p ${params.plsnet_settings.predictors} \
        -e ${params.plsnet_settings.ensemble} \
        ${params.plsnet_settings.scale} \
-       -i ${expr} -g ${genes}
+       -i ${expr} -g ${genes} ${targets}
     """
   }
 
@@ -531,10 +696,22 @@ if (params.plsnet) {
     output:
     file 'plsnet_network.sf' into plsnet_sf
 
-    """
-    export OMP_NUM_THREADS=${params.plsnet_settings.importcores}
-    seidr import -F m -r -z -n ${params.plsnet_settings.importname} \
-                 -i ${plsnet_net} -g ${genes} -o plsnet_network.sf
-    """
+    script:
+    if (targets == '')
+    {
+      """
+      export OMP_NUM_THREADS=${params.plsnet_settings.importcores}
+      seidr import -F m -r -z -n ${params.plsnet_settings.importname} \
+                   -i ${plsnet_net} -g ${genes} -o plsnet_network.sf
+      """
+    }
+    else
+    {
+      """
+      export OMP_NUM_THREADS=${params.plsnet_settings.importcores}
+      seidr import -F el -r -z -n ${params.plsnet_settings.importname} \
+                   -i ${plsnet_net} -g ${genes} -o plsnet_network.sf
+      """
+    }
   }
 }
