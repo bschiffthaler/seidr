@@ -11,6 +11,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 using boost::lexical_cast;
 namespace fs = boost::filesystem;
@@ -32,12 +33,16 @@ public:
   void set_mode(char x) {_mode = x;}
   void set_mi_file(std::string x) {_mi_file = x;}
   void set_tmpdir(std::string x) {_tmpdir = x;}
+  void set_targets(std::vector<std::string> x) {_targets = x;}
+  void set_genes(std::vector<std::string> x) {_genes = x;}
 private:
   size_t _num_bins;
   size_t _spline_order;
   char _mode;
   std::string _tmpdir;
   std::string _mi_file;
+  std::vector<std::string> _targets;
+  std::vector<std::string> _genes;
 };
 
 void seidr_mpi_mi::entrypoint()
@@ -61,6 +66,11 @@ void seidr_mpi_mi::finalize()
 {
   if (_id == 0)
   {
+    std::unordered_map<std::string, arma::uword> gene_map;
+    arma::uword ctr = 0;
+    for (auto g : _genes)
+      gene_map[g] = ctr++;
+
     seidr_mpi_logger log;
     log << "Merging tmp files from " << _tmpdir << '\n';
     log.log(LOG_INFO);
@@ -113,13 +123,41 @@ void seidr_mpi_mi::finalize()
         only_mi = false;
         mofs.open(_mi_file.c_str());
       }
-      for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+      if (_targets.size() != 0)
       {
-        for (arma::uword j = 0; j < i; j++)
+        for (auto g : _targets)
         {
+          arma::uword i;
+          try
+          {
+            i = gene_map.at(g);
+          }
+          catch (std::exception& e)
+          {
+            log << e.what() << '\n';
+            log << "Target gene " << g << " is not in expression table\n";
+            log.send(LOG_ERR);
+          }
+          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+          {
+            if (i == j) continue;
+            (only_mi ? ofs : mofs)
+                << _genes[i] << '\t'
+                << _genes[j] << '\t'
+                << mi_mat(i, j) << '\n';
+          }
+        }
+      }
+      else
+      {
+        for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+        {
+          for (arma::uword j = 0; j < i; j++)
+          {
 
-          (only_mi ? ofs : mofs) << mi_mat(i, j)
-                                 << (j == i - 1 ? '\n' : '\t');
+            (only_mi ? ofs : mofs) << mi_mat(i, j)
+                                   << (j == i - 1 ? '\n' : '\t');
+          }
         }
       }
     }
@@ -139,20 +177,56 @@ void seidr_mpi_mi::finalize()
         s(i) = arma::stddev(x);
       }
 
-      for (size_t i = 1; i < mi_mat.n_cols; i++)
+      if (_targets.size() != 0)
       {
-        for (size_t j = 0; j < i; j++)
+        for (auto g : _targets)
         {
-          double mi = mi_mat(i, j);
-          mi = mi < 0 ? mi * -1 : mi;
-          double a = (mi - m(i)) / s(i);
-          double b = (mi - m(j)) / s(j);
-          a = a < 0 ? 0 : a;
-          b = b < 0 ? 0 : b;
-          double c = sqrt(a * a + b * b);
-          c = c < 0 ? 0 : c;
-          ofs << c;
-          ofs << (j == i - 1 ? '\n' : '\t');
+          arma::uword i;
+          try
+          {
+            i = gene_map.at(g);
+          }
+          catch (std::exception& e)
+          {
+            log << e.what() << '\n';
+            log << "Target gene " << g << " is not in expression table\n";
+            log.send(LOG_ERR);
+          }
+          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+          {
+            if (i == j) continue;
+            double mi = mi_mat(i, j);
+            mi = mi < 0 ? mi * -1 : mi;
+            double a = (mi - m(i)) / s(i);
+            double b = (mi - m(j)) / s(j);
+            a = a < 0 ? 0 : a;
+            b = b < 0 ? 0 : b;
+            double c = sqrt(a * a + b * b);
+            c = c < 0 ? 0 : c;
+            ofs
+                << _genes[i] << '\t'
+                << _genes[j] << '\t'
+                << c << '\n';
+          }
+        }
+      }
+      else
+      {
+        for (size_t i = 1; i < mi_mat.n_cols; i++)
+        {
+          for (size_t j = 0; j < i; j++)
+          {
+            double mi = mi_mat(i, j);
+            mi = mi < 0 ? mi * -1 : mi;
+            double a = (mi - m(i)) / s(i);
+            double b = (mi - m(j)) / s(j);
+            a = a < 0 ? 0 : a;
+            b = b < 0 ? 0 : b;
+            double c = sqrt(a * a + b * b);
+            c = c < 0 ? 0 : c;
+            ofs << c;
+            ofs << (j == i - 1 ? '\n' : '\t');
+          }
         }
       }
     }
@@ -195,13 +269,42 @@ void seidr_mpi_mi::finalize()
           log.send(LOG_INFO);
         }
       }
-      for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+      if (_targets.size() != 0)
       {
-        for (arma::uword j = 0; j < i; j++)
+        for (auto g : _targets)
         {
-          double r = (torm(i, j) ? 0 : mi_mat(i, j));
-          ofs << r
-              << (j == i - 1 ? '\n' : '\t');
+          arma::uword i;
+          try
+          {
+            i = gene_map.at(g);
+          }
+          catch (std::exception& e)
+          {
+            log << e.what() << '\n';
+            log << "Target gene " << g << " is not in expression table\n";
+            log.send(LOG_ERR);
+          }
+          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+          {
+            if (i == j) continue;
+            double r = (torm(i, j) ? 0 : mi_mat(i, j));
+            ofs
+                << _genes[i] << '\t'
+                << _genes[j] << '\t'
+                << r << '\n';
+          }
+        }
+      }
+      else
+      {
+        for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+        {
+          for (arma::uword j = 0; j < i; j++)
+          {
+            double r = (torm(i, j) ? 0 : mi_mat(i, j));
+            ofs << r
+                << (j == i - 1 ? '\n' : '\t');
+          }
         }
       }
     }
@@ -510,7 +613,8 @@ void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
 
 
 void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
-             std::string outfile, char mode, std::string mi_file)
+             std::string outfile, char mode, std::string mi_file,
+             std::vector<std::string> genes, std::vector<std::string> targets)
 {
   std::string mode_str;
   switch (mode)
@@ -535,16 +639,16 @@ void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
 
   std::string tmpdir = d_out.string() + "/.seidr_tmp_mi_" + mode_str;
 
-  std::vector<unsigned long> targets(gm.n_cols);
+  std::vector<unsigned long> indices(gm.n_cols);
   for (size_t i = 0; i < gm.n_cols; i++)
-    targets[i] = i;
+    indices[i] = i;
 
-  std::random_shuffle(targets.begin(), targets.end());
+  std::random_shuffle(indices.begin(), indices.end());
 
   seidr_mpi_mi mpi(bs);
 
   mpi.set_data(gm);
-  mpi.set_indices(targets);
+  mpi.set_indices(indices);
   mpi.set_outfilebase(d_out.string());
   mpi.set_outfile(p_out.string());
   mpi.set_tmpdir(tmpdir);
@@ -552,6 +656,8 @@ void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
   mpi.set_num_bins(num_bins);
   mpi.set_mode(mode);
   mpi.set_mi_file(mi_file);
+  mpi.set_genes(genes);
+  mpi.set_targets(targets);
 
   mpi.exec();
   //mpi.finalize();

@@ -40,6 +40,7 @@ public:
   void set_predictor_sample_size_min(arma::uword x) {_predictor_sample_size_min = x;}
   void set_predictor_sample_size_max(arma::uword x) {_predictor_sample_size_max = x;}
   void set_ensemble_size(arma::uword x) {_ensemble_size = x;}
+  void set_targeted(bool x) { _targeted = x; }
 private:
   arma::uword _min_sample_size;
   arma::uword _max_sample_size;
@@ -49,6 +50,7 @@ private:
   double _alpha;
   double _flmin;
   arma::uword _nlam;
+  bool _targeted;
 };
 
 void seidr_mpi_elnet::entrypoint()
@@ -112,7 +114,23 @@ void seidr_mpi_elnet::finalize()
       ifs.seekg(gene_index);
       std::string l;
       std::getline(ifs, l);
-      ofs << l << '\n';
+      if (_targeted)
+      {
+        std::stringstream ss(l);
+        std::string token;
+        seidr_uword_t j = 0;
+        seidr_uword_t i = it->first;
+        while(ss >> token)
+        {
+          if(i != j)
+            ofs << _genes[i] << '\t' << _genes[j] << '\t' << token << '\n';
+          j++;
+        }
+      }
+      else
+      {
+        ofs << l << '\n';
+      }
 
       auto nx = std::next(it);
       if (nx->second.second != file_path)
@@ -388,6 +406,7 @@ void el_partial(arma::mat GM, std::vector<std::string> genes, size_t bs,
   mpi.set_alpha(alpha);
   mpi.set_flmin(flmin);
   mpi.set_nlam(nlam);
+  mpi.set_targeted(true);
 
   mpi.exec();
 }

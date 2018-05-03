@@ -121,6 +121,15 @@ arma::mat pcor(arma::mat& X)
   
 }
 
+// arma::mat wt_scale(arma::mat& x)
+// {
+//   double nrow = x.n_rows;
+//   double w = 1 / nrow;
+//   double h1 = nrow / (nrow - 1);
+
+
+// }
+
 double estimate_lambda(arma::mat& X)
 {
   double lambda = 0;

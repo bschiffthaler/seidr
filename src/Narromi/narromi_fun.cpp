@@ -41,10 +41,12 @@ public:
   void set_algorithm(std::string a) {_algorithm = a;}
   void set_alpha(double a) {_alpha = a;}
   void set_t(double t) {_t = t;}
+  void set_targeted(bool x) {_targeted = x;}
 private:
   std::string _algorithm;
   double _alpha;
   double _t;
+  bool _targeted;
 };
 
 void seidr_mpi_narromi::entrypoint()
@@ -105,7 +107,24 @@ void seidr_mpi_narromi::finalize()
       ifs.seekg(gene_index);
       std::string l;
       std::getline(ifs, l);
-      ofs << l << '\n';
+
+      if (_targeted)
+      {
+        std::stringstream ss(l);
+        std::string token;
+        seidr_uword_t j = 0;
+        seidr_uword_t i = it->first;
+        while(ss >> token)
+        {
+          if(i != j)
+            ofs << _genes[i] << '\t' << _genes[j] << '\t' << token << '\n';
+          j++;
+        }
+      }
+      else
+      {
+        ofs << l << '\n';
+      }
 
       auto nx = std::next(it);
       if (nx->second.second != file_path)
@@ -285,6 +304,7 @@ void partial_narromi(arma::mat GM,
   mpi.set_alpha(alpha);
   mpi.set_t(t);
   mpi.set_algorithm(al);
+  mpi.set_targeted(true);
 
   mpi.exec();
 }

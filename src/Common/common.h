@@ -46,8 +46,7 @@ arma::uvec get_i(arma::uword ind, size_t s);
 
 // Read gene names
 std::vector<std::string> read_genes(std::string inputs, 
-				    char row_delim = '\n',
-                                    char field_delim = '\t');
+				    char row_delim = '\n', char field_delim = '\t');
 
 bool is_gzip(std::string input);
 
@@ -65,5 +64,6 @@ inline void SWAP(T &x, T &y)
   T tmp = x;
   x = y; y = tmp;
 }
+
 
 std::vector<std::string> tokenize_delim(std::string nodes, std::string delim);

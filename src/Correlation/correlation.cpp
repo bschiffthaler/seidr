@@ -6,12 +6,16 @@
 #include <BSlogger.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <cmath>
 
 int main(int argc, char ** argv)
 {
   std::string infile;
   std::string outfile;
   std::string method;
+  std::string gene_file;
+  std::string targets_file;
   bool do_scale;
   bool abs;
   bool force = false;
@@ -25,6 +29,18 @@ int main(int argc, char ** argv)
     infile_arg("i", "infile", "The expression table (without headers)", true,
                "", "");
     cmd.add(infile_arg);
+
+    TCLAP::ValueArg<std::string>
+    genefile_arg("g", "genes", "File containing gene names", true, "",
+                 "string");
+    cmd.add(genefile_arg);
+
+    TCLAP::ValueArg<std::string>
+    targets_arg("t", "targets", "File containing gene names"
+                " of genes of interest. The network will only be"
+                " calculated using these as the sources of potential connections.",
+                false, "", "string");
+    cmd.add(targets_arg);
 
     TCLAP::ValueArg<std::string>
     outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv",
@@ -55,6 +71,8 @@ int main(int argc, char ** argv)
     method = method_arg.getValue();
     abs = switch_abs.getValue();
     force = switch_force.getValue();
+    gene_file = genefile_arg.getValue();
+    targets_file = targets_arg.getValue();
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
   {
@@ -66,12 +84,21 @@ int main(int argc, char ** argv)
   {
     outfile = to_absolute(outfile);
     infile = to_absolute(infile);
+    gene_file = to_absolute(gene_file);
+    if (targets_file != "")
+      targets_file = to_absolute(targets_file);
 
     if (! file_exists(dirname(outfile)) )
       throw std::runtime_error("Directory does not exist: " + dirname(outfile));
 
     if (! file_exists(infile) )
       throw std::runtime_error("File does not exist: " + infile);
+
+    if (! file_exists(gene_file) )
+      throw std::runtime_error("File does not exist: " + gene_file);
+
+    if (! file_exists(targets_file) && targets_file != "" )
+      throw std::runtime_error("File does not exist: " + targets_file);
 
     if (! regular_file(infile) )
       throw std::runtime_error("Not a regular file: " + infile);
@@ -107,7 +134,39 @@ int main(int argc, char ** argv)
     }
 
     gm = arma::cor(gm);
-    write_lm(gm, outfile, abs);
+    if (targets_file == "")
+    {
+      write_lm(gm, outfile, abs);
+    }
+    else
+    {
+      std::vector<std::string> genes = read_genes(gene_file);
+      std::vector<std::string> targets = read_genes(targets_file);
+      std::unordered_map<std::string, uint64_t> gene_map;
+      uint64_t ctr = 0;
+      for (auto& g : genes)
+        gene_map[g] = ctr++;
+      std::ofstream ofs(outfile, std::ios::out);
+      for (auto& t : targets)
+      {
+        uint64_t i;
+        try
+        {
+          i = gene_map.at(t);
+        }
+        catch (std::exception& e)
+        {
+          log(LOG_ERR) << e.what() << '\n';
+          log(LOG_ERR) << "Target gene " << t << "is not in the expression matrix\n";
+        }
+        for (uint64_t j = 0; j < gm.n_cols; j++)
+        {
+          if (i == j) continue;
+          ofs << genes[i] << '\t' << genes[j] << '\t' <<
+              (abs ? fabs(gm(i, j)) : gm(i, j)) << '\n';
+        }
+      }
+    }
   }
   catch (std::runtime_error& e)
   {

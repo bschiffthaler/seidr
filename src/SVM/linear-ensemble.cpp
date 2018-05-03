@@ -238,6 +238,10 @@ int main(int argc, char ** argv) {
         predictor_sample_size_max == 0)
       throw std::runtime_error("None of the sampling settings should be 0");
 
+    if (predictor_sample_size_max >= gene_matrix.n_cols)
+      throw std::runtime_error("Maximum predictor sample size must be "
+                               "smaller than the number of predictors (genes)");
+
     parameter param;
     param.solver_type = L2R_L2LOSS_SVR;
     param.eps = 0.1;
@@ -248,7 +252,8 @@ int main(int argc, char ** argv) {
     param.init_sol = NULL;
 
 
-    switch (mode) {
+    switch (mode)
+    {
     case SVM_FULL:
       svm_full(gene_matrix, genes, bs, outfile, param,
                min_sample_size, max_sample_size,

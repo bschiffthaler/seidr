@@ -32,6 +32,8 @@ int main(int argc, char ** argv) {
   size_t num_bins;
   std::string mode;
   bool force = false;
+  std::string targets_file;
+  std::string genes_file;
 
   // Define program options
   try
@@ -55,6 +57,18 @@ int main(int argc, char ** argv) {
     spline_arg("s", "spline", "Spline order", false, 3,
                "3");
     cmd.add(spline_arg);
+
+    TCLAP::ValueArg<std::string>
+    targets_arg("t", "targets", "File containing gene names"
+                " of genes of interest. The network will only be"
+                " calculated using these as the sources of potential connections.",
+                false, "", "");
+    cmd.add(targets_arg);
+
+    TCLAP::ValueArg<std::string>
+    genefile_arg("g", "genes", "File containing gene names", true, "",
+                 "");
+    cmd.add(genefile_arg);
 
     TCLAP::ValueArg<unsigned long>
     bins_arg("b", "bins", "Number of bins (0 = auto detection)", false, 0,
@@ -91,6 +105,8 @@ int main(int argc, char ** argv) {
     num_bins = bins_arg.getValue();
     mode = mode_arg.getValue();
     force = switch_force.getValue();
+    genes_file = genefile_arg.getValue();
+    targets_file = targets_arg.getValue();
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
   {
@@ -131,6 +147,12 @@ int main(int argc, char ** argv) {
 
       if (! file_can_read(infile) )
         throw std::runtime_error("Cannot read: " + infile);
+
+      if (! file_can_read(genes_file) )
+        throw std::runtime_error("Cannot read: " + genes_file);
+
+      if (! file_can_read(targets_file) && targets_file != "" )
+        throw std::runtime_error("Cannot read: " + targets_file);
 
       if ((! force) && file_exists(outfile))
         throw std::runtime_error("File exists: " + outfile);
@@ -192,7 +214,14 @@ int main(int argc, char ** argv) {
       m = 1;
     else if (mode == "RAW")
       m = 2;
-    mi_full(gene_matrix, spline_order, num_bins, bs, outfile, m, mi_file);
+
+    std::vector<std::string> genes;
+    genes = read_genes(genes_file);
+    std::vector<std::string> targets;
+    if (targets_file != "")
+      targets = read_genes(targets_file);
+    mi_full(gene_matrix, spline_order, num_bins, bs, outfile, m, mi_file,
+            genes, targets);
   }
   catch (const std::runtime_error& e)
   {

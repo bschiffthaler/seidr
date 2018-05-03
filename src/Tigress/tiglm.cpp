@@ -34,10 +34,12 @@ public:
   seidr_uword_t get_nboot() {return _nboot;}
   double get_fmin() {return _fmin;}
   seidr_uword_t set_nsteps() {return _nsteps;}
+  void set_targeted(bool x){_targeted = x;}
 private:
   seidr_uword_t _nboot;
   seidr_uword_t _nsteps;
   double _fmin;
+  bool _targeted;
 };
 
 void seidr_mpi_tigress::entrypoint()
@@ -98,7 +100,24 @@ void seidr_mpi_tigress::finalize()
       ifs.seekg(gene_index);
       std::string l;
       std::getline(ifs, l);
-      ofs << l << '\n';
+      
+      if (_targeted)
+      {
+        std::stringstream ss(l);
+        std::string token;
+        seidr_uword_t j = 0;
+        seidr_uword_t i = it->first;
+        while (ss >> token)
+        {
+          if (i != j)
+            ofs << _genes[i] << '\t' << _genes[j] << '\t' << token << '\n';
+          j++;
+        }
+      }
+      else
+      {
+        ofs << l << '\n';
+      }
 
       auto nx = std::next(it);
       if (nx->second.second != file_path)
@@ -355,6 +374,7 @@ void tiglm_partial(arma::mat GM, std::vector<std::string> genes, size_t bs,
   mpi.set_nboot(boot);
   mpi.set_fmin(fmin);
   mpi.set_nsteps(nsteps);
+  mpi.set_targeted(true);
 
   mpi.exec();
 }

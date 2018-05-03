@@ -8,8 +8,8 @@
 #include <string>
 
 class aranode {
- public:
- aranode(arma::uword a, double b) : i(a), v(b) {}
+public:
+  aranode(arma::uword a, double b) : i(a), v(b) {}
   arma::uword i;
   double v;
 };
@@ -30,7 +30,7 @@ double log2d(double x);
 double entropy1d(arma::mat& gm, arma::vec& knots, arma::mat& wm,
                  size_t spline_order, size_t num_bins, size_t i);
 void hist2d(arma::vec& x, arma::vec& y, arma::vec& knots,
-           arma::vec& wx, arma::vec& wy, arma::mat& hist,
+            arma::vec& wx, arma::vec& wy, arma::mat& hist,
             size_t spline_order, size_t num_bins);
 double entropy2d(arma::mat& gm, arma::vec& knots,
                  arma::mat& wm, size_t spline_order,
@@ -38,4 +38,5 @@ double entropy2d(arma::mat& gm, arma::vec& knots,
 void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
                    std::vector<arma::uword> targets, std::string tempfile);
 void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
-              std::string outfile, char m, std::string mi_file);
+             std::string outfile, char m, std::string mi_file,
+             std::vector<std::string> genes, std::vector<std::string> targets);
