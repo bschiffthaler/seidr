@@ -13,6 +13,9 @@ if (params.clr) {
     cpus params.clr_settings.cores
     memory params.clr_settings.memory
     publishDir params.out + '/networks/clr'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -34,6 +37,9 @@ if (params.clr) {
     cpus params.clr_settings.importcores
     memory params.clr_settings.importmem
     publishDir params.out + '/networks/clr'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file clr_net from clr_network_raw
@@ -66,6 +72,9 @@ if (params.aracne) {
     cpus params.aracne_settings.cores
     memory params.aracne_settings.memory
     publishDir params.out + '/networks/aracne'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -87,6 +96,9 @@ if (params.aracne) {
     cpus params.aracne_settings.importcores
     memory params.aracne_settings.importmem
     publishDir params.out + '/networks/aracne'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file aracne_net from aracne_network_raw
@@ -119,6 +131,9 @@ if (params.anova) {
     cpus params.anova_settings.cores
     memory params.anova_settings.memory
     publishDir params.out + '/networks/anova'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -139,6 +154,9 @@ if (params.anova) {
     cpus params.anova_settings.importcores
     memory params.anova_settings.importmem
     publishDir params.out + '/networks/anova'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file anova_net from anova_network_raw
@@ -171,6 +189,9 @@ if (params.pearson) {
     cpus params.pearson_settings.cores
     memory params.pearson_settings.memory
     publishDir params.out + '/networks/pearson'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -191,6 +212,9 @@ if (params.pearson) {
     cpus params.pearson_settings.importcores
     memory params.pearson_settings.importmem
     publishDir params.out + '/networks/pearson'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file pearson_net from pearson_network_raw
@@ -223,6 +247,9 @@ if (params.spearman) {
     cpus params.spearman_settings.cores
     memory params.spearman_settings.memory
     publishDir params.out + '/networks/spearman'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -243,6 +270,9 @@ if (params.spearman) {
     cpus params.spearman_settings.importcores
     memory params.spearman_settings.importmem
     publishDir params.out + '/networks/spearman'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file spearman_net from spearman_network_raw
@@ -275,6 +305,9 @@ if (params.elnet) {
     cpus params.elnet_settings.cores
     memory params.elnet_settings.memory
     publishDir params.out + '/networks/elnet'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -302,6 +335,9 @@ if (params.elnet) {
     cpus params.elnet_settings.importcores
     memory params.elnet_settings.importmem
     publishDir params.out + '/networks/elnet'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file elnet_net from elnet_network_raw
@@ -334,6 +370,9 @@ if (params.svm) {
     cpus params.svm_settings.cores
     memory params.svm_settings.memory
     publishDir params.out + '/networks/svm'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -359,6 +398,9 @@ if (params.svm) {
     cpus params.svm_settings.importcores
     memory params.svm_settings.importmem
     publishDir params.out + '/networks/svm'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file svm_net from svm_network_raw
@@ -391,6 +433,9 @@ if (params.llr) {
     cpus params.llr_settings.cores
     memory params.llr_settings.memory
     publishDir params.out + '/networks/llr'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -416,6 +461,9 @@ if (params.llr) {
     cpus params.llr_settings.importcores
     memory params.llr_settings.importmem
     publishDir params.out + '/networks/llr'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file llr_net from llr_network_raw
@@ -448,6 +496,9 @@ if (params.pcor) {
     cpus params.pcor_settings.cores
     memory params.pcor_settings.memory
     publishDir params.out + '/networks/pcor'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -467,6 +518,9 @@ if (params.pcor) {
     cpus params.pcor_settings.importcores
     memory params.pcor_settings.importmem
     publishDir params.out + '/networks/pcor'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file pcor_net from pcor_network_raw
@@ -499,6 +553,9 @@ if (params.narromi) {
     cpus params.narromi_settings.cores
     memory params.narromi_settings.memory
     publishDir params.out + '/networks/narromi'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -521,6 +578,9 @@ if (params.narromi) {
     cpus params.narromi_settings.importcores
     memory params.narromi_settings.importmem
     publishDir params.out + '/networks/narromi'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file narromi_net from narromi_network_raw
@@ -553,6 +613,9 @@ if (params.tigress) {
     cpus params.tigress_settings.cores
     memory params.tigress_settings.memory
     publishDir params.out + '/networks/tigress'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -576,6 +639,9 @@ if (params.tigress) {
     cpus params.tigress_settings.importcores
     memory params.tigress_settings.importmem
     publishDir params.out + '/networks/tigress'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file tigress_net from tigress_network_raw
@@ -608,6 +674,9 @@ if (params.genie3) {
     cpus params.genie3_settings.cores
     memory params.genie3_settings.memory
     publishDir params.out + '/networks/genie3'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -634,6 +703,9 @@ if (params.genie3) {
     cpus params.genie3_settings.importcores
     memory params.genie3_settings.importmem
     publishDir params.out + '/networks/genie3'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file genes
     file genie3_net from genie3_network_raw
@@ -666,6 +738,9 @@ if (params.plsnet) {
     cpus params.plsnet_settings.cores
     memory params.plsnet_settings.memory
     publishDir params.out + '/networks/plsnet'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+
     input:
     file expr
     file genes
@@ -690,6 +765,9 @@ if (params.plsnet) {
     cpus params.plsnet_settings.importcores
     memory params.plsnet_settings.importmem
     publishDir params.out + '/networks/plsnet'
+    queue params.slurm_partition
+    clusterOptions '-A ${params.slurm_account}'
+    
     input:
     file genes
     file plsnet_net from plsnet_network_raw
