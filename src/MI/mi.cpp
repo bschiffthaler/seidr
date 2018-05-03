@@ -105,7 +105,8 @@ int main(int argc, char ** argv) {
     try
     {
       outfile = to_absolute(outfile);
-      mi_file = to_absolute(mi_file);
+      if (mi_file != "")
+        mi_file = to_absolute(mi_file);
       infile = to_absolute(infile);
       std::string tempdir = dirname(outfile) + "/.seidr_tmp_mi_" + mode;
 
@@ -131,11 +132,12 @@ int main(int argc, char ** argv) {
       if (! file_can_read(infile) )
         throw std::runtime_error("Cannot read: " + infile);
 
-      if (! force && file_exists(outfile))
+      if ((! force) && file_exists(outfile))
         throw std::runtime_error("File exists: " + outfile);
 
-      if (! force && mi_file != "" && file_exists(mi_file))
-        throw std::runtime_error("File exists: " + outfile);
+      if ((! force) && mi_file != "")
+        if (file_exists(mi_file))
+          throw std::runtime_error("File exists: " + mi_file);
 
 
     }

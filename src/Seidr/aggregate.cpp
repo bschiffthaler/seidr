@@ -373,15 +373,17 @@ int aggregate(int argc, char * argv[])
   {
     TCLAP::ValuesConstraint<std::string> constraints_m(method_constraints);
     // Add arguments from the command line
-    TCLAP::CmdLine cmd("Aggregate a set of ranked representation networks.", ' ', version);
+    TCLAP::CmdLine cmd("Aggregate a set of ranked representation networks.", 
+                       ' ', version);
+
     TCLAP::ValueArg<std::string> 
-    arg_method("m", "method", "Method to aggregate networks.", false,
-                                            "top1", &constraints_m);
+    arg_method("m", "method", "Method to aggregate networks <irp>.", false,
+                                            "irp", &constraints_m);
     cmd.add(arg_method);
 
     TCLAP::ValueArg<std::string> 
     arg_outfile("o", "outfile", "Where to write the output file.", false,
-        "rankf_aggr.bin", "string");
+        "aggregated.sf", "aggregated.sf");
     cmd.add(arg_outfile);
 
     TCLAP::SwitchArg
@@ -389,7 +391,7 @@ int aggregate(int argc, char * argv[])
                  false);
 
     TCLAP::UnlabeledMultiArg<std::string> 
-    arg_input_files("infiles", "Input files", true, "", "string");
+    arg_input_files("infiles", "Input files", true, "", "");
 
     cmd.add(arg_input_files);
 

@@ -14,6 +14,12 @@
 #include <ctime>
 #include <boost/filesystem.hpp>
 
+typedef std::pair<std::streampos, std::string> file_index_t;
+typedef std::map<seidr_uword_t, file_index_t> result_file_map_t;
+
+namespace fs = boost::filesystem;
+
+
 namespace fs = boost::filesystem;
 
 NaResult::NaResult(arma::vec sig, arma::vec nv,
@@ -59,13 +65,15 @@ void seidr_mpi_narromi::entrypoint()
 
 void seidr_mpi_narromi::finalize()
 {
+  result_file_map_t rmap;
   if (_id == 0)
   {
     seidr_mpi_logger log;
     log << "Merging tmp files and cleaning up.\n";
     log.send(LOG_INFO);
     std::vector<fs::path> files;
-    fs::path p_tmp(_outfilebase + "/.seidr_tmp_narromi");
+    std::string tmpdir = _outfilebase + "/.seidr_tmp_narromi";
+    fs::path p_tmp(tmpdir);
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
@@ -79,17 +87,47 @@ void seidr_mpi_narromi::finalize()
       std::ifstream ifs(p.string().c_str());
       std::string l;
       while (std::getline(ifs, l))
-        ofs << l << '\n';
-      fs::remove(p);
+      {
+        seidr_uword_t gene_index = std::stoul(l);
+        std::streampos g = ifs.tellg();
+        rmap[gene_index] = file_index_t(g, p.string());
+        ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      }
+      ifs.close();
     }
-    fs::remove(p_tmp);
-    log << "Finished.\n";
+
+    auto it = rmap.begin();
+    auto gene_index = it->second.first;
+    auto file_path = it->second.second;
+    std::ifstream ifs(file_path);
+    for (; it != rmap.end(); it++)
+    {
+      ifs.seekg(gene_index);
+      std::string l;
+      std::getline(ifs, l);
+      ofs << l << '\n';
+
+      auto nx = std::next(it);
+      if (nx->second.second != file_path)
+      {
+        ifs.close();
+        ifs.open(nx->second.second);
+        gene_index = nx->second.first;
+      }
+      else
+      {
+        gene_index = nx->second.first;
+      }
+    }
+    fs::remove_all(p_tmp);
+    double now = MPI_Wtime();
+    // Push all pending logs
+    log << "Waiting up to 10 seconds for queued logs...\n";
     log.send(LOG_INFO);
-  }
-  double now = MPI_Wtime();
-  while (MPI_Wtime() - now < 10)
-  {
-    check_logs();
+    while (MPI_Wtime() - now < 10)
+    {
+      check_logs();
+    }
   }
 }
 
@@ -275,9 +313,25 @@ void narromi_thread(arma::mat gene_matrix,
     arma::vec si = nr.sig();
     arma::vec nv = nr.nv();
 
+    ofs << i << '\n';
     for (arma::uword j = 0; j < tot; j++) {
-      ofs << genes[i] << '\t' << genes[re(j)] << '\t' << nv(j)
-          << '\t' << si(j) << std::endl;
+      if (j == i && j < (tot - 1))
+      {
+        ofs << 0 << '\t' << nv(j) << '\t';
+      }
+      else if (i == j && j == (tot - 1))
+      {
+        ofs << 0 << '\t' << nv(j) << '\n';
+      }
+      else if (i > j && j == (tot - 1))
+      {
+        ofs << nv(j) << '\t' << 0 << '\n';
+      }
+      else
+      {
+        ofs << nv(j) <<
+            (j == (tot - 1) ? '\n' : '\t');
+      }
     }
     time = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
     log << "Time for gene " << genes[i] << "\t" << time << '\n';

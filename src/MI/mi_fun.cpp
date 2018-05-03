@@ -31,6 +31,7 @@ public:
   void set_spline_order(size_t s) {_spline_order = s;}
   void set_mode(char x) {_mode = x;}
   void set_mi_file(std::string x) {_mi_file = x;}
+  void set_tmpdir(std::string x) {_tmpdir = x;}
 private:
   size_t _num_bins;
   size_t _spline_order;
@@ -42,22 +43,6 @@ private:
 void seidr_mpi_mi::entrypoint()
 {
   seidr_mpi_logger log;
-  std::string mode;
-  switch (_mode)
-  {
-  case 0:
-    mode = std::string("CLR");
-    break;
-  case 1:
-    mode = std::string("ARACNE");
-    break;
-  case 2:
-    mode = std::string("RAW");
-    break;
-  default:
-    throw std::runtime_error("Post processing mode not known");
-  }
-  _tmpdir = _outfilebase + "/.seidr_tmp_mi_" + mode;
   std::string tmpfile = _tmpdir + "/MPIthread_" +
                         std::to_string(_id) + "_" +
                         std::to_string(_indices[0]) + ".txt";
@@ -77,8 +62,9 @@ void seidr_mpi_mi::finalize()
   if (_id == 0)
   {
     seidr_mpi_logger log;
-    log << "Merging tmp files\n";
+    log << "Merging tmp files from " << _tmpdir << '\n';
     log.log(LOG_INFO);
+
     std::vector<fs::path> files;
     fs::path p_tmp(_tmpdir);
     for (auto it = fs::directory_iterator(p_tmp);
@@ -526,10 +512,28 @@ void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
 void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
              std::string outfile, char mode, std::string mi_file)
 {
+  std::string mode_str;
+  switch (mode)
+  {
+  case 0:
+    mode_str = std::string("CLR");
+    break;
+  case 1:
+    mode_str = std::string("ARACNE");
+    break;
+  case 2:
+    mode_str = std::string("RAW");
+    break;
+  default:
+    throw std::runtime_error("Post processing mode not known");
+  }
+
   fs::path p_out(outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
+
+  std::string tmpdir = d_out.string() + "/.seidr_tmp_mi_" + mode_str;
 
   std::vector<unsigned long> targets(gm.n_cols);
   for (size_t i = 0; i < gm.n_cols; i++)
@@ -543,6 +547,7 @@ void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
   mpi.set_indices(targets);
   mpi.set_outfilebase(d_out.string());
   mpi.set_outfile(p_out.string());
+  mpi.set_tmpdir(tmpdir);
   mpi.set_spline_order(spline_order);
   mpi.set_num_bins(num_bins);
   mpi.set_mode(mode);

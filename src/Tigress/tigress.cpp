@@ -75,7 +75,7 @@ int main(int argc, char ** argv) {
     cmd.add(outfile_arg);
 
     TCLAP::ValueArg<unsigned long>
-    boot_arg("B", "nbootrstap", "Number of bootstrap iterations", false, 1000,
+    boot_arg("B", "nbootstrap", "Number of bootstrap iterations", false, 1000,
              "1000");
     cmd.add(boot_arg);
 

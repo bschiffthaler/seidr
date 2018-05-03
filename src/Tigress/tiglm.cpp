@@ -112,7 +112,7 @@ void seidr_mpi_tigress::finalize()
         gene_index = nx->second.first;
       }
     }
-    fs::remove_all(p_tmp);
+    //fs::remove_all(p_tmp);
     double now = MPI_Wtime();
     // Push all pending logs
     log << "Waiting up to 10 seconds for queued logs...\n";
@@ -263,12 +263,28 @@ void tiglm(arma::mat geneMatrix, std::vector<std::string> genes,
 
     cum = arma::cumsum(cum.t()) / (boot * 2) / d_nsteps;
 
-    ofs << i << '\n';
+    arma::uword xi = pred[i];
+    ofs << xi << '\n';
     arma::rowvec fin = cum.row(nsteps - 1);
 
     for (arma::uword s = 0; s < indices.n_elem; s++) {
-      ofs << fin(s)
-          << (s == indices.n_elem - 1 ? '\n' : '\t');
+      if (s == xi && s < (indices.n_elem - 1))
+      {
+        ofs << 0 << '\t' << fin(s) << '\t';
+      }
+      else if (xi == s && s == (indices.n_elem - 1))
+      {
+        ofs << 0 << '\t' << fin(s) << '\n';
+      }
+      else if (xi > s && s == (indices.n_elem - 1))
+      {
+        ofs << fin(s) << '\t' << 0 << '\n';
+      }
+      else
+      {
+        ofs << fin(s) <<
+            (s == (indices.n_elem - 1) ? '\n' : '\t');
+      }
     }
 
     clock_t end = clock();
