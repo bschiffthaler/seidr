@@ -242,12 +242,12 @@ void aggr_irp(std::vector<SeidrFileHeader>& header_vec,
   {
     if (existing[index_b])
     {
-      r *= (1 + log10(result.scores[index_b].r));
+      r += (1 + log10(result.scores[index_b].r));
       cnt++;
     }
     else
     {
-      r *= (1 + nmax);
+      r += (1 + nmax);
     }
   }
 
@@ -568,6 +568,7 @@ int aggregate(int argc, char * argv[])
             v[k] = e;
           }
         }
+
       }
       SeidrFileEdge res = calc_score(header_vec, v, get_next, i, j, aggr_fun);
       if (EDGE_EXISTS(res.attr.flag))
@@ -635,6 +636,8 @@ int aggregate(int argc, char * argv[])
       }
       else if (EDGE_EXISTS(e.attr.flag))
       {
+        e.index.i = i;
+        e.index.j = j;
         e.serialize(out, h);
       }
     }
