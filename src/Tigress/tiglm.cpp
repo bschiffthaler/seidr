@@ -13,6 +13,7 @@
 #include <cmath>
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
+#include <map>
 
 std::default_random_engine generator;
 std::uniform_real_distribution<double> distribution(0.2, 1.0);

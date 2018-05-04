@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <ctime>
 #include <boost/filesystem.hpp>
+#include <map>
 
 typedef std::pair<std::streampos, std::string> file_index_t;
 typedef std::map<seidr_uword_t, file_index_t> result_file_map_t;
