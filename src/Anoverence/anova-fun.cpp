@@ -34,7 +34,7 @@ std::vector<std::string> geneNames; //store the gene names
  * read expression data from file
  *
  */
-void readExpressionData(std::string filename) {
+int readExpressionData(std::string filename) {
   std::ifstream infile (filename);
   std::string line;
   std::getline(infile,line); 	//read first line and use it to get columns
@@ -54,6 +54,7 @@ void readExpressionData(std::string filename) {
     chipTotal++; //line is read, add one to row count
   }
   chips.resize(chipTotal); //fixed size
+	return geneNumber;
 }
 
 /*
@@ -128,11 +129,12 @@ void readFeatures(std::string filename) {
       std::stringstream delStream(vLine[4]);
       std::string delPiece;
       while(std::getline(delStream,delPiece,',')) {
-        if (std::find(geneNames.begin(), geneNames.end(), delPiece)
-            != geneNames.end() ){
+        //if (std::find(geneNames.begin(), geneNames.end(), delPiece)
+            //!= geneNames.end() ){
           thisChip.deletedGenes.push_back(delPiece); 
           genes[delPiece].del++;
-        }
+      //  }
+      }
     }
     sort(thisChip.deletedGenes.begin(), thisChip.deletedGenes.end());
 
@@ -141,11 +143,11 @@ void readFeatures(std::string filename) {
       std::stringstream overStream(vLine[5]);
       std::string overPiece;
       while(std::getline(overStream,overPiece,',')) {
-        if (std::find(geneNames.begin(), geneNames.end(), delPiece)
-            != geneNames.end() ) {
+        //if (std::find(geneNames.begin(), geneNames.end(), overPiece)
+            //!= geneNames.end() ) {
           thisChip.overexpressedGenes.push_back(overPiece);
           genes[overPiece].over++;
-        }
+       // }
       }
     }
     sort(thisChip.overexpressedGenes.begin(),
@@ -169,13 +171,14 @@ void readFeatures(std::string filename) {
  * read gene files for gene name
  *
  */
-void readGeneFile(std::string filename) {
+int readGeneFile(std::string filename) {
   std::ifstream infile (filename);
   std::string line;
 
   while(std::getline(infile, line)) 
     geneNames.push_back(line);
 
+  return geneNames.size();
 }
 
 
@@ -319,6 +322,7 @@ double twoWayAnova (int genePair[2], float wko) {
         for (int i=0; i<repeats;++i) {
           int kIndex=chips[k+i].chipNumber;
           Fijk = chipValuesMap[kIndex][genePair[j]] - mean;
+					
           Pijk = (j==1 && isPerturbed(genePair[j], &chips[k]) 
                  && !isPerturbed(genePair[j], control)) ? wko: 1;
 
@@ -344,6 +348,7 @@ void analizeGenePairs(std::string filename, float wko){
   LOG_INIT_CERR();
   log(LOG_INFO) << "Analyzing gene pairs...\n";
   
+  int totalGenes=geneNames.size();
   int endColumn=1; //keeps track for the diagonal matrix
   int genePair[2]={0,0};
   std::ofstream outfile;
@@ -351,6 +356,8 @@ void analizeGenePairs(std::string filename, float wko){
   
   int elements=0;
 
+
+		
   for (int i=1; i<geneNumber; ++i){ //skip the first line
     genePair[0]=i; //rows starging at gene 2
     for (int j=0; j<endColumn; ++j){
@@ -441,19 +448,17 @@ bool isPerturbationEqualSet (chip* c1, chip* c2) {
  */
 bool isPerturbed(int gene, chip* c){
 
-
   for (std::string dGene: c->deletedGenes){
-    //std::cout<<"deleted "<<dGene<<"\n";
     if (dGene==geneNames[gene]) {
       return true;
     }
   }
   for (std::string oGene: c->overexpressedGenes){
-    //std::cout<<"deleted "<<oGene<<"\n";
     if (oGene==geneNames[gene]) {
       return true;
     }
   }
+
   return false;
 }
 

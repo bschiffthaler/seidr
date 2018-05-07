@@ -140,8 +140,12 @@ int main(int argc, char ** argv) {
   try
   {
     // Get input files
-    readGeneFile(gene_file);
-    readExpressionData(infile);
+    int geneNamesSize = readGeneFile(gene_file);
+    int geneNumber = readExpressionData(infile);
+    
+    if(geneNamesSize != geneNumber) {
+      throw std::runtime_error("Data genes and gene names total are not equal.\n");
+    }
     readFeatures(feature_file);
 
 
