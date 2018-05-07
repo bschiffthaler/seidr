@@ -470,7 +470,7 @@ bool compareChips(chip c1, chip c2) {
   else if (c1.experiment > c2.experiment) //less experiment first
     return false;
 
-  // Crit 2
+  // Crit 2 - perturbations
   if(c1.perturbations.size() < c2.perturbations.size())
     return true;
   else if (c1.perturbations.size() > c2.perturbations.size())
@@ -479,19 +479,20 @@ bool compareChips(chip c1, chip c2) {
     if(c1.perturbations.size() != 0) {
       for (anovaIndex i=0; i<c1.perturbations.size(); i++) {
         //compare each pair
-	if (c1.perturbations[i].index == c2.perturbations[i].index) {
+        if (c1.perturbations[i].index == c2.perturbations[i].index) {
           // the lowest level wins
-	  if (c1.perturbations[i].value < c2.perturbations[i].value) { 
-	    return true;
-	  } else if (c1.perturbations[i].value == c2.perturbations[i].value) {
-	    continue;
-	  } else
-	    return false;
-	}
-	else if (c1.perturbations[i].index < c2.perturbations[i].index)
-	  return true;
-	else
-	  return false;
+          if (c1.perturbations[i].value < c2.perturbations[i].value) { 
+            return true;
+          } else if (c1.perturbations[i].value == c2.perturbations[i].value) {
+            continue;
+          } else {
+            return false;
+          }
+        } else if (c1.perturbations[i].index < c2.perturbations[i].index) {
+          return true;
+        } else {
+          return false;
+        }
       }//end for
     } 
   } //end of criteria 2
