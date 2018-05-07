@@ -93,32 +93,30 @@ void readFeatures(std::string filename) {
     if(vLine[1]!="NA") {     //2&3 perturbation && perturbation levels
       std::vector<std::string> pertTemp;
       std::vector<float> levelTemp;
-
       std::stringstream pertStream(vLine[1]);
       std::stringstream levelStream(vLine[2]);
-      
       std::string piece;
+
       while(std::getline(pertStream,piece,',')) {
-	//piece.erase(0,1);
-	pertTemp.push_back(piece); //WIP necessary??
-	thisChip.perturbationsID.push_back(piece);
+        pertTemp.push_back(piece); //WIP necessary??
+        thisChip.perturbationsID.push_back(piece);
       }
       
       while(std::getline(levelStream,piece,',')) {
-	if (piece=="NA") {
-	  for (anovaIndex pert=0; pert<pertTemp.size(); pert++)
-	    levelTemp.push_back(0.0); 
-	} else {
-	  levelTemp.push_back(std::stof(piece));
-	}
+        if (piece=="NA") {
+          for (anovaIndex pert=0; pert<pertTemp.size(); pert++)
+            levelTemp.push_back(0.0); 
+        } else {
+          levelTemp.push_back(std::stof(piece));
+        }
       }
       if(pertTemp.size()!=levelTemp.size()) {
-	throw std::runtime_error("Perturbation info is missing\n");
+        throw std::runtime_error("Perturbation info is missing\n");
       } else {
-	for (anovaIndex i=0;i<pertTemp.size();i++) {
-	  sparse sTemp (pertTemp[i], levelTemp[i]);
-	  thisChip.perturbations.push_back(sTemp);
-	}
+        for (anovaIndex i=0;i<pertTemp.size();i++) {
+          sparse sTemp (pertTemp[i], levelTemp[i]);
+          thisChip.perturbations.push_back(sTemp);
+	      }
       }
     }
     sort(thisChip.perturbationsID.begin(), thisChip.perturbationsID.end());
@@ -132,11 +130,11 @@ void readFeatures(std::string filename) {
       std::stringstream delStream(vLine[4]);
       std::string delPiece;
       while(std::getline(delStream,delPiece,',')) {
-	//delPiece.erase(0,1); //erase the first letter
-        //put gen number in vector
-	thisChip.deletedGenes.push_back(delPiece); 
-	genes[delPiece].del++; //TODO do we need it??
-      }
+        if (std::find(geneNames.begin(), geneNames.end(), delPiece)
+            != geneNames.end() ){
+          thisChip.deletedGenes.push_back(delPiece); 
+          genes[delPiece].del++;
+        }
     }
     sort(thisChip.deletedGenes.begin(), thisChip.deletedGenes.end());
 
@@ -145,11 +143,11 @@ void readFeatures(std::string filename) {
       std::stringstream overStream(vLine[5]);
       std::string overPiece;
       while(std::getline(overStream,overPiece,',')) {
-	//overPiece.erase(0,1);
-        //put gen number in vector
-	thisChip.overexpressedGenes.push_back(overPiece);
-        //increase over for that gene TODO do we need it?
-	genes[overPiece].over++;
+        if (std::find(geneNames.begin(), geneNames.end(), delPiece)
+            != geneNames.end() ) {
+          thisChip.overexpressedGenes.push_back(overPiece);
+          genes[overPiece].over++;
+        }
       }
     }
     sort(thisChip.overexpressedGenes.begin(),

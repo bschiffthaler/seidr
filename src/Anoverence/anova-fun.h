@@ -39,8 +39,6 @@ struct chip {
   std::vector<sparse> perturbations; //col2
   std::vector<std::string> perturbationsID; //col2
   int treatment;
-  //std::vector<int> deletedGenes;
-  //std::vector<int> overexpressedGenes;
   std::vector<std::string> deletedGenes;
   std::vector<std::string> overexpressedGenes;
   

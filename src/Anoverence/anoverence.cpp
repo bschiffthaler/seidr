@@ -140,9 +140,10 @@ int main(int argc, char ** argv) {
   try
   {
     // Get input files
+    readGeneFile(gene_file);
     readExpressionData(infile);
     readFeatures(feature_file);
-    readGeneFile(gene_file);
+
 
     std::vector<std::string> targets;
     if (mode == ANOVA_PARTIAL)
