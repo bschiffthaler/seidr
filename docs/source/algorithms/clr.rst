@@ -1,18 +1,18 @@
-.. _aracne-label:
+.. _clr-label:
 
-ARACNE
+CLR
 ==========
 
-ARACNE ([Margolin2006]_) is an inference algorithm based on mutual information
-and applies data processing inequality to delete most indirect edges.
+CLR ([Faith2007]_) is an inference algorithm based on mutual information
+and applies contextual likelihood of relatedness to reweight edges based on a 
+shared neighbourhood.
 
-Our implementation differs to the original in that it estimates the initial
-mutual information using a B-spline approach as described in [Daub2004]_ .
+Our implementation estimates the initial mutual information using a B-spline approach as described in [Daub2004]_ .
 
-Running ARACNE
+Running CLR
 ^^^^^^^^^^^^^^^^^^
 
-ARACNE needs a minimum of two input files:
+CLR needs a minimum of two input files:
 
 * ``-i, --infile``: An expression matrix (genes are columns, samples are rows) without headers.
 * ``-g, --genes``: A file containing gene names that correspond to columns in the expression matrix.
@@ -38,16 +38,16 @@ In the genes files, we provide the column headers for the expression matrix *in 
     G4
     G5
 
-With that, we can run ARACNE::
+With that, we can run CLR::
 
-    mi -m ARACNE -i expr_mat.tsv -g genes.txt
+    mi -m CLR -i expr_mat.tsv -g genes.txt
 
 The output is a lower triangular matrix of scores::
 
-    0
-    0.798215    0.874873
-    0   0.889133    0
-    0   0   0.860645    0.95965
+    0.320993
+    0.944725    0.858458
+    0.431752    0.9078  0.453098
+    0.0897561   0.579328    0.794528    1.15506
 
 
 Tuning the number of bins and spline degree
@@ -69,11 +69,11 @@ to high memory requirements on large datasets. Generally, the number of bins is
 assumed not to influence the MI much as long as it's within a reasonable range. A
 value between 5 and 10 is a good starting point for typically sized datasets from RNA-Seq.
 
-Running ARACNE for a subset of genes
+Running CLR for a subset of genes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Often we have only a small number of genes of interest. We can instruct 
-ARACNE to only calculate interactions involving those genes by 
+CLR to only calculate interactions involving those genes by 
 providing a ``-t, --targets`` file containing these gene names::
 
     G3
@@ -81,27 +81,27 @@ providing a ``-t, --targets`` file containing these gene names::
 
 And running it with the ``-t, --targets`` options::
 
-    mi -m ARACNE -i expr_mat.tsv -g genes.txt -t targets.txt
+    mi -m CLR -i expr_mat.tsv -g genes.txt -t targets.txt
 
 In this case we will receive an edge list as output::
 
-    G3  G1  0.798215
-    G3  G2  0.874873
-    G3  G4  0
-    G3  G5  0.860645
-    G4  G1  0
-    G4  G2  0.889133
-    G4  G3  0
-    G4  G5  0.95965
+    G3  G1  0.944725
+    G3  G2  0.858458
+    G3  G4  0.453098
+    G3  G5  0.794528
+    G4  G1  0.431752
+    G4  G2  0.9078
+    G4  G3  0.453098
+    G4  G5  1.15506
 
-Running ARACNE in MPI mode
+Running CLR in MPI mode
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-ARACNE can use parallel processing in the MI estimation step. For general info
-on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label` 
+CLR can use parallel processing in the MI estimation step. For general info
+on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
 
 References
 ^^^^^^^^^^
 
-.. [Margolin2006] Margolin, A. A., Nemenman, I., Basso, K., Wiggins, C., Stolovitzky, G., Dalla Favera, R., & Califano, A. (2006). ARACNE: an algorithm for the reconstruction of gene regulatory networks in a mammalian cellular context. BMC Bioinformatics, 7 Suppl 1, S7. https://doi.org/10.1186/1471-2105-7-S1-S7
+.. [Faith2007] Faith, J. J., Hayete, B., Thaden, J. T., Mogno, I., Wierzbowski, J., Cottarel, G., … Gardner, T. S. (2007). Large-scale mapping and validation of Escherichia coli transcriptional regulation from a compendium of expression profiles. PLoS Biology, 5(1), e8. https://doi.org/10.1371/journal.pbio.0050008
 .. [Daub2004] Daub, C. O., Steuer, R., Selbig, J., & Kloska, S. (2004). Estimating mutual information using B-spline functions--an improved similarity measure for analysing gene expression data. BMC Bioinformatics, 5, 118. https://doi.org/10.1186/1471-2105-5-118

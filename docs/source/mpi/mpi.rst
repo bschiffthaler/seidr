@@ -40,6 +40,8 @@ my computer, therefore I want to use 8 compute threads and 1 master thread::
 For more info on running MPI jobs (including running them on several nodes), please
 refer to the `OpenMPI webpage <https://www.open-mpi.org/faq/?category=running>`_
 
+.. _batchsize-label:
+
 The batchsize argument
 ^^^^^^^^^^^^^^^^^^^^^^
 
