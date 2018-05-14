@@ -35,7 +35,9 @@ If you have any questions, contact me at:
    :caption: Implementation Details
    :maxdepth: 2
 
+   source/mpi/mpi
    source/seidrfile/seidrfile
+
    
 
 

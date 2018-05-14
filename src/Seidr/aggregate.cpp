@@ -231,6 +231,8 @@ void aggr_irp(std::vector<SeidrFileHeader>& header_vec,
   uint16_t cnt = 0;
   if (existing[0])
   {
+    // As LHS and RHS are logs multiplication of both
+    // becomes a sum
     r = 1 + log10(result.scores[0].r);
     cnt++;
   }
