@@ -302,7 +302,7 @@ add_library(seidr-glmnet src/External/glmnet5.f90)
 add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/seidr.cpp 
 src/Seidr/viewRanks.cpp src/Seidr/import.cpp src/Seidr/aggregate.cpp
 src/Seidr/threshold.cpp src/Seidr/roc.cpp  src/Seidr/convert.cpp 
-src/Seidr/backbone.cpp src/Seidr/compare_clusters.cpp src/Seidr/Serialize.cpp
+src/Seidr/compare_clusters.cpp src/Seidr/Serialize.cpp
 src/Seidr/stats.cpp src/Seidr/index.cpp src/Seidr/neighbours.cpp
 src/Seidr/test.cpp src/Seidr/compare.cpp src/Seidr/resolve.cpp
 src/Seidr/reheader.cpp)
