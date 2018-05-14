@@ -137,7 +137,7 @@ void seidr_mpi_plsnet::finalize()
         for(arma::uword col = 0; col < VIM.n_cols; col++)
         {
           if(row == col) continue;
-          ofs << _genes[ctr] << '\t' << _genes[col] << '\t' << VIM(ctr, col) << '\n';
+          ofs << _genes[row] << '\t' << _genes[col] << '\t' << VIM(ctr, col) << '\n';
         }
         ctr++;
       }
