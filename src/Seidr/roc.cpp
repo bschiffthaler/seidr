@@ -21,7 +21,6 @@
 
 // Seidr
 #include <common.h>
-#include <SpNet.h>
 #include <Serialize.h>
 #include <fs.h>
 #include <roc.h>

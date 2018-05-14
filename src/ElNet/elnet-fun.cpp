@@ -50,7 +50,7 @@ private:
   double _alpha;
   double _flmin;
   arma::uword _nlam;
-  bool _targeted;
+  bool _targeted = false;
 };
 
 void seidr_mpi_elnet::entrypoint()

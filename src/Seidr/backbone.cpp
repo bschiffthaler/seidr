@@ -1,6 +1,5 @@
 // Seir
 #include <common.h>
-#include <SpNet.h>
 #include <RankFile.h>
 #include <gzstream.h>
 #include <fs.h>
@@ -14,7 +13,6 @@
 #include <stdexcept>
 #include <cerrno>
 #include <map>
-#include <cereal/archives/binary.hpp>
 #include <boost/lexical_cast.hpp>
 #include <armadillo>
 #include <gsl/gsl_integration.h>

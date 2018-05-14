@@ -1,6 +1,5 @@
 // Siedr
 #include <common.h>
-#include <SpNet.h>
 #include <Serialize.h>
 #include <fs.h>
 #include <neighbours.h>
@@ -12,7 +11,6 @@
 #include <armadillo>
 #include <tclap/CmdLine.h>
 #include <set>
-#include <cereal/archives/binary.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 
 int neighbours(int argc, char * argv[])

@@ -1,7 +1,6 @@
 // Seidr
 #include <common.h>
 #include <import.h>
-#include <SpNet.h>
 #include <viewRanks.h>
 #include <aggregate.h>
 #include <adjacency.h>

@@ -28,7 +28,6 @@
 #include <armadillo>
 #include <tclap/CmdLine.h>
 #include <stdexcept>
-#include <cereal/archives/binary.hpp>
 
 int adjacency(int argc, char * argv[]) {
 
