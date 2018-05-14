@@ -8,6 +8,7 @@
 
 typedef arma::uword seidr_index;
 
+
 struct sparse {
 
   std::string index; //perturbation ID
@@ -39,8 +40,6 @@ struct chip {
   std::vector<sparse> perturbations; //col2
   std::vector<std::string> perturbationsID; //col2
   int treatment;
-  //std::vector<int> deletedGenes;
-  //std::vector<int> overexpressedGenes;
   std::vector<std::string> deletedGenes;
   std::vector<std::string> overexpressedGenes;
   
@@ -53,15 +52,16 @@ struct chip {
 };
 
 
+
 bool isPerturbationEqualSet (chip* c1, chip* c2);
 bool isPerturbed(int gene, chip* c);
 bool compareChips(chip c1, chip c2);
 
 int totalPerturbed(chip* c1, chip* c2);
 
-void readExpressionData(std::string filename);
+int readExpressionData(std::string filename);
 void readFeatures(std::string filename);
-void readGeneFile(std::string filename);
+int readGeneFile(std::string filename);
 void mapChipVector();
 void calculateMean();
 void selectPairs();

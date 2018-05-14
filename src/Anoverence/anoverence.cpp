@@ -140,9 +140,14 @@ int main(int argc, char ** argv) {
   try
   {
     // Get input files
-    readExpressionData(infile);
+    int geneNamesSize = readGeneFile(gene_file);
+    int geneNumber = readExpressionData(infile);
+    
+    if(geneNamesSize != geneNumber) {
+      throw std::runtime_error("Data genes and gene names total are not equal.\n");
+    }
     readFeatures(feature_file);
-    readGeneFile(gene_file);
+
 
     std::vector<std::string> targets;
     if (mode == ANOVA_PARTIAL)
