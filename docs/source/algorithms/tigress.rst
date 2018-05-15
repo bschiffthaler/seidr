@@ -5,7 +5,8 @@ TIGRESS
 
 TIGRESS uses an ensemble approach (here called stability selection) to reduce prediction
 variance in a LASSO model. It works somewhat similar to the other :ref:`ensemble-label` .
-TIGRESS is published in [Haury2012]_ .
+TIGRESS is published in [Haury2012]_ . The LASSO uses the GLMNET Fortrn backend in 
+[Friedman2010]_ .
 
 Running TIGRESS
 ^^^^^^^^^^^^^^^
@@ -86,8 +87,3 @@ Running TIGRESS in MPI mode
 
 TIGRESS can use parallel processing. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
-
-References
-^^^^^^^^^^
-
-.. [Haury2012] Haury, A.-C., Mordelet, F., Vera-Licona, P., & Vert, J.-P. (2012). TIGRESS: Trustful Inference of Gene REgulation using Stability Selection. BMC Systems Biology, 6(1), 145. https://doi.org/10.1186/1752-0509-6-145

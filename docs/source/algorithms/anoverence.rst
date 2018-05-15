@@ -89,9 +89,3 @@ In this case we will receive an edge list as output::
     G4  G3  0.336653
     G3  G5  0.397973 
     G4  G5  0.403535
-
-References
-^^^^^^^^^^
-
-.. [Kueffner2012] Küffner, R., Petri, T., Tavakkolkhah, P., Windhager, L., & Zimmer, R. (2012). Inferring gene regulatory networks by ANOVA. Bioinformatics, 28(10), 1376–1382. https://doi.org/10.1093/bioinformatics/bts143
-.. [Cohen1973] Cohen, J. (1973). Eta-squared and partial eta-squared in fixed factor anova designs. Educational and Psychological Measurement, 33(1), 107–112. https://doi.org/10.1177/001316447303300111

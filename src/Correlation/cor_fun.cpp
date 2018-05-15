@@ -20,7 +20,7 @@ void rank_vector(std::vector<edge>& ev)
   while(it != ev.end())
     {
       it++; pos++;
-      if(it->w != prev || it == ev.end())
+      if(it == ev.end() || it->w != prev)
         {
           rank = ( lexical_cast<double>(pos) + 1 + lexical_cast<double>(start) ) / 2;
           for(size_t i = start; i < pos; i++)

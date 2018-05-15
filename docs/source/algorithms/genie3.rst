@@ -90,10 +90,3 @@ Running GENIE3 in MPI mode
 
 GENIE3 can use parallel processing. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
-
-References
-^^^^^^^^^^
-
-.. [Huynh-Thu2010] Huynh-Thu, V. A., Irrthum, A., Wehenkel, L., & Geurts, P. (2010). Inferring regulatory networks from expression data using tree-based methods. PLoS ONE, 5(9), 1–10. https://doi.org/10.1371/journal.pone.0012776
-
-.. [Wright2017] Wright, M. N., & Ziegler, A. (2017). ranger: A Fast Implementation of Random Forests for High Dimensional Data in C++ and R. Journal of Statistical Software, 77(1), 1–17. https://doi.org/10.18637/jss.v077.i01

@@ -75,8 +75,3 @@ In this case we will receive an edge list as output::
     G4  G2  0.0683963
     G4  G3  0.266362
     G4  G5  -0.361116
-
-References
-^^^^^^^^^^
-
-.. [Schafer2005] Schäfer, J., & Strimmer, K. (2005). A Shrinkage Approach to Large-Scale Covariance Matrix Estimation and Implications for Functional Genomics. Statistical Applications in Genetics and Molecular Biology, 4(1). https://doi.org/10.2202/1544-6115.1175

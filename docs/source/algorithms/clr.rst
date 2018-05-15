@@ -99,9 +99,3 @@ Running CLR in MPI mode
 
 CLR can use parallel processing in the MI estimation step. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
-
-References
-^^^^^^^^^^
-
-.. [Faith2007] Faith, J. J., Hayete, B., Thaden, J. T., Mogno, I., Wierzbowski, J., Cottarel, G., … Gardner, T. S. (2007). Large-scale mapping and validation of Escherichia coli transcriptional regulation from a compendium of expression profiles. PLoS Biology, 5(1), e8. https://doi.org/10.1371/journal.pbio.0050008
-.. [Daub2004] Daub, C. O., Steuer, R., Selbig, J., & Kloska, S. (2004). Estimating mutual information using B-spline functions--an improved similarity measure for analysing gene expression data. BMC Bioinformatics, 5, 118. https://doi.org/10.1186/1471-2105-5-118

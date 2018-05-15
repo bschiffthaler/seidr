@@ -36,11 +36,11 @@ public:
   void set_targets(std::vector<std::string> x) {_targets = x;}
   void set_genes(std::vector<std::string> x) {_genes = x;}
 private:
-  size_t _num_bins;
-  size_t _spline_order;
-  char _mode;
-  std::string _tmpdir;
-  std::string _mi_file;
+  size_t _num_bins = 0;
+  size_t _spline_order = 0;
+  char _mode = 0;
+  std::string _tmpdir = "";
+  std::string _mi_file = "";
   std::vector<std::string> _targets;
   std::vector<std::string> _genes;
 };
@@ -313,11 +313,7 @@ void seidr_mpi_mi::finalize()
     fs::remove_all(_tmpdir);
   }
   // get remaining logs
-  double now = MPI_Wtime();
-  while (MPI_Wtime() - now < 10)
-  {
-    check_logs();
-  }
+  check_logs();
 }
 
 

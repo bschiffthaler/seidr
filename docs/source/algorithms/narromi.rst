@@ -84,8 +84,3 @@ Running Narromi in MPI mode
 
 Narromi can use parallel processing. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
-
-References
-^^^^^^^^^^
-
-.. [Zhang2013] Zhang, X., Liu, K., Liu, Z. P., Duval, B., Richer, J. M., Zhao, X. M., … Chen, L. (2013). NARROMI: A noise and redundancy reduction technique improves accuracy of gene regulatory network inference. Bioinformatics, 29(1), 106–113. https://doi.org/10.1093/bioinformatics/bts619

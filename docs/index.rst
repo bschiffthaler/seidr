@@ -14,6 +14,7 @@ If you have any questions, contact me at:
 .. toctree::
    :caption: Basics
    :maxdepth: 2
+   :titlesonly:
 
    source/paradigm/paradigm
    source/import/import
@@ -22,12 +23,14 @@ If you have any questions, contact me at:
 .. toctree::
    :caption: Installing seidr
    :maxdepth: 2
+   :titlesonly:
 
    source/building/building
 
 .. toctree::
    :caption: Algorithms
    :maxdepth: 2
+   :titlesonly:
 
    source/algorithms/anoverence
    source/algorithms/aracne
@@ -43,6 +46,7 @@ If you have any questions, contact me at:
 .. toctree::
    :caption: Workflows
    :maxdepth: 2
+   :titlesonly:
 
    source/compare/compare
    source/nextflow/nextflow
@@ -50,9 +54,17 @@ If you have any questions, contact me at:
 .. toctree::
    :caption: Implementation Details
    :maxdepth: 2
+   :titlesonly:
 
    source/mpi/mpi
    source/seidrfile/seidrfile
+
+.. toctree::
+   :caption: References
+   :maxdepth: 2
+   :titlesonly:
+
+   source/references/references   
 
 Indices and tables
 ==================

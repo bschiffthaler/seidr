@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.9.4)
 project(seidr)
+include(ExternalProject)
 
 enable_language(Fortran)
 
@@ -18,7 +19,12 @@ set(SEIDR_VERSION
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION} ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION} -std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRORS")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g -O0 -DDEBUG=1")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+if(CMAKE_CLANG_ANALYZE)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --analyze")
+endif()
+
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form -O3")
 
@@ -360,13 +366,24 @@ target_link_libraries(genie3 seidr-common)
 target_link_libraries(tigress seidr-glmnet)
 target_link_libraries(el-ensemble seidr-glmnet)
 
+# Make libraries PIC
+set_target_properties(seidr-common PROPERTIES COMPILE_FLAGS 
+                      "${COMPILE_FLAGS} -fPIC")
+set_target_properties(seidr-glmnet PROPERTIES COMPILE_FLAGS 
+                      "${COMPILE_FLAGS} -fPIC")
+set_target_properties(networkit PROPERTIES COMPILE_FLAGS 
+                      "${COMPILE_FLAGS} -fPIC")                                            
+
 # Enable networkit and OpenMP
 find_package(OpenMP COMPONENTS C CXX REQUIRED)
-set_target_properties(seidr PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+set_target_properties(seidr PROPERTIES COMPILE_FLAGS 
+                      "${COMPILE_FLAGS} ${OpenMP_CXX_FLAGS}")
 set_target_properties(seidr PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
+
 set_target_properties(networkit PROPERTIES COMPILE_FLAGS 
-                      "${OpenMP_CXX_FLAGS} -DNDEBUG -DNOLOGGING")
+                      "${COMPILE_FLAGS} ${OpenMP_CXX_FLAGS} -DNDEBUG -DNOLOGGING")
 set_target_properties(networkit PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
+
 target_link_libraries(seidr networkit)
 target_link_libraries(seidr ${OpenMP_CXX_LIBRARIES})
 
@@ -439,6 +456,9 @@ if(NOT CMAKE_BUILD_STATIC)
   target_link_libraries( mi ${MPI_LIBRARIES})
   target_link_libraries( plsnet ${MPI_LIBRARIES})
   target_link_libraries( genie3 ${MPI_LIBRARIES})
+  target_link_libraries( anoverence ${MPI_LIBRARIES})
+  target_link_libraries( correlation ${MPI_LIBRARIES})
+  target_link_libraries( pcor ${MPI_LIBRARIES})
   find_package(BLAS REQUIRED)
   include_directories(${BLAS_INCLUDE_PATH})
   target_link_libraries(narromi ${BLAS_LIBRARIES})

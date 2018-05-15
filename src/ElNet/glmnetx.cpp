@@ -53,8 +53,7 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
   for(int i = 0; i < 2 * nvars; i++)
     clptr[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
 
-  double * ulamptr;
-  bool free_ulam = false;
+  double * ulamptr = new double[1];
   
   if(flmin >= 1)
     {
@@ -69,7 +68,6 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
         {
           throw std::runtime_error(e.what());
         }
-      free_ulam = true;
     }
   
   double * a0ptr = new double[nlam]();
@@ -111,9 +109,7 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
   delete[] ninptr;
   delete[] rsqptr;
   delete[] almptr;
-
-  if(free_ulam)
-    delete[] ulamptr;
+  delete[] ulamptr;
 
 }
 

@@ -85,8 +85,3 @@ Running PLSNET in MPI mode
 
 PLSNET can use parallel processing. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label`
-
-References
-^^^^^^^^^^
-
-.. [Guo2016] Guo, S., Jiang, Q., Chen, L., & Guo, D. (2016). Gene regulatory network inference using PLS-based methods. BMC Bioinformatics, 17(1), 545. https://doi.org/10.1186/s12859-016-1398-6

@@ -18,9 +18,6 @@
 
 namespace fs = boost::filesystem;
 
-typedef std::pair<std::streampos, std::string> file_index_t;
-typedef std::map<seidr_uword_t, file_index_t> result_file_map_t;
-
 std::random_device rd;
 std::mt19937 gen(rd());
 
@@ -42,14 +39,14 @@ public:
   void set_ensemble_size(arma::uword x) {_ensemble_size = x;}
   void set_targeted(bool x) { _targeted = x; }
 private:
-  arma::uword _min_sample_size;
-  arma::uword _max_sample_size;
-  arma::uword _predictor_sample_size_min;
-  arma::uword _predictor_sample_size_max;
-  arma::uword _ensemble_size;
-  double _alpha;
-  double _flmin;
-  arma::uword _nlam;
+  arma::uword _min_sample_size = 0;
+  arma::uword _max_sample_size = 0;
+  arma::uword _predictor_sample_size_min = 0;
+  arma::uword _predictor_sample_size_max = 0;
+  arma::uword _ensemble_size = 0;
+  double _alpha = 0;
+  double _flmin = 0;
+  arma::uword _nlam = 0;
   bool _targeted = false;
 };
 
@@ -74,86 +71,9 @@ void seidr_mpi_elnet::entrypoint()
 
 void seidr_mpi_elnet::finalize()
 {
-  result_file_map_t rmap;
-  if (_id == 0)
-  {
-    seidr_mpi_logger log;
-    log << "Merging tmp files and cleaning up.\n";
-    log.send(LOG_INFO);
-    std::vector<fs::path> files;
-    std::string tmpdir = _outfilebase + "/.seidr_tmp_elnet/";
-    fs::path p_tmp(tmpdir);
-    for (auto it = fs::directory_iterator(p_tmp);
-         it != fs::directory_iterator(); it++)
-    {
-      if ( fs::is_regular_file( it->path() ) )
-        files.push_back( (*it).path() );
-    }
-    std::ofstream ofs(_outfile);
-
-    for (fs::path& p : files)
-    {
-      std::ifstream ifs(p.string().c_str());
-      std::string l;
-      while (std::getline(ifs, l))
-      {
-        seidr_uword_t gene_index = std::stoul(l);
-        std::streampos g = ifs.tellg();
-        rmap[gene_index] = file_index_t(g, p.string());
-        ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-      }
-      ifs.close();
-    }
-
-    auto it = rmap.begin();
-    auto gene_index = it->second.first;
-    auto file_path = it->second.second;
-    std::ifstream ifs(file_path);
-    for (; it != rmap.end(); it++)
-    {
-      ifs.seekg(gene_index);
-      std::string l;
-      std::getline(ifs, l);
-      if (_targeted)
-      {
-        std::stringstream ss(l);
-        std::string token;
-        seidr_uword_t j = 0;
-        seidr_uword_t i = it->first;
-        while(ss >> token)
-        {
-          if(i != j)
-            ofs << _genes[i] << '\t' << _genes[j] << '\t' << token << '\n';
-          j++;
-        }
-      }
-      else
-      {
-        ofs << l << '\n';
-      }
-
-      auto nx = std::next(it);
-      if (nx->second.second != file_path)
-      {
-        ifs.close();
-        ifs.open(nx->second.second);
-        gene_index = nx->second.first;
-      }
-      else
-      {
-        gene_index = nx->second.first;
-      }
-    }
-    fs::remove_all(p_tmp);
-    log << "Waiting up to 10 seconds for queued logs...\n";
-    log.send(LOG_INFO);
-    double now = MPI_Wtime();
-    // Push all pending logs
-    while (MPI_Wtime() - now < 10)
-    {
-      check_logs();
-    }
-  }
+  merge_files(_outfile, _outfilebase, ".seidr_tmp_elnet",
+              _targeted, _id, _genes);
+  check_logs();
 }
 
 void el_ensemble(arma::mat geneMatrix, std::vector<std::string> genes,
@@ -218,8 +138,6 @@ void el_ensemble(arma::mat geneMatrix, std::vector<std::string> genes,
     arma::uword reshuf = 0;
     for (arma::uword boot = 0; boot < ensemble_size;)
     {
-      log << "Iter: " << boot << ".\n";
-      log.send(LOG_INFO);
       try
       {
         // Randomly select a number of predictor genes in range

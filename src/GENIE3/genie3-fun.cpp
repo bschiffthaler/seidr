@@ -20,8 +20,6 @@
 #include <sstream>
 
 namespace fs = boost::filesystem;
-typedef std::pair<std::streampos, std::string> file_index_t;
-typedef std::map<seidr_uword_t, file_index_t> result_file_map_t;
 
 class seidr_mpi_genie3 : public seidr_mpi {
 public:
@@ -36,12 +34,12 @@ public:
   void set_minprop(double x) {_minprop = x;}
   void set_targetd(bool x) {_targeted = x;}
 private:
-  seidr_uword_t _ntree;
-  seidr_uword_t _mtry;
-  seidr_uword_t _min_node_size;
-  double _alpha;
-  double _minprop;
-  bool _targeted;
+  seidr_uword_t _ntree = 0;
+  seidr_uword_t _mtry = 0;
+  seidr_uword_t _min_node_size = 0;
+  double _alpha = 0;
+  double _minprop = 0;
+  bool _targeted = 0;
 };
 
 void seidr_mpi_genie3::entrypoint()
@@ -63,88 +61,9 @@ void seidr_mpi_genie3::entrypoint()
 
 void seidr_mpi_genie3::finalize()
 {
-  seidr_mpi_logger log;
-  result_file_map_t rmap;
-  if (_id == 0)
-  {
-    seidr_mpi_logger log;
-    log << "Merging tmp files and cleaning up.\n";
-    log.send(LOG_INFO);
-    std::vector<fs::path> files;
-    std::string tmpdir = _outfilebase + "/.seidr_tmp_genie3";
-    fs::path p_tmp(tmpdir);
-    for (auto it = fs::directory_iterator(p_tmp);
-         it != fs::directory_iterator(); it++)
-    {
-      if ( fs::is_regular_file( it->path() ) )
-        files.push_back( (*it).path() );
-    }
-    std::ofstream ofs(_outfile);
-
-    for (fs::path& p : files)
-    {
-      std::ifstream ifs(p.string().c_str());
-      std::string l;
-      while (std::getline(ifs, l))
-      {
-        seidr_uword_t gene_index = std::stoul(l);
-        std::streampos g = ifs.tellg();
-        rmap[gene_index] = file_index_t(g, p.string());
-        ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-      }
-      ifs.close();
-    }
-
-    auto it = rmap.begin();
-    auto gene_index = it->second.first;
-    auto file_path = it->second.second;
-    std::ifstream ifs(file_path);
-    for (; it != rmap.end(); it++)
-    {
-      ifs.seekg(gene_index);
-      std::string l;
-      std::getline(ifs, l);
-
-      if (_targeted)
-      {
-        std::stringstream ss(l);
-        std::string token;
-        seidr_uword_t j = 0;
-        seidr_uword_t i = it->first;
-        while (ss >> token)
-        {
-          if (i != j)
-            ofs << _genes[i] << '\t' << _genes[j] << '\t' << token << '\n';
-          j++;
-        }
-      }
-      else
-      {
-        ofs << l << '\n';
-      }
-
-      auto nx = std::next(it);
-      if (nx->second.second != file_path)
-      {
-        ifs.close();
-        ifs.open(nx->second.second);
-        gene_index = nx->second.first;
-      }
-      else
-      {
-        gene_index = nx->second.first;
-      }
-    }
-    fs::remove_all(p_tmp);
-    double now = MPI_Wtime();
-    // Push all pending logs
-    log << "Waiting up to 10 seconds for queued logs...\n";
-    log.send(LOG_INFO);
-    while (MPI_Wtime() - now < 10)
-    {
-      check_logs();
-    }
-  }
+  merge_files(_outfile, _outfilebase, ".seidr_tmp_genie3",
+              _targeted, _id, _genes);
+  check_logs();
 }
 
 class SeidrForestData : public ranger::DataDouble {

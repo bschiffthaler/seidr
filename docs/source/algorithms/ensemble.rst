@@ -10,6 +10,8 @@ work the same way and have the same options. They all work by resampling the exp
 * ``svm-ensemble``: Uses an ensemble of Support Vector Machine predictors.
 * ``llr-ensemble``: Uses an ensemble of Support Vector Machine predictors.
 
+The Elastic Net code uses the GLMNET Fortran backend from [Friedman2010]_ .
+
 Running Ensembles
 ^^^^^^^^^^^^^^^^^^
 
@@ -112,7 +114,3 @@ they should in general agree most of the time, coefficients are handled differen
 SVM is closer to the reference implementation by [Ruyssinck2014]_ , but LLR is 
 much faster.
 
-References
-^^^^^^^^^^
-
-.. [Ruyssinck2014] Ruyssinck, J., Huynh-Thu, V. A., Geurts, P., Dhaene, T., Demeester, P., & Saeys, Y. (2014). NIMEFI: Gene regulatory network inference using multiple ensemble feature importance algorithms. PLoS ONE, 9(3). https://doi.org/10.1371/journal.pone.0092709

@@ -99,9 +99,3 @@ Running ARACNE in MPI mode
 
 ARACNE can use parallel processing in the MI estimation step. For general info
 on how to run parallel algorithms in ``seidr``, please see :ref:`mpirun-label` 
-
-References
-^^^^^^^^^^
-
-.. [Margolin2006] Margolin, A. A., Nemenman, I., Basso, K., Wiggins, C., Stolovitzky, G., Dalla Favera, R., & Califano, A. (2006). ARACNE: an algorithm for the reconstruction of gene regulatory networks in a mammalian cellular context. BMC Bioinformatics, 7 Suppl 1, S7. https://doi.org/10.1186/1471-2105-7-S1-S7
-.. [Daub2004] Daub, C. O., Steuer, R., Selbig, J., & Kloska, S. (2004). Estimating mutual information using B-spline functions--an improved similarity measure for analysing gene expression data. BMC Bioinformatics, 5, 118. https://doi.org/10.1186/1471-2105-5-118
