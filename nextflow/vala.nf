@@ -16,7 +16,7 @@ if (params.clr) {
     memory params.clr_settings.memory
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -41,7 +41,7 @@ if (params.clr) {
     memory params.clr_settings.importmem
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -77,7 +77,7 @@ if (params.aracne) {
     memory params.aracne_settings.memory
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -102,7 +102,7 @@ if (params.aracne) {
     memory params.aracne_settings.importmem
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -138,7 +138,7 @@ if (params.anova) {
     memory params.anova_settings.memory
     publishDir params.out + '/networks/anova'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -162,7 +162,7 @@ if (params.anova) {
     memory params.anova_settings.importmem
     publishDir params.out + '/networks/anova'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -198,7 +198,7 @@ if (params.pearson) {
     memory params.pearson_settings.memory
     publishDir params.out + '/networks/pearson'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -222,7 +222,7 @@ if (params.pearson) {
     memory params.pearson_settings.importmem
     publishDir params.out + '/networks/pearson'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -258,7 +258,7 @@ if (params.spearman) {
     memory params.spearman_settings.memory
     publishDir params.out + '/networks/spearman'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -282,7 +282,7 @@ if (params.spearman) {
     memory params.spearman_settings.importmem
     publishDir params.out + '/networks/spearman'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -318,7 +318,7 @@ if (params.elnet) {
     memory params.elnet_settings.memory
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -349,7 +349,7 @@ if (params.elnet) {
     memory params.elnet_settings.importmem
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -385,7 +385,7 @@ if (params.svm) {
     memory params.svm_settings.memory
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -414,7 +414,7 @@ if (params.svm) {
     memory params.svm_settings.importmem
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -450,7 +450,7 @@ if (params.llr) {
     memory params.llr_settings.memory
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -479,7 +479,7 @@ if (params.llr) {
     memory params.llr_settings.importmem
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -515,7 +515,7 @@ if (params.pcor) {
     memory params.pcor_settings.memory
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -538,7 +538,7 @@ if (params.pcor) {
     memory params.pcor_settings.importmem
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -574,7 +574,7 @@ if (params.narromi) {
     memory params.narromi_settings.memory
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -600,7 +600,7 @@ if (params.narromi) {
     memory params.narromi_settings.importmem
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -636,7 +636,7 @@ if (params.tigress) {
     memory params.tigress_settings.memory
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -663,7 +663,7 @@ if (params.tigress) {
     memory params.tigress_settings.importmem
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -699,7 +699,7 @@ if (params.genie3) {
     memory params.genie3_settings.memory
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -729,7 +729,7 @@ if (params.genie3) {
     memory params.genie3_settings.importmem
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file genes
@@ -765,7 +765,7 @@ if (params.plsnet) {
     memory params.plsnet_settings.memory
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
 
     input:
     file expr
@@ -793,7 +793,7 @@ if (params.plsnet) {
     memory params.plsnet_settings.importmem
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
-    clusterOptions '-A ' + ${params.slurm_account}
+    clusterOptions '-A ' + params.slurm_account
     
     input:
     file genes
