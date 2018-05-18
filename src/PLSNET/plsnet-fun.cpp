@@ -55,7 +55,7 @@ void seidr_mpi_plsnet::entrypoint()
 
 void seidr_mpi_plsnet::finalize()
 {
-  merge_files(_outfile, _outfilebase, ".seidr_tmp_tigress", 
+  merge_files(_outfile, _outfilebase, ".seidr_tmp_plsnet", 
               _targeted, _id, _genes);
   check_logs();
 }
