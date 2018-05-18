@@ -66,7 +66,7 @@ void rank_vector(std::vector<aggr_rank_t>& ev)
   while (it != ev.end())
   {
     it++; pos++;
-    if (! almost_equal(it->score, prev) || it == ev.end())
+    if (it == ev.end() || ! almost_equal(it->score, prev))
     {
       rank = ( lexical_cast<double>(pos) + 1 +
                lexical_cast<double>(start) ) / 2;
