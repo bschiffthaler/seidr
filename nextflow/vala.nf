@@ -11,6 +11,7 @@ if (targets != '' ) {
 if (params.clr) {
 
   process clr {
+    errorStrategy 'finish'
     cpus params.clr_settings.cores
     memory params.clr_settings.memory
     publishDir params.out + '/networks/clr'
@@ -34,6 +35,7 @@ if (params.clr) {
   }
 
   process clr_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.clr_settings.importcores
     memory params.clr_settings.importmem
@@ -70,6 +72,7 @@ if (params.clr) {
 if (params.aracne) {
 
   process aracne {
+    errorStrategy 'finish'
     cpus params.aracne_settings.cores
     memory params.aracne_settings.memory
     publishDir params.out + '/networks/aracne'
@@ -93,6 +96,7 @@ if (params.aracne) {
   }
 
   process aracne_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.aracne_settings.importcores
     memory params.aracne_settings.importmem
@@ -129,6 +133,7 @@ if (params.aracne) {
 if (params.anova) {
 
   process anova {
+    errorStrategy 'finish'
     cpus params.anova_settings.cores
     memory params.anova_settings.memory
     publishDir params.out + '/networks/anova'
@@ -151,6 +156,7 @@ if (params.anova) {
   }
 
   process anova_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.anova_settings.importcores
     memory params.anova_settings.importmem
@@ -187,6 +193,7 @@ if (params.anova) {
 if (params.pearson) {
 
   process pearson {
+    errorStrategy 'finish'
     cpus params.pearson_settings.cores
     memory params.pearson_settings.memory
     publishDir params.out + '/networks/pearson'
@@ -209,6 +216,7 @@ if (params.pearson) {
   }
 
   process pearson_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.pearson_settings.importcores
     memory params.pearson_settings.importmem
@@ -245,6 +253,7 @@ if (params.pearson) {
 if (params.spearman) {
 
   process spearman {
+    errorStrategy 'finish'
     cpus params.spearman_settings.cores
     memory params.spearman_settings.memory
     publishDir params.out + '/networks/spearman'
@@ -267,6 +276,7 @@ if (params.spearman) {
   }
 
   process spearman_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.spearman_settings.importcores
     memory params.spearman_settings.importmem
@@ -303,6 +313,7 @@ if (params.spearman) {
 if (params.elnet) {
 
   process elnet {
+    errorStrategy 'finish'
     cpus params.elnet_settings.cores
     memory params.elnet_settings.memory
     publishDir params.out + '/networks/elnet'
@@ -332,6 +343,7 @@ if (params.elnet) {
   }
 
   process elnet_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.elnet_settings.importcores
     memory params.elnet_settings.importmem
@@ -368,6 +380,7 @@ if (params.elnet) {
 if (params.svm) {
 
   process svm {
+    errorStrategy 'finish'
     cpus params.svm_settings.cores
     memory params.svm_settings.memory
     publishDir params.out + '/networks/svm'
@@ -395,6 +408,7 @@ if (params.svm) {
   }
 
   process svm_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.svm_settings.importcores
     memory params.svm_settings.importmem
@@ -431,6 +445,7 @@ if (params.svm) {
 if (params.llr) {
 
   process llr {
+    errorStrategy 'finish'
     cpus params.llr_settings.cores
     memory params.llr_settings.memory
     publishDir params.out + '/networks/llr'
@@ -458,6 +473,7 @@ if (params.llr) {
   }
 
   process llr_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.llr_settings.importcores
     memory params.llr_settings.importmem
@@ -494,6 +510,7 @@ if (params.llr) {
 if (params.pcor) {
 
   process pcor {
+    errorStrategy 'finish'
     cpus params.pcor_settings.cores
     memory params.pcor_settings.memory
     publishDir params.out + '/networks/pcor'
@@ -515,6 +532,7 @@ if (params.pcor) {
   }
 
   process pcor_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.pcor_settings.importcores
     memory params.pcor_settings.importmem
@@ -551,6 +569,7 @@ if (params.pcor) {
 if (params.narromi) {
 
   process narromi {
+    errorStrategy 'finish'
     cpus params.narromi_settings.cores
     memory params.narromi_settings.memory
     publishDir params.out + '/networks/narromi'
@@ -575,6 +594,7 @@ if (params.narromi) {
   }
 
   process narromi_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.narromi_settings.importcores
     memory params.narromi_settings.importmem
@@ -611,6 +631,7 @@ if (params.narromi) {
 if (params.tigress) {
 
   process tigress {
+    errorStrategy 'finish'
     cpus params.tigress_settings.cores
     memory params.tigress_settings.memory
     publishDir params.out + '/networks/tigress'
@@ -636,6 +657,7 @@ if (params.tigress) {
   }
 
   process tigress_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.tigress_settings.importcores
     memory params.tigress_settings.importmem
@@ -672,6 +694,7 @@ if (params.tigress) {
 if (params.genie3) {
 
   process genie3 {
+    errorStrategy 'finish'
     cpus params.genie3_settings.cores
     memory params.genie3_settings.memory
     publishDir params.out + '/networks/genie3'
@@ -700,6 +723,7 @@ if (params.genie3) {
   }
 
   process genie3_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.genie3_settings.importcores
     memory params.genie3_settings.importmem
@@ -736,6 +760,7 @@ if (params.genie3) {
 if (params.plsnet) {
 
   process plsnet {
+    errorStrategy 'finish'
     cpus params.plsnet_settings.cores
     memory params.plsnet_settings.memory
     publishDir params.out + '/networks/plsnet'
@@ -762,6 +787,7 @@ if (params.plsnet) {
   }
 
   process plsnet_import {
+    errorStrategy 'finish'
     validExitStatus 0,3
     cpus params.plsnet_settings.importcores
     memory params.plsnet_settings.importmem
