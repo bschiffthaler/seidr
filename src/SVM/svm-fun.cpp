@@ -65,7 +65,7 @@ void seidr_mpi_svm::entrypoint()
 
 void seidr_mpi_svm::finalize()
 {
-  merge_files(_outfile, _outfilebase, ".seidr_tmp_llr", 
+  merge_files(_outfile, _outfilebase, ".seidr_tmp_svm", 
               _targeted, _id, _genes);
   check_logs();
 }
