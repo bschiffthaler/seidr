@@ -19,6 +19,7 @@ If you have any questions, contact me at:
    source/paradigm/paradigm
    source/import/import
    source/aggregate/aggregate
+   source/threshold/threshold
 
 .. toctree::
    :caption: Installing seidr

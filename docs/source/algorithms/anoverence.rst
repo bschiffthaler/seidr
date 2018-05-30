@@ -3,6 +3,10 @@
 ANOVERENCE
 ==========
 
+** Please not that it is currently not recommended to run ANOVERENCE due to 
+inconsitencies with the original implementation that we were not able to clarify
+with the original author **
+
 ANOVERENCE ([Kueffner2012]_) employs the :math:`\eta^2` metric, a nonlinear correlation coefficient derived from an analysis of variance (ANOVA) ([Cohen1973]_). It is one
 of the few methods that make direct use of experiment metadata, like perturbations,
 knockouts and overexpressions.

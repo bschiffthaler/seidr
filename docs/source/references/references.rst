@@ -17,3 +17,5 @@ References
 .. [Friedman2010] Friedman, J., Hastie, T., & Tibshirani, R. (2010). Regularization Paths for Generalized Linear Models via Coordinate Descent. Journal of Statistical Software, 33(1). https://doi.org/10.18637/jss.v033.i01
 .. [Cohen1973] Cohen, J. (1973). Eta-squared and partial eta-squared in fixed factor anova designs. Educational and Psychological Measurement, 33(1), 107–112. https://doi.org/10.1177/001316447303300111
 .. [Wright2017] Wright, M. N., & Ziegler, A. (2017). ranger: A Fast Implementation of Random Forests for High Dimensional Data in C++ and R. Journal of Statistical Software, 77(1), 1–17. https://doi.org/10.18637/jss.v077.i01
+.. [Broido2018] Broido, A. D., & Clauset, A. (2018). Scale-free networks are rare. Retrieved from http://arxiv.org/abs/1801.03400
+.. [Coscia2017] Coscia, M., & Neffke, F. M. H. (2017). Network backboning with noisy data. In Proceedings - International Conference on Data Engineering (pp. 425–436). https://doi.org/10.1109/ICDE.2017.100
