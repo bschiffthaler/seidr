@@ -227,5 +227,6 @@ void merge_files(std::string outfile, std::string outfilebase,
         }
       }
     }
+    remove(tmpdir, true);
   }
 }

@@ -49,6 +49,7 @@ int main(int argc, char ** argv) {
   double alpha;
   double flmin;
   arma::uword nlam;
+  unsigned verbosity;
 
   // Define program options
   try
@@ -121,6 +122,11 @@ int main(int argc, char ** argv) {
               "of the maximum.", false, 0.3, "0.3");
     cmd.add(flmin_arg);
 
+    TCLAP::ValueArg<unsigned>
+    verbosity_arg("v", "verbosity", "Verbosity level (lower is less verbose)",
+                  false, 3, "3");
+    cmd.add(verbosity_arg);
+
     TCLAP::SwitchArg switch_scale("s", "scale", "Transform data to z-scores",
                                   cmd, false);
 
@@ -145,8 +151,10 @@ int main(int argc, char ** argv) {
     flmin = flmin_arg.getValue();
     alpha = alpha_arg.getValue();
     force = switch_force.getValue();
+    verbosity = verbosity_arg.getValue();
 
     if (targets_file != "") mode = EL_PARTIAL;
+    log.set_log_level(verbosity);
 
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
@@ -247,9 +255,15 @@ int main(int argc, char ** argv) {
     if (min_sample_size > max_sample_size)
       throw std::runtime_error("Minimum experiment sample size can't be "
                                "larger than maximum");
+    if (max_sample_size > gene_matrix.n_rows)
+      throw std::runtime_error("Maximum experiment sample size can't be "
+                               "larger than number of experiments");
     if (predictor_sample_size_min > predictor_sample_size_max)
       throw std::runtime_error("Minimum predictor sample size can't be "
                                "larger than maximum");
+    if (predictor_sample_size_max > gene_matrix.n_cols - 1)
+      throw std::runtime_error("Maximum predictor sample size can't be "
+                               "larger than the number of genes - 1");
 
     if (min_sample_size == 0 ||
         max_sample_size == 0 ||

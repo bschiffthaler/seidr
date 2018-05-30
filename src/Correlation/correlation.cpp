@@ -20,6 +20,7 @@ int main(int argc, char ** argv)
   bool abs;
   bool force = false;
   LOG_INIT_CLOG();
+  unsigned verbosity;
 
   try
   {
@@ -54,6 +55,11 @@ int main(int argc, char ** argv)
                &allowed_methods);
     cmd.add(method_arg);
 
+    TCLAP::ValueArg<unsigned>
+    verbosity_arg("v", "verbosity", "Verbosity level (lower is less verbose)",
+                  false, 3, "3");
+    cmd.add(verbosity_arg);
+
     TCLAP::SwitchArg
     switch_scale("s", "scale", "Transform data to z-scores", cmd, false);
 
@@ -73,6 +79,9 @@ int main(int argc, char ** argv)
     force = switch_force.getValue();
     gene_file = genefile_arg.getValue();
     targets_file = targets_arg.getValue();
+    verbosity = verbosity_arg.getValue();
+
+    log.set_log_level(verbosity);
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
   {

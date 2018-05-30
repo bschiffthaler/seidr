@@ -46,6 +46,7 @@ int main(int argc, char ** argv) {
   arma::uword predictor_sample_size_min;
   arma::uword predictor_sample_size_max;
   arma::uword ensemble_size;
+   unsigned int verbosity;
 
   // Define program options
   try
@@ -103,6 +104,11 @@ int main(int argc, char ** argv) {
                 "experiments to be sampled", false, 0, "4/5th of experiments");
     cmd.add(max_exp_arg);
 
+    TCLAP::ValueArg<unsigned>
+    verbosity_arg("v", "verbosity", "Verbosity level (lower is less verbose)",
+                  false, 3, "3");
+    cmd.add(verbosity_arg);
+
     TCLAP::SwitchArg
     switch_scale("s", "scale", "Transform data to z-scores", cmd, false);
 
@@ -124,8 +130,10 @@ int main(int argc, char ** argv) {
     predictor_sample_size_min = min_pred_arg.getValue();
     predictor_sample_size_max = max_pred_arg.getValue();
     force = switch_force.getValue();
+    verbosity = verbosity_arg.getValue();
 
     if (targets_file != "") mode = SVM_PARTIAL;
+    log.set_log_level(verbosity);
 
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
@@ -222,23 +230,25 @@ int main(int argc, char ** argv) {
     if (predictor_sample_size_max == 0)
       predictor_sample_size_max = 4 * ((gene_matrix.n_cols - 1) / 5);
 
-    // Check if sampling settings are sane
+   // Check if sampling settings are sane
     if (min_sample_size > max_sample_size)
       throw std::runtime_error("Minimum experiment sample size can't be "
                                "larger than maximum");
+    if (max_sample_size > gene_matrix.n_rows)
+      throw std::runtime_error("Maximum experiment sample size can't be "
+                               "larger than number of experiments");
     if (predictor_sample_size_min > predictor_sample_size_max)
       throw std::runtime_error("Minimum predictor sample size can't be "
                                "larger than maximum");
+    if (predictor_sample_size_max > gene_matrix.n_cols - 1)
+      throw std::runtime_error("Maximum predictor sample size can't be "
+                               "larger than the number of genes - 1");
 
     if (min_sample_size == 0 ||
         max_sample_size == 0 ||
         predictor_sample_size_min == 0 ||
         predictor_sample_size_max == 0)
       throw std::runtime_error("None of the sampling settings should be 0");
-
-    if (predictor_sample_size_max >= gene_matrix.n_cols)
-      throw std::runtime_error("Maximum predictor sample size must be "
-                               "smaller than the number of predictors (genes)");
 
 
     svm_parameter param;
@@ -278,7 +288,7 @@ int main(int argc, char ** argv) {
       break;
 
     default:
-      return 1;
+      return EINVAL;
     }
   }
   catch (const std::runtime_error& e)

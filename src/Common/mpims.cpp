@@ -9,10 +9,10 @@
 #include <mpims.h>
 
 using boost::lexical_cast;
+unsigned int seidr_mpi_logger::_loglevel = LOG_DEFAULT;
 
 seidr_mpi_logger::seidr_mpi_logger() :
-  _ss(),
-  _loglevel(LOG_DEFAULT)
+  _ss()
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &_rank);
 }
