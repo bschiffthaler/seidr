@@ -58,7 +58,7 @@ Optional arguments to correlation
 * ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. Generally this should be *on* especially when calculating Pearson's rho.
 
 Running Correlation for a subset of genes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Often we have only a small number of genes of interest. We can instruct 
 correlation to only calculate interactions involving those genes by 

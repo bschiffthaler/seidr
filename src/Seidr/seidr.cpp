@@ -4,6 +4,7 @@
 #include <viewRanks.h>
 #include <aggregate.h>
 #include <adjacency.h>
+#include <backbone.h>
 #include <index.h>
 #include <threshold.h>
 #include <roc.h>
@@ -86,6 +87,10 @@ int main(int argc, char* argv[])
     else if (task == "aggregate")
     {
       ret = aggregate(argc, argv);
+    }
+    else if (task == "backbone")
+    {
+      ret = backbone(argc, argv);
     }
     else if (task == "cluster-enrichment")
     {
