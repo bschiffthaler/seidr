@@ -64,7 +64,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/deps/include)
 
 # Build executables:
 ## Seidr
-add_executable(seidr src/Seidr/adjacency.cpp src/seidr/backbone.cpp 
+add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/backbone.cpp 
 src/Seidr/seidr.cpp 
 src/Seidr/viewRanks.cpp src/Seidr/import.cpp src/Seidr/aggregate.cpp
 src/Seidr/threshold.cpp src/Seidr/roc.cpp  src/Seidr/convert.cpp 
