@@ -35,10 +35,12 @@ public:
   void set_tmpdir(std::string x) {_tmpdir = x;}
   void set_targets(std::vector<std::string> x) {_targets = x;}
   void set_genes(std::vector<std::string> x) {_genes = x;}
+  void use_existing_mi_mat() {_use_existing_mi_mat = true;}
 private:
   size_t _num_bins = 0;
   size_t _spline_order = 0;
   char _mode = 0;
+  bool _use_existing_mi_mat = false;
   std::string _tmpdir = "";
   std::string _mi_file = "";
   std::vector<std::string> _targets;
@@ -47,72 +49,86 @@ private:
 
 void seidr_mpi_mi::entrypoint()
 {
-  seidr_mpi_logger log;
-  std::string tmpfile = _tmpdir + "/MPIthread_" +
-                        std::to_string(_id) + "_" +
-                        std::to_string(_indices[0]) + ".txt";
+  if (_use_existing_mi_mat)
+  {
+    announce_ready();
+  }
+  else
+  {
+    seidr_mpi_logger log;
+    std::string tmpfile = _tmpdir + "/MPIthread_" +
+                          std::to_string(_id) + "_" +
+                          std::to_string(_indices[0]) + ".txt";
 
-  log << "Using tempfile '" << tmpfile << "'\n";
-  log.send(LOG_INFO);
+    log << "Using tempfile '" << tmpfile << "'\n";
+    log.send(LOG_INFO);
 
-  std::vector<arma::uword> uvec;
-  for (auto i : _indices)
-    uvec.push_back(i);
-  mi_sub_matrix(_data, _num_bins, _spline_order, uvec, tmpfile);
-  announce_ready();
+    std::vector<arma::uword> uvec;
+    for (auto i : _indices)
+      uvec.push_back(i);
+    mi_sub_matrix(_data, _num_bins, _spline_order, uvec, tmpfile);
+    announce_ready();
+  }
 }
 
 void seidr_mpi_mi::finalize()
 {
   if (_id == 0)
   {
+    arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
+    seidr_mpi_logger log;
     std::unordered_map<std::string, arma::uword> gene_map;
     arma::uword ctr = 0;
     for (auto g : _genes)
       gene_map[g] = ctr++;
 
-    seidr_mpi_logger log;
-    log << "Merging tmp files from " << _tmpdir << '\n';
-    log.log(LOG_INFO);
-
-    std::vector<fs::path> files;
-    fs::path p_tmp(_tmpdir);
-    for (auto it = fs::directory_iterator(p_tmp);
-         it != fs::directory_iterator(); it++)
+    if (_use_existing_mi_mat)
     {
-      if ( fs::is_regular_file( it->path() ) )
-        files.push_back( (*it).path() );
+      mi_mat.load(_mi_file);
     }
+    else
+    {
+      log << "Merging tmp files from " << _tmpdir << '\n';
+      log.log(LOG_INFO);
+
+      std::vector<fs::path> files;
+      fs::path p_tmp(_tmpdir);
+      for (auto it = fs::directory_iterator(p_tmp);
+           it != fs::directory_iterator(); it++)
+      {
+        if ( fs::is_regular_file( it->path() ) )
+          files.push_back( (*it).path() );
+      }
+
+      for (fs::path& p : files)
+      {
+        std::ifstream ifs(p.string().c_str());
+        std::string l;
+        while (std::getline(ifs, l))
+        {
+          size_t row = std::stoul(l);
+          std::getline(ifs, l);
+          std::stringstream ss(l);
+          std::string field;
+          size_t col = 0;
+          while (std::getline(ss, field, '\t'))
+          {
+            mi_mat(row, col) = std::stod(field);
+            mi_mat(col, row) = mi_mat(row, col);
+            col++;
+          }
+        }
+        log << "Merged " << p.string() << '\n';
+        log.log(LOG_INFO);
+      }
+
+      log << "Merged all files.\n";
+      log.send(LOG_INFO);
+    }
+
     std::ofstream ofs(_outfile);
 
-    arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
-
-    for (fs::path& p : files)
-    {
-      std::ifstream ifs(p.string().c_str());
-      std::string l;
-      while (std::getline(ifs, l))
-      {
-        size_t row = std::stoul(l);
-        std::getline(ifs, l);
-        std::stringstream ss(l);
-        std::string field;
-        size_t col = 0;
-        while (std::getline(ss, field, '\t'))
-        {
-          mi_mat(row, col) = std::stod(field);
-          mi_mat(col, row) = mi_mat(row, col);
-          col++;
-        }
-      }
-      log << "Merged " << p.string() << '\n';
-      log.log(LOG_INFO);
-    }
-
-    log << "Merged all files.\n";
-    log.send(LOG_INFO);
-
-    if (_mode == 2 || _mi_file != "")
+    if ((_mode == 2 || _mi_file != "") && ( ! _use_existing_mi_mat))
     {
       log << "Outputting raw MI\n";
       log.send(LOG_INFO);
@@ -610,7 +626,8 @@ void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
 
 void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
              std::string outfile, char mode, std::string mi_file,
-             std::vector<std::string> genes, std::vector<std::string> targets)
+             std::vector<std::string> genes, std::vector<std::string> targets,
+             bool use_existing_mi_mat)
 {
   std::string mode_str;
   switch (mode)

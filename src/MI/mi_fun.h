@@ -39,4 +39,5 @@ void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
                    std::vector<arma::uword> targets, std::string tempfile);
 void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
              std::string outfile, char m, std::string mi_file,
-             std::vector<std::string> genes, std::vector<std::string> targets);
+             std::vector<std::string> genes, std::vector<std::string> targets,
+             bool use_existing);

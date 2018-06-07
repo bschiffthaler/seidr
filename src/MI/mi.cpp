@@ -34,6 +34,7 @@ int main(int argc, char ** argv) {
   bool force = false;
   std::string targets_file;
   std::string genes_file;
+  bool use_existing;
 
   // Define program options
   try
@@ -94,6 +95,9 @@ int main(int argc, char ** argv) {
     TCLAP::SwitchArg
     switch_force("f", "force", "Force overwrite if output already exists", cmd,
                  false);
+    TCLAP::SwitchArg
+    switch_use_existing("u", "use-existing", "Use existing MI matrix", cmd,
+                        false);
 
     cmd.parse(argc, argv);
 
@@ -107,6 +111,7 @@ int main(int argc, char ** argv) {
     force = switch_force.getValue();
     genes_file = genefile_arg.getValue();
     targets_file = targets_arg.getValue();
+    use_existing = switch_use_existing.getValue();
   }
   catch (TCLAP::ArgException &e)  // catch any exceptions
   {
@@ -160,6 +165,13 @@ int main(int argc, char ** argv) {
       if ((! force) && mi_file != "")
         if (file_exists(mi_file))
           throw std::runtime_error("File exists: " + mi_file);
+
+      if(use_existing && mi_file == "")
+        throw std::runtime_error("MI file needs to be provided if "
+                                 "--use-existing is set.");
+
+      if(use_existing && (! file_exists(mi_file)))
+        throw std::runtime_error("MI file " + mi_file + " does not exist.");
 
 
     }
@@ -221,7 +233,7 @@ int main(int argc, char ** argv) {
     if (targets_file != "")
       targets = read_genes(targets_file);
     mi_full(gene_matrix, spline_order, num_bins, bs, outfile, m, mi_file,
-            genes, targets);
+            genes, targets, use_existing);
   }
   catch (const std::runtime_error& e)
   {
