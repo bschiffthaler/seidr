@@ -219,6 +219,7 @@ int main(int argc, char ** argv) {
           "Please make sure genes are columns, samples are rows.\n";
       log.log(LOG_WARN);
     }
+
     char m = 0;
     if (mode == "CLR")
       m = 0;

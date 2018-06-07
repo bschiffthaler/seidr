@@ -84,7 +84,23 @@ void seidr_mpi_mi::finalize()
 
     if (_use_existing_mi_mat)
     {
-      mi_mat.load(_mi_file);
+      std::ifstream mifs(_mi_file.c_str());
+      std::string l;
+      arma::uword i = 1;
+      while(std::getline(mifs, l))
+      {
+        arma::uword j = 0;
+        std::string f;
+        std::stringstream ss(l);
+        while(std::getline(ss, f, '\t'))
+        {
+          double val = std::stod(f);
+          mi_mat(i, j) = val;
+          mi_mat(j, i) = val;
+          j++;
+        }
+        i++;
+      }
     }
     else
     {
@@ -670,6 +686,8 @@ void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
   mpi.set_mode(mode);
   mpi.set_mi_file(mi_file);
   mpi.set_genes(genes);
+  if(use_existing_mi_mat)
+    mpi.use_existing_mi_mat();
   mpi.set_targets(targets);
 
   mpi.exec();
