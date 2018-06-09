@@ -142,7 +142,8 @@ int backbone(int argc, char * argv[])
     {
       double& ni = node_strengths[e.index.i];
       double& nj = node_strengths[e.index.j];
-      double& nij = e.scores[tpos].s;
+      // Cannot take reference, because it's a packed struct
+      double nij = e.scores[tpos].s;
       // Essentially a verbatim copy of Coscia's & Neffe's 
       // (https://ieeexplore.ieee.org/document/7929996/) python source. If you
       // need this in actually readable form, I suggest chapter IV of the 
