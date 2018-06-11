@@ -18,6 +18,7 @@
 #include <BSlogger.h>
 #include <neighbours.h>
 #include <test.h>
+#include <top.h>
 // External
 #include <string>
 #include <vector>
@@ -136,14 +137,14 @@ int main(int argc, char* argv[])
     {
       ret = threshold(argc, argv);
     }
+    else if (task == "top")
+    {
+      ret = top(argc, argv);
+    }
     else if (task == "view")
     {
       ret = view(argc, argv);
     }    
-//  else if (task == "backbone")
-//  {
-//    backbone(argc, argv);
-//  }
     else if (task == "test")
     {
       ret = test(argc, argv);
