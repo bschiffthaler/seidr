@@ -66,7 +66,7 @@ int backbone(int argc, char * argv[])
 
     TCLAP::ValueArg<std::string>
     arg_outfile("o", "out-file", "Name of the new file to create",
-               false, "auto", "auto");
+                false, "auto", "auto");
     cmd.add(arg_outfile);
 
     TCLAP::UnlabeledValueArg<std::string>
@@ -153,6 +153,7 @@ int backbone(int argc, char * argv[])
   bool nc_calculcated = h.have_supp("NC_Score");
   if (! nc_calculcated)
   {
+    log(LOG_INFO) << "Calculating NC Score and NC SDev...\n";
     h.attr.nsupp += 2;
     h.attr.nsupp_flt += 2;
     h.supp.push_back("NC_Score");
@@ -165,6 +166,8 @@ int backbone(int argc, char * argv[])
 
   if (nc_calculcated)
   {
+    log(LOG_INFO) << "Found already calculated NC Score and NC SDev."
+                  " Using those\n";
     nc_score_ind = h.get_supp_ind("NC_Score");
     nc_sdev_ind = h.get_supp_ind("NC_SDev");
   }
@@ -246,11 +249,16 @@ int backbone(int argc, char * argv[])
   rf.close();
   out.close();
 
+  log(LOG_INFO) << "Done. Edges deleted: " << h.attr.edges - ectr << '\n';
+  log(LOG_INFO) << "Edges remaining: " << ectr << '\n';
+
   h.attr.edges = ectr;
   double nn = h.attr.nodes;
   double ne = ectr;
   if (ne > ((nn * (nn - 1) / 2) * 0.66))
     h.attr.dense = 1;
+  else
+    h.attr.dense = 0;
 
   SeidrFile rfx(outfile.c_str());
   rfx.open("w");
@@ -260,6 +268,7 @@ int backbone(int argc, char * argv[])
   SeidrFileHeader hx;
   hx.unserialize(out);
 
+  log(LOG_INFO) << "Saving new file...\n";
   if (hx.attr.dense)
   {
     for (uint64_t i = 0; i < hx.attr.nodes; i++)
