@@ -15,3 +15,4 @@ bool regular_file(const std::string fname);
 bool starts_with(std::string fname, std::string pattern);
 void rename(std::string lhs, std::string rhs);
 void remove(std::string fname, bool recursive = false);
+std::string replace_ext(std::string fname, std::string new_ext);

@@ -156,6 +156,8 @@ public:
 class SeidrFileHeader {
 public:
   header_attr attr;
+  uint16_t get_supp_ind(std::string supp_n);
+  bool have_supp(std::string supp_n);
   std::vector<std::string> nodes;
   std::vector<std::string> algs;
   std::vector<std::string> supp;
