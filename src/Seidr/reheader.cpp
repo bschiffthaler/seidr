@@ -90,8 +90,8 @@ int reheader(int argc, char ** argv)
 
   inf.seek(0);
   inf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h2) {
-    e.index.i = new_index[ old_nodes[e.index.i] ];
-    e.index.j = new_index[ old_nodes[e.index.j] ];
+    e.index.i = new_index[ old_index.at(e.index.i) ];
+    e.index.j = new_index[ old_index.at(e.index.j) ];
     e.serialize(of, h); // Use NEW header
   });
 
