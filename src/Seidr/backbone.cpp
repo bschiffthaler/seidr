@@ -120,23 +120,29 @@ int backbone(int argc, char * argv[])
     node_map[node] = cnt++;
   rf.close();
 
-  // Reset reading position to beginning of file
-  rf.open("r");
+  
 
   // Setup phase. Calculate global sum of edge weight and per-node sum of
   // edge weights
   double global_strength = 0;
   std::vector<double> node_strengths;
   node_strengths.resize(h.nodes.size(), 0);
-  rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
-    if (std::isfinite(e.scores[tpos].s))
-    {
-      global_strength += e.scores[tpos].s;
-      node_strengths[e.index.i] += e.scores[tpos].s;
-      node_strengths[e.index.j] += e.scores[tpos].s;
-    }
-  });
-  rf.close();
+  bool nc_calculcated = h.have_supp("NC_Score");
+  if (! nc_calculcated)
+  {
+    log(LOG_INFO) << "First pass. Getting global node strengths\n";
+    // Reset reading position to beginning of file
+    rf.open("r");
+    rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+      if (std::isfinite(e.scores[tpos].s))
+      {
+        global_strength += e.scores[tpos].s;
+        node_strengths[e.index.i] += e.scores[tpos].s;
+        node_strengths[e.index.j] += e.scores[tpos].s;
+      }
+    });
+    rf.close();
+  }
 
   // Add scores for upper triangle
   global_strength *= 2;
@@ -150,7 +156,6 @@ int backbone(int argc, char * argv[])
   std::string tmp = infile + ".tmp";
   SeidrFile out(tmp.c_str());
   out.open("w");
-  bool nc_calculcated = h.have_supp("NC_Score");
   if (! nc_calculcated)
   {
     log(LOG_INFO) << "Calculating NC Score and NC SDev...\n";
