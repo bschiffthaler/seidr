@@ -17,6 +17,7 @@ if (params.clr) {
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.clr_settings.ptime
 
     input:
     file expr
@@ -28,7 +29,7 @@ if (params.clr) {
     """
     export OMP_NUM_THREADS=1
     mpirun -x OMP_NUM_THREADS --oversubscribe -np ${params.clr_settings.cores} \
-    mi -m CLR -o clr_network.tsv -B ${params.aracne_settings.batchsize} \
+    mi -m CLR -o clr_network.tsv -B ${params.clr_settings.batchsize} \
        -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
        -i ${expr} -g ${genes} ${targets}
     """
@@ -42,6 +43,7 @@ if (params.clr) {
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.clr_settings.itime
 
     input:
     file genes
@@ -78,6 +80,7 @@ if (params.aracne) {
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.aracne_settings.ptime
 
     input:
     file expr
@@ -103,6 +106,7 @@ if (params.aracne) {
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.aracne_settings.itime
 
     input:
     file genes
@@ -139,6 +143,7 @@ if (params.anova) {
     publishDir params.out + '/networks/anova'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.anova_settings.ptime
 
     input:
     file expr
@@ -163,6 +168,7 @@ if (params.anova) {
     publishDir params.out + '/networks/anova'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.anova_settings.itime
 
     input:
     file genes
@@ -199,6 +205,7 @@ if (params.pearson) {
     publishDir params.out + '/networks/pearson'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.pearson_settings.ptime
 
     input:
     file expr
@@ -223,6 +230,7 @@ if (params.pearson) {
     publishDir params.out + '/networks/pearson'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.pearson_settings.itime
 
     input:
     file genes
@@ -259,6 +267,7 @@ if (params.spearman) {
     publishDir params.out + '/networks/spearman'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.ptime
 
     input:
     file expr
@@ -283,6 +292,7 @@ if (params.spearman) {
     publishDir params.out + '/networks/spearman'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -319,6 +329,8 @@ if (params.elnet) {
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.elnet_settings.ptime
+
 
     input:
     file expr
@@ -350,6 +362,7 @@ if (params.elnet) {
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -386,6 +399,7 @@ if (params.svm) {
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.svm_settings.ptime
 
     input:
     file expr
@@ -415,6 +429,7 @@ if (params.svm) {
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -451,6 +466,7 @@ if (params.llr) {
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.llr_settings.ptime
 
     input:
     file expr
@@ -480,6 +496,7 @@ if (params.llr) {
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -516,6 +533,7 @@ if (params.pcor) {
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.pcor_settings.ptime
 
     input:
     file expr
@@ -539,6 +557,7 @@ if (params.pcor) {
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -575,6 +594,7 @@ if (params.narromi) {
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.narromi_settings.ptime
 
     input:
     file expr
@@ -601,6 +621,7 @@ if (params.narromi) {
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -637,6 +658,7 @@ if (params.tigress) {
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.tigress_settings.ptime
 
     input:
     file expr
@@ -664,6 +686,7 @@ if (params.tigress) {
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -700,6 +723,7 @@ if (params.genie3) {
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.genie3_settings.ptime
 
     input:
     file expr
@@ -730,6 +754,7 @@ if (params.genie3) {
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
 
     input:
     file genes
@@ -766,6 +791,7 @@ if (params.plsnet) {
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.plsnet_settings.ptime
 
     input:
     file expr
@@ -794,6 +820,7 @@ if (params.plsnet) {
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
     clusterOptions '-A ' + params.slurm_account
+    time params.spearman_settings.itime
     
     input:
     file genes
