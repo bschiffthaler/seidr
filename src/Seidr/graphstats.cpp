@@ -74,19 +74,23 @@ std::pair<double, double>
 diameter(const std::vector<std::vector<double>>& sps)
 {
   double max = -std::numeric_limits<double>::infinity();
-  double nn = boost::numeric_cast<double>(sps.size());
+  double np = 0;
   double sum = 0;
 
   for(const auto& node : sps)
   {
     for(const auto& pathlength : node)
     {
-      sum += pathlength;
-      if (pathlength > max) max = pathlength;
+      if (std::isfinite(pathlength))
+      {
+        if (pathlength > max) max = pathlength;
+        sum += pathlength;
+        np++;
+      }
     }
   }
 
-  return std::pair<double, double>(max, sum / nn);
+  return std::pair<double, double>(max, sum / np);
 }
 
 int graphstats(int argc, char ** argv)
