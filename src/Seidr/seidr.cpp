@@ -6,6 +6,7 @@
 #include <adjacency.h>
 #include <backbone.h>
 #include <index.h>
+#include <graphstats.h>
 #include <threshold.h>
 #include <roc.h>
 #include <convert.h>
@@ -39,6 +40,7 @@ std::string usage_msg =
   "seidr compare             \t Compare two networks for shared/unique\n"
   "                          \t edges.\n"
   "seidr convert             \t Interconvert various text based formats.\n"
+  "seidr graphstats          \t Calculate summary statistics of graph\n"
   "seidr import              \t Convert network text files to SeidrFiles.\n"
   "seidr index               \t Create index for SeidrFiles.\n"
   "seidr neighbours          \t Extract N neighbours of all nodes or a list\n"
@@ -104,6 +106,10 @@ int main(int argc, char* argv[])
     else if (task == "convert")
     {
       ret = convert(argc, argv);
+    }
+    else if (task == "graphstats")
+    {
+      ret = graphstats(argc, argv);
     }
     else if (task == "import")
     {
