@@ -29,7 +29,7 @@ std::pair<double, double> SFT(const NetworKit::Graph& g, uint64_t n_bins = 200)
 
   arma::vec deg_vec(nn, arma::fill::zeros);
 
-  for(uint64_t i = 0; i < nn; i++)
+  for (uint64_t i = 0; i < nn; i++)
   {
     deg_vec(i) = g.degree(i);
   }
@@ -38,7 +38,7 @@ std::pair<double, double> SFT(const NetworKit::Graph& g, uint64_t n_bins = 200)
   double avg_deg = deg_sum / nnd;
 
   arma::vec centers = arma::linspace<arma::vec>
-  (arma::min(deg_vec), arma::max(deg_vec), n_bins);
+                      (arma::min(deg_vec), arma::max(deg_vec), n_bins);
 
   arma::vec hist = arma::conv_to<arma::vec>::from(arma::hist(deg_vec, centers));
 
@@ -59,7 +59,7 @@ double avg_w_deg(const NetworKit::Graph& g)
 
   arma::vec deg_vec(nn, arma::fill::zeros);
 
-  for(uint64_t i = 0; i < nn; i++)
+  for (uint64_t i = 0; i < nn; i++)
   {
     deg_vec(i) = g.weightedDegree(i);
   }
@@ -70,20 +70,24 @@ double avg_w_deg(const NetworKit::Graph& g)
   return avg_deg;
 }
 
-std::pair<double, double> 
+std::pair<double, double>
 diameter(const std::vector<std::vector<double>>& sps)
 {
-  double max = -std::numeric_limits<double>::infinity();
+  double max = 0;
   double np = 0;
   double sum = 0;
 
-  for(const auto& node : sps)
+  for (const auto& node : sps)
   {
-    for(const auto& pathlength : node)
+    for (const auto& pathlength : node)
     {
-      if (std::isfinite(pathlength))
+      if (! almost_equal(pathlength, std::numeric_limits<double>::max()) &&
+          std::isfinite(pathlength))
       {
-        if (pathlength > max) max = pathlength;
+        if (pathlength > max)
+        {
+          max = pathlength;
+        }
         sum += pathlength;
         np++;
       }
@@ -96,7 +100,7 @@ diameter(const std::vector<std::vector<double>>& sps)
 int graphstats(int argc, char ** argv)
 {
   logger log(std::cerr, "graphstats");
-  
+
   std::string infile;
   uint32_t tpos;
 
@@ -167,6 +171,7 @@ int graphstats(int argc, char ** argv)
   std::cout << "Average degree:\t" << sft.first << '\n';
   std::cout << "Average weighted degree:\t" << avg_w_deg(g) << '\n';
 
+  log(LOG_INFO) << "Calculating network diameter\n";
   NetworKit::APSP apsp(g);
   apsp.run();
   auto all_dist = apsp.getDistances();
