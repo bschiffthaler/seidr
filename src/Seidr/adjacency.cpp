@@ -10,7 +10,7 @@
  * @section DESCRIPTION
  *
  * In order to perform some analyses with the aggregated network, it is
- * convenient to be able to transform it into a square adjacancy matrix.
+ * convenient to be able to transform it into a square adjacency matrix.
  * This is the purpose of this function. The output will be useable by
  * e.g.: WGCNA.
  */
@@ -20,6 +20,7 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <BSlogger.h>
+#include <adjacency.h>
 // External
 #include <cerrno>
 #include <vector>
@@ -29,17 +30,205 @@
 #include <tclap/CmdLine.h>
 #include <stdexcept>
 
+void make_full(const seidr_param_adjacency_t& param)
+{
+  SeidrFile sf(param.el_file.c_str());
+  sf.open("r");
+  SeidrFileHeader h;
+  h.unserialize(sf);
+  uint32_t si = param.tpos;
+  if (si == 0)
+    si = h.attr.nalgs - 1;
+  else
+    si -= 1;
+  std::shared_ptr<std::ostream> out;
+  if (param.out_file == "-")
+    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+  else
+    out = std::shared_ptr<std::ostream>
+          (new std::ofstream(param.out_file.c_str()));
+
+  (*out) << std::setprecision(param.prec);
+
+  arma::mat res(h.attr.nodes, h.attr.nodes);
+  res.fill(std::numeric_limits<double>::quiet_NaN());
+  if (h.attr.dense)
+  {
+    for (uint32_t i = 1; i < h.attr.nodes; i++)
+    {
+      for (uint32_t j = 0; j < i; j++)
+      {
+        SeidrFileEdge e;
+        e.unserialize(sf, h);
+        if (EDGE_EXISTS(e.attr.flag))
+        {
+          res(i, j) = e.scores[si].s;
+          res(j, i) = e.scores[si].s;
+        }
+      }
+    }
+  }
+  else
+  {
+    for (uint64_t i = 0; i < h.attr.edges; i++)
+    {
+      SeidrFileEdge e;
+      e.unserialize(sf, h);
+      res(e.index.i, e.index.j) = e.scores[si].s;
+      res(e.index.j, e.index.i) = e.scores[si].s;
+    }
+  }
+
+  for (uint32_t i = 0; i < res.n_rows; i++)
+  {
+    for (uint32_t j = 0; j < res.n_cols; j++)
+    {
+      if (std::isfinite(res(i, j)))
+        *out << res(i, j);
+      else
+        *out << param.fill;
+      *out << (j == res.n_cols - 1 ? '\n' : '\t');
+    }
+  }
+  sf.close();
+}
+
+void make_lower(const seidr_param_adjacency_t& param)
+{
+  SeidrFile sf(param.el_file.c_str());
+  sf.open("r");
+  SeidrFileHeader h;
+  h.unserialize(sf);
+  uint32_t si = param.tpos;
+  if (si == 0)
+    si = h.attr.nalgs - 1;
+  else
+    si -= 1;
+  std::shared_ptr<std::ostream> out;
+  if (param.out_file == "-")
+    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+  else
+    out = std::shared_ptr<std::ostream>
+          (new std::ofstream(param.out_file.c_str()));
+
+  (*out) << std::setprecision(param.prec);
+
+  if (h.attr.dense)
+  {
+    if (param.diag)
+    {
+      for (uint32_t i = 0; i < h.attr.nodes; i++)
+      {
+        for (uint32_t j = 0; j <= i; j++)
+        {
+          if (j == i)
+          {
+            (*out) << param.fill << '\n';
+          }
+          else
+          {
+            SeidrFileEdge e;
+            e.unserialize(sf, h);
+            if (EDGE_EXISTS(e.attr.flag))
+            {
+              (*out) << e.scores[si].s << '\t';
+            }
+            else
+            {
+              (*out) << param.fill << '\t';
+            }
+          }
+        }
+      }
+    }
+    else // no diagonal
+    {
+      for (uint32_t i = 1; i < h.attr.nodes; i++)
+      {
+        for (uint32_t j = 0; j < i; j++)
+        {
+          SeidrFileEdge e;
+          e.unserialize(sf, h);
+          if (EDGE_EXISTS(e.attr.flag))
+          {
+            (*out) << e.scores[si].s;
+          }
+          else
+          {
+            (*out) << param.fill;
+          }
+          *out << (j == i - 1 ? '\n' : '\t');
+        }
+      }
+    }
+  }
+  else //sparse
+  {
+    if (param.diag)
+    {
+      SeidrFileEdge e;
+      e.unserialize(sf, h);
+      uint64_t ctr = 1;
+      for (uint32_t i = 0; i < h.attr.nodes; i++)
+      {
+        for (uint32_t j = 0; j <= i; j++)
+        {
+          if (j == i)
+          {
+            (*out) << param.fill << '\n';
+          }
+          else
+          {
+            if (e.index.i == i && e.index.j == j)
+            {
+              (*out) << e.scores[si].s << '\t';
+              if (ctr < h.attr.edges)
+              {
+                e.unserialize(sf, h);
+              }
+            }
+            else
+            {
+              (*out) << param.fill << '\t';
+            }
+          }
+        }
+      }
+    }
+    else // no diagonal
+    {
+      SeidrFileEdge e;
+      e.unserialize(sf, h);
+      uint64_t ctr = 1;
+      for (uint32_t i = 1; i < h.attr.nodes; i++)
+      {
+        for (uint32_t j = 0; j < i; j++)
+        {
+          if (e.index.i == i && e.index.j == j)
+          {
+            (*out) << e.scores[si].s;
+            if (ctr < h.attr.edges)
+            {
+              e.unserialize(sf, h);
+            }
+          }
+          else
+          {
+            (*out) << param.fill;
+          }
+          *out << (j == i - 1 ? '\n' : '\t');
+        }
+      }
+    }
+  }
+}
+
 int adjacency(int argc, char * argv[]) {
 
   LOG_INIT_CERR();
 
   // Variables used by the function
-  std::string el_file;
-  std::string out_file;
-  std::vector<std::string> genes;
-  bool force = false;
-  uint32_t tpos;
-  uint16_t prec;
+  seidr_param_adjacency_t param;
 
   // We ignore the first argument
   const char * args[argc - 1];
@@ -60,6 +249,16 @@ int adjacency(int argc, char * argv[]) {
                 "adjacency.txt", "adjacency.txt");
     cmd.add(arg_outfile);
 
+    TCLAP::ValueArg<std::string>
+    arg_outfmt("F", "outfmt", "Output format", false,
+               "m", "m");
+    cmd.add(arg_outfmt);
+
+    TCLAP::ValueArg<std::string>
+    arg_fill("m", "missing", "Filler character for missing nodes", false,
+             "0", "0");
+    cmd.add(arg_fill);
+
     TCLAP::ValueArg<uint32_t>
     arg_tindex("i", "index", "Output scores from this index", false,
                0, "last column");
@@ -74,6 +273,10 @@ int adjacency(int argc, char * argv[]) {
     switch_force("f", "force", "Force overwrite if output already exists", cmd,
                  false);
 
+    TCLAP::SwitchArg
+    switch_diag("D", "diagonal", "Print diagonal in triangular output", cmd,
+                false);
+
     TCLAP::UnlabeledValueArg<std::string>
     arg_infile("infile", "Input file (aggregated gene counts)", true,
                "", "");
@@ -82,11 +285,14 @@ int adjacency(int argc, char * argv[]) {
 
     // Parse arguments
     cmd.parse(argc, args);
-    el_file = arg_infile.getValue();
-    out_file = arg_outfile.getValue();
-    tpos = arg_tindex.getValue();
-    prec = arg_prec.getValue();
-    force = switch_force.getValue();
+    param.el_file = arg_infile.getValue();
+    param.out_file = arg_outfile.getValue();
+    param.tpos = arg_tindex.getValue();
+    param.prec = arg_prec.getValue();
+    param.force = switch_force.getValue();
+    param.outfmt = arg_outfmt.getValue();
+    param.fill = arg_fill.getValue();
+    param.diag = switch_diag.getValue();
   }
   catch (TCLAP::ArgException& except)
   {
@@ -96,12 +302,15 @@ int adjacency(int argc, char * argv[]) {
 
   try
   {
-    file_can_read(el_file.c_str());
+    file_can_read(param.el_file.c_str());
 
-    if (file_exists(out_file) && ! force)
-      throw std::runtime_error("File exists: " + out_file);
+    if (param.out_file != "-")
+    {
+      if (file_exists(param.out_file) && ! param.force)
+        throw std::runtime_error("File exists: " + param.out_file);
 
-    file_can_create(out_file.c_str());
+      file_can_create(param.out_file.c_str());
+    }
   }
   catch (std::runtime_error& except)
   {
@@ -109,60 +318,14 @@ int adjacency(int argc, char * argv[]) {
     return errno;
   }
 
-  SeidrFile inf(el_file.c_str());
-  inf.open("r");
-
-  SeidrFileHeader h;
-  h.unserialize(inf);
-
-  arma::mat res(h.attr.nodes, h.attr.nodes);
-  res.fill(0);
-
-  if (tpos == 0)
-    tpos = h.attr.nalgs - 1;
-  else
-    tpos--;
-
-  if (h.attr.dense)
+  if (param.outfmt == "m")
   {
-    for (uint32_t i = 1; i < h.attr.nodes; i++)
-    {
-      for (uint32_t j = 0; j < i; j++)
-      {
-        SeidrFileEdge e;
-        e.unserialize(inf, h);
-        if (EDGE_EXISTS(e.attr.flag))
-        {
-          res(i, j) = e.scores[tpos].s;
-          res(j, i) = e.scores[tpos].s;
-        }
-      }
-    }
+    make_full(param);
   }
-  else
+  else if (param.outfmt == "lm")
   {
-    for (uint64_t i = 0; i < h.attr.edges; i++)
-    {
-      SeidrFileEdge e;
-      e.unserialize(inf, h);
-      res(e.index.i, e.index.j) = e.scores[tpos].s;
-      res(e.index.j, e.index.i) = e.scores[tpos].s;
-    }
-  }
-
-  std::ofstream ofs(out_file.c_str(), std::ios::out);
-  ofs.precision(prec);
-  ofs.setf( std::ios::fixed, std:: ios::floatfield );
-
-  for (uint32_t i = 0; i < res.n_rows; i++)
-  {
-    for (uint32_t j = 0; j < res.n_cols; j++)
-    {
-      ofs << res(i, j);
-      ofs << (j == res.n_cols - 1 ? '\n' : '\t');
-    }
+    make_lower(param);
   }
 
   return 0;
-
 }
