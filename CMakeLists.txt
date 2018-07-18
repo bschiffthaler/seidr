@@ -22,11 +22,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION} ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION} -std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRORS")
 
-# Still output warnings even in release builds
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+# Default flags
+if (CMAKE_OFAST)
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast")
+else()
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+endif()
+
 # Make sure FORTRAN has the same width in relevant datatypes to interface with 
 # C++
-set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form -O3")
+set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
 
 # Make sure we can use ASAN and undefined sanitizers in debug builds
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
@@ -37,6 +44,7 @@ endif()
 # Enable Processor tuning in command line
 if(CMAKE_BUILD_NATIVE)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
+  set(CMAKE_FORTRAN_FLAGS_RELEASE "${CMAKE_FORTRAN_FLAGS_RELEASE} -march=native")
 endif()
 
 # Enable building seidr with float as a default floating point datatype 
