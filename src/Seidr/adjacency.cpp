@@ -185,6 +185,7 @@ void make_lower(const seidr_param_adjacency_t& param)
               if (ctr < h.attr.edges)
               {
                 e.unserialize(sf, h);
+                ctr++;
               }
             }
             else
@@ -210,6 +211,7 @@ void make_lower(const seidr_param_adjacency_t& param)
             if (ctr < h.attr.edges)
             {
               e.unserialize(sf, h);
+              ctr++;
             }
           }
           else
