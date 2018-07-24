@@ -27,8 +27,11 @@
 #include <string>
 #include <fstream>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <stdexcept>
+#include <boost/program_options.hpp>
+#include <iomanip>
+
+namespace po = boost::program_options;
 
 void make_full(const seidr_param_adjacency_t& param)
 {
@@ -240,84 +243,66 @@ int adjacency(int argc, char * argv[]) {
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
-  try
+  po::options_description umbrella;
+
+  po::options_description opt("Options");
+  opt.add_options()
+  ("diagonal,D", po::bool_switch(&param.diag)->default_value(false),
+   "Print matrix diagonal for triangular output format")
+  ("fmt,F", po::value<std::string>(&param.outfmt)->default_value("m"),
+   "Output format ['m','lm']")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("index,i", po::value<uint32_t>(&param.tpos)->default_value(0),
+   "Score index to use")
+  ("missing,m", po::value<std::string>(&param.fill)->default_value("0"),
+   "Fill character for missing edges")
+  ("precision,p", po::value<uint16_t>(&param.prec)->default_value(8),
+   "Number of significant digits to report")
+  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
+   "Output file name");
+
+  po::options_description req("Required");
+  req.add_options()
+  ("in-file", po::value<std::string>(&param.el_file)->required(),
+   "Input SeidrFile");
+
+  umbrella.add(opt).add(req);
+
+  po::positional_options_description p;
+  p.add("in-file", -1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help"))
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Convert an aggregated network to an adjacency matrix.",
-                       ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_outfile("o", "outfile", "Output file name", false,
-                "adjacency.txt", "adjacency.txt");
-    cmd.add(arg_outfile);
-
-    TCLAP::ValueArg<std::string>
-    arg_outfmt("F", "outfmt", "Output format", false,
-               "m", "m");
-    cmd.add(arg_outfmt);
-
-    TCLAP::ValueArg<std::string>
-    arg_fill("m", "missing", "Filler character for missing nodes", false,
-             "0", "0");
-    cmd.add(arg_fill);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_tindex("i", "index", "Output scores from this index", false,
-               0, "last column");
-    cmd.add(arg_tindex);
-
-    TCLAP::ValueArg<uint16_t>
-    arg_prec("p", "precision", "Number of significant digits to report", false,
-             8, "8");
-    cmd.add(arg_prec);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    TCLAP::SwitchArg
-    switch_diag("D", "diagonal", "Print diagonal in triangular output", cmd,
-                false);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_infile("infile", "Input file (aggregated gene counts)", true,
-               "", "");
-
-    cmd.add(arg_infile);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    param.el_file = arg_infile.getValue();
-    param.out_file = arg_outfile.getValue();
-    param.tpos = arg_tindex.getValue();
-    param.prec = arg_prec.getValue();
-    param.force = switch_force.getValue();
-    param.outfmt = arg_outfmt.getValue();
-    param.fill = arg_fill.getValue();
-    param.diag = switch_diag.getValue();
-  }
-  catch (TCLAP::ArgException& except)
-  {
-    std::cerr << "[Parser error]: " << except.what() << std::endl;
+    std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
+  po::notify(vm);
+
   try
   {
-    file_can_read(param.el_file.c_str());
+    if (! file_can_read(param.el_file.c_str()))
+      throw std::runtime_error("Cannot read input file: " + param.el_file);
 
     if (param.out_file != "-")
     {
-      if (file_exists(param.out_file) && ! param.force)
+      if (file_exists(param.out_file) && (! param.force))
         throw std::runtime_error("File exists: " + param.out_file);
 
-      file_can_create(param.out_file.c_str());
+      if (! file_can_create(param.out_file.c_str()))
+        throw std::runtime_error("Cannot create file: " + param.out_file);
     }
   }
   catch (std::runtime_error& except)
   {
-    log(LOG_ERR) << "[Runtime error]: " << except.what() << '\n';
-    return errno;
+    log(LOG_ERR) << except.what() << '\n';
+    return 1;
   }
 
   if (param.outfmt == "m")
