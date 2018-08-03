@@ -329,12 +329,20 @@ void get_tau_cs(const seidr_param_tau_t& param)
   	if (b_to_a.find(node) == b_to_a.end())
     	node_union[node] = 0;
   }
-  // Add orthologs only one way
+  // Add orthologs 
   for (auto& ortho_source : a_to_b)
   {
   	for (auto& ortho_target : ortho_source.second)
   	{
   		node_union[ ortho_source.first + "," + ortho_target ] = 0;
+  	}
+  }
+  // Add orthologs from second net inversing the order of IDs
+  for (auto& ortho_source : b_to_a)
+  {
+  	for (auto& ortho_target : ortho_source.second)
+  	{
+  		node_union[ ortho_target + "," + ortho_source.first ] = 0;
   	}
   }
 
