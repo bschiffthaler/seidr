@@ -79,7 +79,7 @@ src/Seidr/threshold.cpp src/Seidr/roc.cpp  src/Seidr/convert.cpp
 src/Seidr/compare_clusters.cpp src/Seidr/Serialize.cpp
 src/Seidr/stats.cpp src/Seidr/index.cpp src/Seidr/neighbours.cpp
 src/Seidr/test.cpp src/Seidr/compare.cpp src/Seidr/resolve.cpp
-src/Seidr/reheader.cpp src/Seidr/top.cpp)
+src/Seidr/reheader.cpp src/Seidr/top.cpp src/Seidr/tau.cpp)
 ## Tigress
 add_executable(tigress src/Tigress/tiglm.cpp src/Tigress/tigress.cpp 
   src/Tigress/glmnet2.cpp)
