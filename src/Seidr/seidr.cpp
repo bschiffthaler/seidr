@@ -4,6 +4,7 @@
 #include <viewRanks.h>
 #include <aggregate.h>
 #include <adjacency.h>
+#include <asp.h>
 #include <backbone.h>
 #include <index.h>
 #include <graphstats.h>
@@ -90,6 +91,10 @@ int main(int argc, char* argv[])
     else if (task == "aggregate")
     {
       ret = aggregate(argc, argv);
+    }
+    else if (task == "asp")
+    {
+      ret = asp(argc, argv);
     }
     else if (task == "backbone")
     {
