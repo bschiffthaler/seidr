@@ -17,6 +17,7 @@
 #include <resolve.h>
 #include <reheader.h>
 #include <stats.h>
+#include <tau.h>
 #include <BSlogger.h>
 #include <neighbours.h>
 #include <test.h>
@@ -143,6 +144,10 @@ int main(int argc, char* argv[])
     else if (task == "stats")
     {
       ret = stats(argc, argv);
+    }
+    else if (task == "tau")
+    {
+      ret = tau(argc, argv);
     }
     else if (task == "threshold")
     {
