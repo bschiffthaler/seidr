@@ -171,7 +171,7 @@ int stats(int argc, char ** argv)
   log(LOG_INFO) << "Calculating connected components\n";
   NetworKit::ConnectedComponents ccn(g);
   ccn.run();
-  uint64_t comp = ccn.numberOfComponents();;
+  uint64_t comp = ccn.numberOfComponents();
 
   log(LOG_INFO) << "Have " << comp << " components\n";
 

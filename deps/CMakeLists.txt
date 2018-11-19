@@ -27,6 +27,7 @@ add_library(networkit
   ../external/networkit/networkit/cpp/centrality/SpanningEdgeCentrality.cpp
   ../external/networkit/networkit/cpp/components/ConnectedComponents.cpp
   ../external/networkit/networkit/cpp/components/ParallelConnectedComponents.cpp
+  ../external/networkit/networkit/cpp/distance/Diameter.cpp
   ../external/networkit/networkit/cpp/global/ClusteringCoefficient.cpp
   ../external/networkit/networkit/cpp/graph/Graph.cpp
   ../external/networkit/networkit/cpp/graph/GraphBuilder.cpp
@@ -42,6 +43,7 @@ add_library(networkit
   ../external/networkit/networkit/cpp/distance/BFS.cpp
   ../external/networkit/networkit/cpp/distance/Dijkstra.cpp
   ../external/networkit/networkit/cpp/distance/SSSP.cpp
+  ../external/networkit/networkit/cpp/distance/APSP.cpp
   ../external/networkit/networkit/cpp/coarsening/GraphCoarsening.cpp
   ../external/networkit/networkit/cpp/structures/Partition.cpp
   )

@@ -95,14 +95,14 @@ thresh_t check_one(std::vector<MiniEdge>& ev, double thresh, uint64_t& stop,
   log(LOG_DEBUG) << "Processing threshold " << thresh << '\n';
   if (rank)
   {
-    while (ev[stop].s < thresh)
+    while (stop < ev.size() && ev[stop].s < thresh)
     {
       stop++;
     }
   }
   else
   {
-    while (ev[stop].s > thresh)
+    while (stop < ev.size() && ev[stop].s > thresh)
     {
       stop++;
     }
@@ -340,11 +340,9 @@ int threshold(int argc, char ** argv)
       final = t;
   }
 
-
   log(LOG_INFO) << "Suggested threshold: " << final.data["t"] << "("
                 << final.data["nnr"] << ',' << final.data["sfr"] << ',' << final.data["ccr"]
                 << ")" << '\n';
-
 
   rf.close();
 

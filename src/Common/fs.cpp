@@ -145,3 +145,11 @@ void remove(std::string fname, bool recursive)
   else
     fs::remove(fname);
 } 
+
+std::string replace_ext(std::string fname, std::string new_ext)
+{
+  fs::path p(fname);
+  p.replace_extension(new_ext);
+  return p.string();
+}
+

@@ -22,11 +22,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION} ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION} -std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRORS")
 
-# Still output warnings even in release builds
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+# Default flags
+if (CMAKE_OFAST)
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast")
+else()
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+endif()
+
 # Make sure FORTRAN has the same width in relevant datatypes to interface with 
 # C++
-set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form -O3")
+set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
 
 # Make sure we can use ASAN and undefined sanitizers in debug builds
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
@@ -37,6 +44,7 @@ endif()
 # Enable Processor tuning in command line
 if(CMAKE_BUILD_NATIVE)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
+  set(CMAKE_FORTRAN_FLAGS_RELEASE "${CMAKE_FORTRAN_FLAGS_RELEASE} -march=native")
 endif()
 
 # Enable building seidr with float as a default floating point datatype 
@@ -65,13 +73,13 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/deps/include)
 # Build executables:
 ## Seidr
 add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/backbone.cpp 
-src/Seidr/seidr.cpp 
+src/Seidr/seidr.cpp src/Seidr/graphstats.cpp 
 src/Seidr/viewRanks.cpp src/Seidr/import.cpp src/Seidr/aggregate.cpp
 src/Seidr/threshold.cpp src/Seidr/roc.cpp  src/Seidr/convert.cpp 
 src/Seidr/compare_clusters.cpp src/Seidr/Serialize.cpp
 src/Seidr/stats.cpp src/Seidr/index.cpp src/Seidr/neighbours.cpp
 src/Seidr/test.cpp src/Seidr/compare.cpp src/Seidr/resolve.cpp
-src/Seidr/reheader.cpp)
+src/Seidr/reheader.cpp src/Seidr/top.cpp src/Seidr/tau.cpp src/Seidr/asp.cpp)
 ## Tigress
 add_executable(tigress src/Tigress/tiglm.cpp src/Tigress/tigress.cpp 
   src/Tigress/glmnet2.cpp)
@@ -157,20 +165,20 @@ target_link_libraries(narromi ${BLAS_LIBRARIES})
 target_link_libraries(llr-ensemble ${BLAS_LIBRARIES})
 
 # Boost
-find_package( Boost COMPONENTS system filesystem REQUIRED )
+find_package( Boost COMPONENTS system filesystem program_options REQUIRED )
 include_directories( ${BOOST_INCLUDE_DIR} )
-target_link_libraries( seidr ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
-target_link_libraries( tigress  ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
-target_link_libraries( svm-ensemble  ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
-target_link_libraries( llr-ensemble  ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
-target_link_libraries( el-ensemble  ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
-target_link_libraries( narromi ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( correlation ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( anoverence ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( mi ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( plsnet ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( pcor ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
-target_link_libraries( genie3 ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY})
+target_link_libraries( seidr ${Boost_LIBRARIES})
+target_link_libraries( tigress ${Boost_LIBRARIES})
+target_link_libraries( svm-ensemble ${Boost_LIBRARIES})
+target_link_libraries( llr-ensemble ${Boost_LIBRARIES})
+target_link_libraries( el-ensemble ${Boost_LIBRARIES})
+target_link_libraries( narromi ${Boost_LIBRARIES})
+target_link_libraries( correlation ${Boost_LIBRARIES})
+target_link_libraries( anoverence ${Boost_LIBRARIES})
+target_link_libraries( mi ${Boost_LIBRARIES})
+target_link_libraries( plsnet ${Boost_LIBRARIES})
+target_link_libraries( pcor ${Boost_LIBRARIES})
+target_link_libraries( genie3 ${Boost_LIBRARIES})
 
 # OpenMPI
 find_package(MPI REQUIRED)

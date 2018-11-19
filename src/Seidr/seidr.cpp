@@ -4,8 +4,10 @@
 #include <viewRanks.h>
 #include <aggregate.h>
 #include <adjacency.h>
+#include <asp.h>
 #include <backbone.h>
 #include <index.h>
+#include <graphstats.h>
 #include <threshold.h>
 #include <roc.h>
 #include <convert.h>
@@ -15,9 +17,11 @@
 #include <resolve.h>
 #include <reheader.h>
 #include <stats.h>
+#include <tau.h>
 #include <BSlogger.h>
 #include <neighbours.h>
 #include <test.h>
+#include <top.h>
 // External
 #include <string>
 #include <vector>
@@ -38,6 +42,7 @@ std::string usage_msg =
   "seidr compare             \t Compare two networks for shared/unique\n"
   "                          \t edges.\n"
   "seidr convert             \t Interconvert various text based formats.\n"
+  "seidr graphstats          \t Calculate summary statistics of graph\n"
   "seidr import              \t Convert network text files to SeidrFiles.\n"
   "seidr index               \t Create index for SeidrFiles.\n"
   "seidr neighbours          \t Extract N neighbours of all nodes or a list\n"
@@ -88,6 +93,10 @@ int main(int argc, char* argv[])
     {
       ret = aggregate(argc, argv);
     }
+    else if (task == "asp")
+    {
+      ret = asp(argc, argv);
+    }
     else if (task == "backbone")
     {
       ret = backbone(argc, argv);
@@ -103,6 +112,10 @@ int main(int argc, char* argv[])
     else if (task == "convert")
     {
       ret = convert(argc, argv);
+    }
+    else if (task == "graphstats")
+    {
+      ret = graphstats(argc, argv);
     }
     else if (task == "import")
     {
@@ -132,18 +145,22 @@ int main(int argc, char* argv[])
     {
       ret = stats(argc, argv);
     }
+    else if (task == "tau")
+    {
+      ret = tau(argc, argv);
+    }
     else if (task == "threshold")
     {
       ret = threshold(argc, argv);
+    }
+    else if (task == "top")
+    {
+      ret = top(argc, argv);
     }
     else if (task == "view")
     {
       ret = view(argc, argv);
     }    
-//  else if (task == "backbone")
-//  {
-//    backbone(argc, argv);
-//  }
     else if (task == "test")
     {
       ret = test(argc, argv);

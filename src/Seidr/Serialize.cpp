@@ -370,6 +370,39 @@ void SeidrFileHeader::cmd_from_args(char ** argv, int argc)
   strncpy(attr.cmd, c, HEADER_CMD_SIZE);
 }
 
+uint16_t SeidrFileHeader::get_supp_ind(std::string supp_n)
+{
+  if (attr.nsupp == 0)
+    throw std::runtime_error("No supplementary data.");
+  
+  auto index_it = std::find(supp.begin(), supp.end(), supp_n);
+  
+  if (index_it == supp.end())
+    throw std::runtime_error("Supplementary data: " + supp_n + " not found.");
+  
+  uint16_t offset = std::distance(supp.begin(), index_it);
+
+  if (offset < attr.nsupp_str)
+    return offset;
+  else if (offset < (attr.nsupp_int + attr.nsupp_str))
+    return offset - attr.nsupp_str;
+  else
+    return offset - attr.nsupp_str - attr.nsupp_int;
+}
+
+bool SeidrFileHeader::have_supp(std::string supp_n)
+{
+  if (attr.nsupp == 0)
+    return false;
+  
+  auto index_it = std::find(supp.begin(), supp.end(), supp_n);
+  
+  if (index_it == supp.end())
+    return false;
+  else
+    return true;
+}
+
 void SeidrFileEdge::serialize(SeidrFile& file, SeidrFileHeader& header)
 {
   ssize_t n = 0;

@@ -29,9 +29,9 @@ int reheader(int argc, char ** argv)
                        "Currently only drops disconnected nodes and resets\n"
                        "stats.", ' ', version);
 
-    TCLAP::UnlabeledValueArg<std::string> 
+    TCLAP::UnlabeledValueArg<std::string>
     arg_infile("in-file", "Input file", true,
-        "", "string");
+               "", "string");
 
     cmd.add(arg_infile);
 
@@ -45,30 +45,32 @@ int reheader(int argc, char ** argv)
     return 1;
   }
 
-  std::map<uint32_t, uint32_t> reindex;
-  std::set<std::string> subnodes;
-  std::vector<std::string> newnodes;
-
   std::string tempfile = infile + ".tmp";
-
   SeidrFile rf(infile.c_str());
   rf.open("r");
 
-  rf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h){
-    reindex[e.index.i] = 0;
-    reindex[e.index.j] = 0;
-    subnodes.insert(h.nodes[e.index.i]);
-    subnodes.insert(h.nodes[e.index.j]);
+  // Fill map with old index data
+  std::map<uint32_t, std::string> old_index;
+  rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+    auto hit = old_index.find(e.index.i);
+    if (hit == old_index.end())
+      old_index[e.index.i] = h.nodes[e.index.i];
+    hit = old_index.find(e.index.j);
+    if (hit == old_index.end())
+      old_index[e.index.j] = h.nodes[e.index.j];
   });
 
-  uint32_t ctr = 0;
-  for(auto& i : reindex)
-    i.second = ctr++;
-
-  for(auto& i : subnodes)
-    newnodes.push_back(i);
-
   rf.close();
+
+  // Create new vector of nodes for the header
+  std::vector<std::string> new_nodes;
+  for (auto& e : old_index)
+    new_nodes.push_back(e.second);
+
+  // Fill a map with new index data
+  std::map<std::string, uint32_t> new_index;
+  for (uint32_t i = 0; i < new_nodes.size(); i++)
+    new_index[ new_nodes[i] ] = i;
 
   SeidrFile of(tempfile.c_str());
   of.open("w");
@@ -79,15 +81,17 @@ int reheader(int argc, char ** argv)
   SeidrFileHeader h;
   h.unserialize(inf);
 
+  auto old_nodes = h.nodes;
+
   // Fix nodes
-  h.attr.nodes = newnodes.size();
-  h.nodes = newnodes;
+  h.attr.nodes = new_nodes.size();
+  h.nodes = new_nodes;
   h.serialize(of);
 
   inf.seek(0);
-  inf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h2){
-    e.index.i = reindex[e.index.i];
-    e.index.j = reindex[e.index.j];
+  inf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h2) {
+    e.index.i = new_index[ old_index.at(e.index.i) ];
+    e.index.j = new_index[ old_index.at(e.index.j) ];
     e.serialize(of, h); // Use NEW header
   });
 
