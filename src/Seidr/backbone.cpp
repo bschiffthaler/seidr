@@ -60,7 +60,8 @@ int backbone(int argc, char * argv[])
     cmd.add(arg_tpos);
 
     TCLAP::ValueArg<double>
-    arg_filter("f", "filter", "Subset network to edges with at least this SD.",
+    arg_filter("f", "filter", "Subset network to edges with at least this SD. "
+               "1.28, 1.64, and 2.32 correspond to ~P0.01, 0.05 and 0.1.",
                false, -1, "no filter");
     cmd.add(arg_filter);
 
