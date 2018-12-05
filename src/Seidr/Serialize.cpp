@@ -374,12 +374,12 @@ uint16_t SeidrFileHeader::get_supp_ind(std::string supp_n)
 {
   if (attr.nsupp == 0)
     throw std::runtime_error("No supplementary data.");
-  
+
   auto index_it = std::find(supp.begin(), supp.end(), supp_n);
-  
+
   if (index_it == supp.end())
     throw std::runtime_error("Supplementary data: " + supp_n + " not found.");
-  
+
   uint16_t offset = std::distance(supp.begin(), index_it);
 
   if (offset < attr.nsupp_str)
@@ -394,9 +394,9 @@ bool SeidrFileHeader::have_supp(std::string supp_n)
 {
   if (attr.nsupp == 0)
     return false;
-  
+
   auto index_it = std::find(supp.begin(), supp.end(), supp_n);
-  
+
   if (index_it == supp.end())
     return false;
   else
@@ -997,6 +997,44 @@ void SeidrFile::each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> 
       SeidrFileEdge e;
       e.unserialize((*this), h);
       f(e, h);
+    }
+  }
+}
+
+void SeidrFile::each_edge_exit_early(std::function<bool(SeidrFileEdge&, SeidrFileHeader&)> f)
+{
+  SeidrFileHeader h;
+  h.unserialize((*this));
+  if (h.attr.dense)
+  {
+    for (uint64_t i = 1; i < h.attr.nodes; i++)
+    {
+      for (uint64_t j = 0; j < i; j++)
+      {
+        SeidrFileEdge e;
+        e.unserialize((*this), h);
+        e.index.i = i;
+        e.index.j = j;
+        if (EDGE_EXISTS(e.attr.flag))
+        {
+          if (f(e, h))
+          {
+            return;
+          }
+        }
+      }
+    }
+  }
+  else
+  {
+    for (uint64_t i = 0; i < h.attr.edges; i++)
+    {
+      SeidrFileEdge e;
+      e.unserialize((*this), h);
+      if (f(e, h))
+      {
+        return;
+      }
     }
   }
 }

@@ -151,6 +151,7 @@ public:
   uint8_t _closed;
   uint8_t _opened;
   void each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f);
+  void each_edge_exit_early(std::function<bool(SeidrFileEdge&, SeidrFileHeader&)> f);
 };
 
 class SeidrFileHeader {

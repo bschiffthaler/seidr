@@ -20,6 +20,7 @@
 #include <tau.h>
 #include <BSlogger.h>
 #include <neighbours.h>
+#include <sample.h>
 #include <test.h>
 #include <top.h>
 // External
@@ -141,6 +142,10 @@ int main(int argc, char* argv[])
     {
       ret = roc(argc, argv);
     } 
+    else if (task == "sample")
+    {
+      ret = random(argc, argv);
+    }
     else if (task == "stats")
     {
       ret = stats(argc, argv);

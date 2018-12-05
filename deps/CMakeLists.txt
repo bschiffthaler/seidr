@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.9.4)
-project(libnetworkit)
+project(deps)
 
 if(CMAKE_BUILD_NATIVE)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 endif()
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Build Networkit as library 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
@@ -57,5 +59,12 @@ add_library(ranger ../external/ranger/src/Data.cpp ../external/ranger/src/DataDo
   ../external/ranger/src/Forest.cpp ../external/ranger/src/ForestRegression.cpp 
   ../external/ranger/src/Tree.cpp ../external/ranger/src/TreeRegression.cpp 
   ../external/ranger/src/utility.cpp)
+
+# Build libbs
+file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/libbs)
+file(GLOB BS_HEADERS "../external/libbs/src/*.h")
+file(COPY ${BS_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include)
+add_library(bs ../external/libbs/src/vitter_a.cpp ../external/libbs/src/vitter_d.cpp
+  ../external/libbs/src/aux.cpp) 
 
 
