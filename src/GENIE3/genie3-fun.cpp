@@ -68,11 +68,11 @@ void seidr_mpi_genie3::finalize()
 
 class SeidrForestData : public ranger::DataDouble {
 public:
-  SeidrForestData(arma::mat& gm, std::vector<std::string>& genes);
+  SeidrForestData();
+  void load(arma::mat& gm, std::vector<std::string>& genes);
 };
 
-SeidrForestData::SeidrForestData(arma::mat& gm,
-                                 std::vector<std::string>& genes)
+void SeidrForestData::load(arma::mat& gm, std::vector<std::string>& genes)
 {
   num_rows = gm.n_rows;
   externalData = false;
@@ -88,14 +88,16 @@ SeidrForestData::SeidrForestData(arma::mat& gm,
 
 class SeidrForest : public ranger::ForestRegression {
 public:
-  SeidrForest(std::string dependent_variable_name, ranger::Data* input_data,
+  SeidrForest(std::string dependent_variable_name,
+              arma::mat& gm, std::vector<std::string>& genes,
               size_t ntree, size_t mtry,
               size_t min_node_size, double alpha, double minprop,
               std::ostream& ostream);
 };
 
 SeidrForest::SeidrForest(std::string dependent_variable_name,
-                         ranger::Data* input_data, size_t ntree, size_t mtry,
+                         arma::mat& gm, std::vector<std::string>& genes, 
+                         size_t ntree, size_t mtry,
                          size_t min_node_size, double alpha, double minprop,
                          std::ostream& ostream) {
   std::vector<std::string> catvars;
@@ -106,7 +108,14 @@ SeidrForest::SeidrForest(std::string dependent_variable_name,
 
   std::vector<double> sample_fraction_vector = { 1 };
 
-  init(dependent_variable_name, M, input_data, mtry,
+  std::vector<double> internal_data;
+  for (size_t i = 0; i < gm.n_cols; i++)
+    for (size_t j = 0; j < gm.n_rows; j++)
+      internal_data.push_back(gm(j, i));
+
+  init(dependent_variable_name, M, 
+       std::unique_ptr<ranger::Data>(new ranger::DataDouble(internal_data, genes, gm.n_rows, gm.n_cols)), 
+       mtry,
        //output_prefix, num_tree, seed, threads, importance mode
        "ranger_out_s", ntree, 314159265, 1, I,
        //min node size (0=auto), status variable, prediction mode,
@@ -117,7 +126,7 @@ SeidrForest::SeidrForest(std::string dependent_variable_name,
        //predict all, sample fraction, alpha, min prop, holdout
        false, sample_fraction_vector, alpha, minprop, false,
        //prediciton mode (1=response), number of random splits
-       P, 1, false);
+       P, 1, false, 0);
   // Catch random log messages in a string sink
   verbose_out = &ostream;
 }
@@ -141,13 +150,13 @@ void genie3(arma::mat gm, std::vector<std::string> genes,
 
     log << "Gene: " << pred[i] << '\n';
     log.send(LOG_INFO);
-    ranger::Data* data = new ranger::DataDouble(gm.memptr(), genes, gm.n_rows,
-        gm.n_cols);
+    
+
     //Forest* forest = new ForestRegression;
     //forest->verbose_out=&std::cout;
     std::vector<std::string> catvars;
     std::ostream nullstream(0);
-    SeidrForest forest(genes[pred[i]], data, ntree, mtry, min_node_size,
+    SeidrForest forest(genes[pred[i]], gm, genes, ntree, mtry, min_node_size,
                        alpha, minprop, nullstream);
 
     // forest->init(genes[pred[i]], MEM_DOUBLE, data, mtry, "ranger_out_s",
@@ -155,7 +164,7 @@ void genie3(arma::mat gm, std::vector<std::string> genes,
     //              true, catvars, false, LOGRANK, false, 1, alpha, minprop,
     //              false, RESPONSE, 1);
 
-    forest.run(false);
+    forest.run(false, false);
     std::vector<double> varimp = forest.getVariableImportance();
     ofs << pred[i] << '\n';
 
@@ -188,8 +197,8 @@ void genie3(arma::mat gm, std::vector<std::string> genes,
             << (k == varimp.size() - 1 ? '\n' : '\t');
       }
     }
-    //delete forest;
-    delete data;
+    // delete forest;
+    // delete data;
   }
 
 }
