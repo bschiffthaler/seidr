@@ -28,6 +28,7 @@ add_library(networkit
   ../external/networkit/networkit/cpp/centrality/PageRank.cpp
   ../external/networkit/networkit/cpp/centrality/SpanningEdgeCentrality.cpp
   ../external/networkit/networkit/cpp/components/ConnectedComponents.cpp
+  ../external/networkit/networkit/cpp/components/StronglyConnectedComponents.cpp
   ../external/networkit/networkit/cpp/components/ParallelConnectedComponents.cpp
   ../external/networkit/networkit/cpp/distance/Diameter.cpp
   ../external/networkit/networkit/cpp/global/ClusteringCoefficient.cpp
