@@ -11,7 +11,8 @@ jobs:
           name: Out of src build
           command: mkdir build 
       - run:
-          name: Getting ready    
+          name: Getting ready
+          command: cd build 
       - run:
           name: Cmake config
           command: cmake ..
