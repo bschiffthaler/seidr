@@ -11,11 +11,10 @@ jobs:
           name: Out of src build
           command: mkdir build 
       - run:
-          name: Getting ready
-          command: cd build 
-      - run:
           name: Cmake config
           command: cmake ..
+          working_directory: build
       - run:
           name: Make
           command: make    
+          working_directory: build
