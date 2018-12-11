@@ -18,3 +18,19 @@ jobs:
           name: Make
           command: make    
           working_directory: build
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+                - devel
+    jobs:
+      - build
