@@ -1,0 +1,20 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: bschiffthaler/seidr-build
+    steps:
+      - checkout
+      - run: git submodule sync
+      - run: git submodule update --init
+      - run:
+          name: Out of src build
+          command: mkdir build 
+      - run:
+          name: Getting ready    
+      - run:
+          name: Cmake config
+          command: cmake ..
+      - run:
+          name: Make
+          command: make    
