@@ -148,6 +148,42 @@ get_tp_fp(std::vector< std::pair< uint32_t, uint32_t> >& truth,
   return std::pair<uint32_t, uint32_t>(tp, fp);
 }
 
+void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
+                        std::vector< MiniEdge >& v,
+                        double& fedg)
+{
+  logger log(std::cerr, "ROC::resize_by_fraction");
+  uint32_t tp = 0, fp = 0;
+  uint64_t cnt = 0;
+  for (auto& e : v)
+  {
+    uint32_t i = e.i;
+    uint32_t j = e.j;
+    if (i < j)
+    {
+      uint32_t k = i;
+      i = j;
+      j = k;
+    }
+    auto x = std::pair<uint32_t, uint32_t>(i, j);
+    if (std::binary_search(truth.begin(), truth.end(), x))
+      tp++;
+    else
+      fp++;
+
+    cnt++;
+
+    double f = numeric_cast<double> (tp) / numeric_cast<double> (truth.size());
+    if (f >= fedg)
+    {
+      log(LOG_INFO) << "Resizing to top " << cnt << " egdes in order to keep "
+      << "at least " << truth.size() * f << " TP edges.\n";
+      v.resize(cnt);
+    }
+  }
+
+}
+
 void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
                std::vector<MiniEdge>& v,
                std::pair<uint32_t, uint32_t>& tpfp,
@@ -205,6 +241,7 @@ int roc(int argc, char * argv[])
   uint32_t nedg;
   std::string tfs;
   uint32_t datap;
+  double fedg;
 
   const char * args[argc - 1];
   args[0] = strcat(argv[0], " roc");
@@ -237,6 +274,11 @@ int roc(int argc, char * argv[])
              0, "int");
     cmd.add(arg_nedg);
 
+    TCLAP::ValueArg<double>
+    arg_fedg("E", "fraction", "Fraction of gold standard edges to include", false,
+             -1, "int");
+    cmd.add(arg_fedg);
+
     TCLAP::ValueArg<uint32_t>
     arg_datap("p", "points", "Number of data points to print", false,
               0, "int");
@@ -255,6 +297,7 @@ int roc(int argc, char * argv[])
     nedg = arg_nedg.getValue();
     tfs = arg_tfs.getValue();
     datap = arg_datap.getValue();
+    fedg = arg_fedg.getValue();
   }
   catch (TCLAP::ArgException& except)
   {
@@ -271,6 +314,12 @@ int roc(int argc, char * argv[])
       if (! file_can_read(tfs.c_str()))
         throw std::runtime_error("Cannot read file: " + tfs);
 
+    if (nedg > 0 && fedg > 0)
+      throw std::runtime_error("Please provide only one of -e and -E");
+
+    if (fedg > 1)
+      throw std::runtime_error("-E should be in (0, 1)");
+
 
     SeidrFile f(netw.c_str());
     f.open("r");
@@ -279,7 +328,7 @@ int roc(int argc, char * argv[])
 
     if (tpos > h.attr.nalgs)
     {
-      throw std::runtime_error("Index (-i) selected is larger than the number" 
+      throw std::runtime_error("Index (-i) selected is larger than the number"
                                " of algorithms in the network.");
     }
     if (tpos == 0)
@@ -302,6 +351,9 @@ int roc(int argc, char * argv[])
       nv = filter_tf(tfs, nv, refmap);
     if (nedg != 0)
       nv.resize(nedg);
+
+    if (fedg > 0)
+      resize_by_fraction(gv, nv, fedg);
 
     auto tpfp = get_tp_fp(gv, nv);
 
