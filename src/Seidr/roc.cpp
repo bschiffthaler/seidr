@@ -40,15 +40,31 @@ using boost::numeric_cast;
 std::vector< std::pair< uint32_t, uint32_t > >
 make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
 {
+  logger log(std::cerr, "ROC::make_gold_vec");
   std::vector< std::pair< uint32_t, uint32_t > > ret;
   std::ifstream ifs(infile.c_str(), std::ios::in);
-
+  uint64_t not_found = 0;
   std::string line;
   while (std::getline(ifs, line))
   {
     std::stringstream ss(line);
     std::string x, y;
     ss >> x; ss >> y;
+
+    auto ptr_a = refmap.find(x);
+    auto ptr_b = refmap.find(y);
+
+    if (ptr_a == refmap.end())
+    {
+      not_found++;
+      continue;
+    }
+    else if (ptr_b == refmap.end())
+    {
+      not_found++;
+      continue;
+    }
+
     uint32_t a = refmap[x];
     uint32_t b = refmap[y];
 
@@ -59,6 +75,12 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
       b = c;
     }
     ret.push_back(std::pair<uint32_t, uint32_t>(a, b));
+  }
+  if (not_found > 0)
+  {
+    log(LOG_WARN) << not_found << " gold standard edges had at least one "
+                  << "node which was not present in the network and were "
+                  << "omitted.\n";
   }
   std::sort(ret.begin(), ret.end());
   return ret;
@@ -206,7 +228,7 @@ int roc(int argc, char * argv[])
     cmd.add(arg_network);
 
     TCLAP::ValueArg<uint32_t>
-    arg_tpos("i", "index", "Index of score to use", false,
+    arg_tpos("i", "index", "Index of score to use (1-based)", false,
              0, "int");
     cmd.add(arg_tpos);
 
@@ -241,48 +263,57 @@ int roc(int argc, char * argv[])
   }
   try
   {
-    file_can_read(gold.c_str());
-    file_can_read(netw.c_str());
+    if (! file_can_read(gold.c_str()))
+      throw std::runtime_error("Cannot read file: " + gold);
+    if (! file_can_read(netw.c_str()))
+      throw std::runtime_error("Cannot read file: " + netw);
     if (tfs != "")
-      file_can_read(tfs.c_str());
+      if (! file_can_read(tfs.c_str()))
+        throw std::runtime_error("Cannot read file: " + tfs);
+
+
+    SeidrFile f(netw.c_str());
+    f.open("r");
+    SeidrFileHeader h;
+    h.unserialize(f);
+
+    if (tpos > h.attr.nalgs)
+    {
+      throw std::runtime_error("Index (-i) selected is larger than the number" 
+                               " of algorithms in the network.");
+    }
+    if (tpos == 0)
+      tpos = h.attr.nalgs - 1;
+    else
+      tpos--;
+
+    std::map<std::string, uint32_t> refmap;
+    uint32_t ind = 0;
+    for (auto& no : h.nodes)
+    {
+      refmap[no] = ind++;
+    }
+
+    auto gv = make_gold_vec(gold, refmap);
+    auto nv = read_network_minimal(h, f, -1, tpos);
+
+    std::sort(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
+    if (tfs != "")
+      nv = filter_tf(tfs, nv, refmap);
+    if (nedg != 0)
+      nv.resize(nedg);
+
+    auto tpfp = get_tp_fp(gv, nv);
+
+    print_roc(gv, nv, tpfp, datap);
+
+    f.close();
+    return 0;
   }
   catch (std::runtime_error& e)
   {
     log(LOG_ERR) << e.what() << '\n';
     return errno;
   }
-
-  SeidrFile f(netw.c_str());
-  f.open("r");
-  SeidrFileHeader h;
-  h.unserialize(f);
-
-  if (tpos == 0)
-    tpos = h.attr.nalgs - 1;
-  else
-    tpos--;
-
-  std::map<std::string, uint32_t> refmap;
-  uint32_t ind = 0;
-  for (auto& no : h.nodes)
-  {
-    refmap[no] = ind++;
-  }
-
-  auto gv = make_gold_vec(gold, refmap);
-  auto nv = read_network_minimal(h, f, -1, tpos);
-
-  std::sort(nv.begin(), nv.end(), me_score_sort_abs);
-  if (tfs != "")
-    nv = filter_tf(tfs, nv, refmap);
-  if (nedg != 0)
-    nv.resize(nedg);
-
-  auto tpfp = get_tp_fp(gv, nv);
-
-  print_roc(gv, nv, tpfp, datap);
-
-  f.close();
-  return 0;
 
 }
