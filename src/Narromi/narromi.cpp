@@ -169,6 +169,7 @@ int main(int argc, char ** argv) {
   try
   {
     gene_matrix.load(infile);
+    verify_matrix(gene_matrix);
     genes = read_genes(gene_file, row_delim, field_delim);
     if (mode == NARROMI_PARTIAL)
       targets = read_genes(targets_file, row_delim, field_delim);
