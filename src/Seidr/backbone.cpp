@@ -43,7 +43,7 @@ int backbone(int argc, char * argv[])
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
-  pr += " neighbours";
+  pr += " backbone";
   args[0] = pr.c_str();
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
