@@ -132,7 +132,6 @@ target_link_libraries(seidr networkit)
 
 target_link_libraries(seidr bs)
 
-target_link_libraries(narromi glpk)
 target_link_libraries(genie3 ranger pthread)
 
 # Make libraries position independent
@@ -237,3 +236,7 @@ target_link_libraries(seidr ${HTSLIB_LIBRARIES})
 find_package(GSL REQUIRED)
 include_directories(${GSL_INCLUDE_PATH})
 target_link_libraries(seidr ${GSL_LIBRARIES})
+
+find_package(GLPK REQUIRED)
+include_directories(${GLPK_INCLUDE_PATH})
+target_link_libraries(narromi ${GLPK_LIBRARIES})
