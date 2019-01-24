@@ -179,6 +179,7 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
       log(LOG_INFO) << "Resizing to top " << cnt << " egdes in order to keep "
       << "at least " << truth.size() * f << " TP edges.\n";
       v.resize(cnt);
+      break;
     }
   }
 
