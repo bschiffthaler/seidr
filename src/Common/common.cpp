@@ -230,3 +230,26 @@ void merge_files(std::string outfile, std::string outfilebase,
     remove(tmpdir, true);
   }
 }
+
+bool any_const_expr(arma::mat& inp)
+{
+  arma::mat v = arma::var(inp);
+  for (arma::uword i = 0; i < v.n_elem; i++)
+  {
+    if (almost_equal(v(0, i), 0))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void verify_matrix(arma::mat& inp)
+{
+  if (any_const_expr(inp))
+  {
+    throw std::runtime_error("Constant values detected in at least one column"
+                               ". Please filter your input to contain only "
+                               "columns with non-zero variance.");
+  }
+}

@@ -130,6 +130,7 @@ int main(int argc, char ** argv)
   try
   {
     gm.load(infile.c_str(), arma::raw_ascii);
+    verify_matrix(gm);
     if (do_scale)
     {
       log(LOG_INFO) << "Transforming matrix to z-score\n";

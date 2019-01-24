@@ -189,6 +189,7 @@ int main(int argc, char ** argv) {
   {
     // Get input files
     gene_matrix.load(infile);
+    verify_matrix(gene_matrix);
     if (num_bins == 0)
     {
       arma::uvec bc = bin_count(gene_matrix, 1);

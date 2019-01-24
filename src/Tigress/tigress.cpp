@@ -127,6 +127,7 @@ int main(int argc, char ** argv) {
       outfile = to_absolute(outfile);
       infile = to_absolute(infile);
       gene_file = to_absolute(gene_file);
+      verify_matrix(gene_matrix);
       std::string tempdir = dirname(outfile) + "/.seidr_tmp_tigress";
 
       if (! file_exists(dirname(outfile)) )

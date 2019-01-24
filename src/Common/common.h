@@ -70,3 +70,7 @@ std::vector<std::string> tokenize_delim(std::string nodes, std::string delim);
 void merge_files(std::string outfile, std::string outfilebase,
                  std::string tempdir, bool targeted, int id,
                  std::vector<std::string>& genes);
+
+bool any_const_expr(arma::mat& inp);
+
+void verify_matrix(arma::mat& inp);

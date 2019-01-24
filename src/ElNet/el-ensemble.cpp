@@ -230,6 +230,7 @@ int main(int argc, char ** argv) {
   {
     // Get input files
     gene_matrix.load(infile);
+    verify_matrix(gene_matrix);
     genes = read_genes(gene_file, row_delim, field_delim);
 
     if (genes.size() != gene_matrix.n_cols)
