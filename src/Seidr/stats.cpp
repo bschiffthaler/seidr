@@ -29,15 +29,25 @@
 #include <networkit/centrality/SpanningEdgeCentrality.h>
 #include <networkit/components/ConnectedComponents.h>
 
+bool in_string(const std::string& query, const std::string& target)
+{
+  auto p = target.find(query);
+  if (p == std::string::npos)
+    return false;
+  else
+    return true;
+}
+
 int stats(int argc, char ** argv)
 {
   logger log(std::cerr, "stats");
-  
+
   std::string infile;
   uint32_t tpos;
   bool trank;
   bool exact;
   uint32_t nsamples;
+  std::string metrics;
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
@@ -61,6 +71,12 @@ int stats(int argc, char ** argv)
                  0, "float");
     cmd.add(arg_nsamples);
 
+    TCLAP::ValueArg<std::string>
+    arg_metrics("m", "metrics", "String describing metrics to calculate"
+                " [PR,CLO,BTW,STR,EV,KTZ,SEC,EBC]", false,
+                "PR,CLO,BTW,STR,EV,KTZ,SEC,EBC", "string");
+    cmd.add(arg_metrics);
+
     TCLAP::UnlabeledValueArg<std::string>
     arg_infile("in-file", "Input file", true,
                "", "string");
@@ -80,6 +96,7 @@ int stats(int argc, char ** argv)
     trank = arg_r.getValue();
     exact = arg_e.getValue();
     nsamples = arg_nsamples.getValue();
+    metrics = arg_metrics.getValue();
   }
   catch (TCLAP::ArgException& except)
   {
@@ -89,7 +106,7 @@ int stats(int argc, char ** argv)
 
   try
   {
-    if(! file_can_read(infile.c_str()))
+    if (! file_can_read(infile.c_str()))
       throw std::runtime_error("Cannot read input file: " + infile);
   }
   catch (std::runtime_error& e)
@@ -104,37 +121,37 @@ int stats(int argc, char ** argv)
   SeidrFileHeader h;
   h.unserialize(rf);
 
-  if (h.attr.pagerank_calc == 1)
+  if (h.attr.pagerank_calc == 1 && in_string("PR", metrics))
   {
     log(LOG_WARN) << "Found previous PageRank calculation. Deleting...\n";
     h.attr.pagerank_calc = 0;
     h.pagerank.clear();
   }
-  if (h.attr.closeness_calc == 1)
+  if (h.attr.closeness_calc == 1 && in_string("CLO", metrics))
   {
     log(LOG_WARN) << "Found previous closeness calculation. Deleting...\n";
     h.attr.closeness_calc = 0;
     h.closeness.clear();
   }
-  if (h.attr.betweenness_calc == 1)
+  if (h.attr.betweenness_calc == 1 && in_string("BTW", metrics))
   {
     log(LOG_WARN) << "Found previous betweenness calculation. Deleting...\n";
     h.attr.betweenness_calc = 0;
     h.betweenness.clear();
   }
-  if (h.attr.strength_calc == 1)
+  if (h.attr.strength_calc == 1 && in_string("STR", metrics))
   {
     log(LOG_WARN) << "Found previous strength calculation. Deleting...\n";
     h.attr.strength_calc = 0;
     h.strength.clear();
   }
-  if (h.attr.eigenvector_calc == 1)
+  if (h.attr.eigenvector_calc == 1 && in_string("EV", metrics))
   {
     log(LOG_WARN) << "Found previous eigenvector calculation. Deleting...\n";
     h.attr.eigenvector_calc = 0;
     h.eigenvector.clear();
   }
-  if (h.attr.katz_calc == 1)
+  if (h.attr.katz_calc == 1 && in_string("KTZ", metrics))
   {
     log(LOG_WARN) << "Found previous katz calculation. Deleting...\n";
     h.attr.katz_calc = 0;
@@ -175,12 +192,19 @@ int stats(int argc, char ** argv)
 
   log(LOG_INFO) << "Have " << comp << " components\n";
 
+  if (in_string("PR", metrics))
+  {
+    log(LOG_INFO) << "Calculating PageRank\n";
+    NetworKit::PageRank prv(g);
+    prv.run();
+    h.attr.pagerank_calc = 1;
+    for (uint32_t i = 0; i < h.attr.nodes; i++)
+    {
+      h.pagerank.push_back(prv.score(i));
+    }
+  }
 
-  log(LOG_INFO) << "Calculating PageRank\n";
-  NetworKit::PageRank prv(g);
-  prv.run();
-
-  if (comp == 1)
+  if (comp == 1 && in_string("CLO", metrics))
   {
     log(LOG_INFO) << "Calculating " << (exact ? "exact" : "approximate")
                   << " Closeness\n";
@@ -198,6 +222,7 @@ int stats(int argc, char ** argv)
     {
       h.closeness.push_back(exact ? clve.score(i) : clv.score(i));
     }
+    h.attr.closeness_calc = 1;
   }
   else
   {
@@ -206,95 +231,124 @@ int stats(int argc, char ** argv)
     {
       h.closeness.push_back(0);
     }
+    h.attr.closeness_calc = 0;
   }
 
-  log(LOG_INFO) << "Calculating " << (exact ? "exact" : "approximate")
-                << " Betweenness\n";
-  NetworKit::EstimateBetweenness btv(g, nsamples, false, exact);
-  NetworKit::Betweenness btve(g, false, true);
   std::vector<double> ebv;
-  if (exact)
+  if (in_string("BTW", metrics))
   {
-    btve.run();
-    ebv = btve.edgeScores();
+    log(LOG_INFO) << "Calculating " << (exact ? "exact" : "approximate")
+                  << " Betweenness\n";
+    NetworKit::EstimateBetweenness btv(g, nsamples, false, exact);
+    NetworKit::Betweenness btve(g, false, true);
+    if (exact)
+    {
+      btve.run();
+      if (in_string("EBC", metrics))
+      {
+        ebv = btve.edgeScores();
+      }
+    }
+    else
+    {
+      btv.run();
+    }
+    for (uint32_t i = 0; i < h.attr.nodes; i++)
+    {
+      h.betweenness.push_back(exact ? btve.score(i) : btv.score(i));
+    }
+    h.attr.betweenness_calc = 1;
   }
-  else
+
+  if (in_string("EV", metrics))
   {
-    btv.run();
+    log(LOG_INFO) << "Calculating Eigenvector centrality\n";
+    NetworKit::EigenvectorCentrality evv(g);
+    evv.run();
+    h.attr.eigenvector_calc = 1;
+    for (uint32_t i = 0; i < h.attr.nodes; i++)
+    {
+      h.eigenvector.push_back(evv.score(i));
+    }
   }
 
-  log(LOG_INFO) << "Calculating Eigenvector centrality\n";
-  NetworKit::EigenvectorCentrality evv(g);
-  evv.run();
-
-  log(LOG_INFO) << "Calculating Katz centrality\n";
-  NetworKit::KatzCentrality kav(g);
-  kav.run();
-
-  log(LOG_INFO) << "Calculating Node Strength\n";
-  std::vector<double> stv;
-  for (uint64_t i = 0; i < h.attr.nodes; i++)
+  if (in_string("KTZ", metrics))
   {
-    stv.push_back(g.weightedDegree(i));
+    log(LOG_INFO) << "Calculating Katz centrality\n";
+    NetworKit::KatzCentrality kav(g);
+    kav.run();
+    h.attr.katz_calc = 1;
+    for (uint32_t i = 0; i < h.attr.nodes; i++)
+    {
+      h.katz.push_back(kav.score(i));
+    }
   }
 
-  log(LOG_INFO) << "Calculating Spanning Edge centrality\n";
+  if (in_string("STR", metrics))
+  {
+    log(LOG_INFO) << "Calculating Node Strength\n";
+    h.attr.strength_calc = 1;
+    for (uint64_t i = 0; i < h.attr.nodes; i++)
+    {
+      h.strength.push_back(g.weightedDegree(i));
+    }
+  }
 
-  NetworKit::SpanningEdgeCentrality spc(g);
-  spc.runParallelApproximation();
-  auto spv = spc.scores(true);
+  std::vector<double> spv;
+  if (in_string("SEC", metrics))
+  {
+    log(LOG_INFO) << "Calculating Spanning Edge centrality\n";
+
+    NetworKit::SpanningEdgeCentrality spc(g);
+    if (exact)
+      spc.run();
+    else
+      spc.runParallelApproximation();
+    spv = spc.scores(true);
+  }
 
   log(LOG_INFO) << "Writing results\n";
 
-  for (uint32_t i = 0; i < h.attr.nodes; i++)
-  {
-    h.pagerank.push_back(prv.score(i));
-    h.betweenness.push_back(exact ? btve.score(i) : btv.score(i));
-    h.strength.push_back(stv[i]);
-    h.eigenvector.push_back(evv.score(i));
-    h.katz.push_back(kav.score(i));
-  }
-
-  h.attr.pagerank_calc = 1;
-  h.attr.closeness_calc = 1;
-  h.attr.betweenness_calc = 1;
-  h.attr.strength_calc = 1;
-  h.attr.eigenvector_calc = 1;
-  h.attr.katz_calc = 1;
 
   bool sec_found = false;
   bool ebc_found = false;
   size_t sec_i = 0;
   size_t ebc_i = 0;
 
-  auto sec_ptr = std::find(h.supp.begin(), h.supp.end(), "SEC");
-  if (sec_ptr == h.supp.end())
+  if (in_string("SEC", metrics))
   {
-    h.attr.nsupp += 1;
-    h.attr.nsupp_flt += 1;
-    h.supp.push_back("SEC");
-  }
-  else
-  {
-    sec_found = true;
-    sec_i = std::distance(h.supp.begin(), sec_ptr);
-    sec_i -= h.attr.nsupp_str;
-    sec_i -= h.attr.nsupp_int;
+    auto sec_ptr = std::find(h.supp.begin(), h.supp.end(), "SEC");
+    if (sec_ptr == h.supp.end())
+    {
+      h.attr.nsupp += 1;
+      h.attr.nsupp_flt += 1;
+      h.supp.push_back("SEC");
+    }
+    else
+    {
+      sec_found = true;
+      sec_i = std::distance(h.supp.begin(), sec_ptr);
+      sec_i -= h.attr.nsupp_str;
+      sec_i -= h.attr.nsupp_int;
+    }
   }
 
-  auto ebc_ptr = std::find(h.supp.begin(), h.supp.end(), "EBC");
-  if (ebc_ptr == h.supp.end())
+  if (in_string("EBC", metrics))
   {
-    h.attr.nsupp += 1;
-    h.attr.nsupp_flt += 1;
-    h.supp.push_back("EBC");
-  }
-  else
-  {
-    ebc_found = true;
-    ebc_i = std::distance(h.supp.begin(), ebc_ptr);
-    ebc_i -= h.attr.nsupp_str;
-    ebc_i -= h.attr.nsupp_int;
+    auto ebc_ptr = std::find(h.supp.begin(), h.supp.end(), "EBC");
+    if (ebc_ptr == h.supp.end())
+    {
+      h.attr.nsupp += 1;
+      h.attr.nsupp_flt += 1;
+      h.supp.push_back("EBC");
+    }
+    else
+    {
+      ebc_found = true;
+      ebc_i = std::distance(h.supp.begin(), ebc_ptr);
+      ebc_i -= h.attr.nsupp_str;
+      ebc_i -= h.attr.nsupp_int;
+    }
   }
 
   std::string tempfile = infile + ".tmp";
@@ -306,16 +360,20 @@ int stats(int argc, char ** argv)
   for (uint64_t i = 0; i < ev.size(); i++)
   {
     SeidrFileEdge x = ev[i];
-    if (sec_found)
-      x.supp_flt[sec_i] = spv[i];
-    else
-      x.supp_flt.push_back(spv[i]);
-
-    if (ebc_found)
-      x.supp_flt[ebc_i] = ebv[i];
-    else
-      x.supp_flt.push_back(ebv[i]);
-
+    if (in_string("SEC", metrics))
+    {
+      if (sec_found)
+        x.supp_flt[sec_i] = spv[i];
+      else
+        x.supp_flt.push_back(spv[i]);
+    }
+    if (in_string("EBC", metrics))
+    {
+      if (ebc_found)
+        x.supp_flt[ebc_i] = ebv[i];
+      else
+        x.supp_flt.push_back(ebv[i]);
+    }
     x.serialize(tf, h);
   }
 
