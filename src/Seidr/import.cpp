@@ -25,7 +25,13 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <algorithm>
+#if defined(SEIDR_PARALLEL_SORT) && defined(__ICC)
+  #include <pstl/algorithm>
+#elif defined(SEIDR_PARALLEL_SORT) && defined(__GNUG__)
+  #include <parallel/algorithm>
+#else
+  #include <algorithm>
+#endif  
 //#include <functional>
 #include <map>
 #include <armadillo>
@@ -56,6 +62,17 @@ read_logger read_logger::operator++(int)
   return tmp;
 }
 
+void lt_map::reserve(uint64_t n)
+{
+  //_ev = std::vector<edge>(n);
+  _shadow = std::vector<shadow_t>(n);
+  // Make sure default ctor is called
+  for (auto& i : _shadow)
+  {
+    i = shadow_t();
+  }
+}
+
 void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
                     bool& drop)
 {
@@ -81,19 +98,25 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
   e.j = inx.second;
   e.d = ee.d;
   e.w = ee.w;
+
+  uint64_t shadow_offset = _hasher(e);
   // Check if edge already exists
-  auto it = _ev.find(e);
+  shadow_t * ptr = &_shadow[shadow_offset];
   // If not, insert edge and do nothing else
-  if (it == _ev.end())
+  if (! ptr->found)
   {
     if (drop)
     {
       if (! almost_equal(e.w, 0))
-        _ev.insert(e);
+        _ev.push_back(e);
+        ptr->offset = _ev.size() - 1;
+        ptr->found = 1;
     }
     else
     {
-      _ev.insert(e);
+      _ev.push_back(e);
+      ptr->offset = _ev.size() - 1;
+      ptr->found = 1;
     }
   }
   // If there is a symmetric edge present, check if current edge has a better
@@ -101,61 +124,63 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
   else if ( !drop || (drop && ! almost_equal(e.w, 0)))
   {
     // In reverse mode, bigger is better
+    edge * ev_ptr = &_ev[ptr->offset];
     if (rev)
     {
-      if (e.w > it->w)
+      if (e.w > ev_ptr->w)
       {
-        (*it).w = e.w;
-        (*it).d = e.d;
+        ev_ptr->w = e.w;
+        ev_ptr->d = e.d;
       }
-      else if (almost_equal(e.w, it->w))
+      else if (almost_equal(e.w, ev_ptr->w))
       {
         // If A->B == B<-A, set to undirected.
-        (*it).d = 0;
+        ev_ptr->d = 0;
       }
     }
     // In default mode, lower is better
     else
     {
-      if (e.w < it->w)
+      if (e.w < ev_ptr->w)
       {
-        (*it).w = e.w;
-        (*it).d = e.d;
+        ev_ptr->w = e.w;
+        ev_ptr->d = e.d;
       }
-      else if (almost_equal(e.w, it->w))
+      else if (almost_equal(e.w, ev_ptr->w))
       {
         // If A->B == B<-A, set to undirected.
-        (*it).d = 0;
+        ev_ptr->d = 0;
       }
     }
   }
 }
 
 // Convert lower triangular map to vector of edges
-std::vector<const edge*> lt_map::to_vec()
+std::vector<edge>& lt_map::to_vec()
 {
-  std::vector<const edge*> ret;
-  for (auto it = _ev.begin(); it != _ev.end(); it++)
-  {
-    ret.push_back(&(*it));
-    //_ev.erase(it);
-  }
-  return ret;
+  // std::vector<const edge*> ret;
+  // for (auto it = _ev.begin(); it != _ev.end(); it++)
+  // {
+  //   ret.push_back(&(*it));
+  //   //_ev.erase(it);
+  // }
+  // return ret;
+  return _ev;
 }
 
 /**
 * A comparison to rank scores in ascending or descending order
 */
-bool ascending(const edge* a, const edge* b) { return (a->w < b->w);}
-bool descending(const edge* a, const edge* b) { return (a->w > b->w);}
-bool abs_ascending(const edge* a, const edge* b) { return (fabs(a->w) < fabs(b->w));}
-bool abs_descending(const edge* a, const edge* b) { return (fabs(a->w) > fabs(b->w));}
-bool lt(const edge* a, const edge* b)
+bool ascending(const edge a, const edge b) { return (a.w < b.w);}
+bool descending(const edge a, const edge b) { return (a.w > b.w);}
+bool abs_ascending(const edge a, const edge b) { return (fabs(a.w) < fabs(b.w));}
+bool abs_descending(const edge a, const edge b) { return (fabs(a.w) > fabs(b.w));}
+bool lt(const edge a, const edge b)
 {
-  if (a->i < b->i)
+  if (a.i < b.i)
     return true;
-  if (a->i == b->i)
-    return a->j < b->j;
+  if (a.i == b.i)
+    return a.j < b.j;
   return false;
 }
 /**
@@ -167,33 +192,33 @@ bool lt(const edge* a, const edge* b)
 * @param reverse Boolean indicator to check if the vector should
 *                be sorted in descending order.
 */
-void rank_vector(std::vector<const edge*>& ev, bool reverse, bool absolute)
+void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 {
 //Sorting
   logger log(std::cerr, "rank_vector");
   if (reverse)
   {
     if (absolute)
-      SORT(ev.begin(), ev.end(), abs_descending);
+      SORTWCOMP(ev.begin(), ev.end(), abs_descending);
     else
-      SORT(ev.begin(), ev.end(), descending);
+      SORTWCOMP(ev.begin(), ev.end(), descending);
   }
   else
   {
     if (absolute)
-      SORT(ev.begin(), ev.end(), abs_ascending);
+      SORTWCOMP(ev.begin(), ev.end(), abs_ascending);
     else
-      SORT(ev.begin(), ev.end(), ascending);
+      SORTWCOMP(ev.begin(), ev.end(), ascending);
   }
   auto it = ev.begin();
   uint64_t pos = 0;
-  seidr_score_t prev = (*it)->w;
+  seidr_score_t prev = it->w;
   uint64_t start = 0;
   seidr_score_t rank;
   while (it != ev.end())
   {
     it++; pos++;
-    if (it == ev.end() || (*it)->w != prev)
+    if (it == ev.end() || it->w != prev)
     {
       rank = ( lexical_cast<seidr_score_t>(pos) + 1 +
                lexical_cast<seidr_score_t>(start) ) / 2;
@@ -201,16 +226,16 @@ void rank_vector(std::vector<const edge*>& ev, bool reverse, bool absolute)
       {
         //edge e = ev[i];
         //e.r = rank;
-        ev[i]->r = rank;
+        ev[i].r = rank;
       }
       if (it != ev.end())
       {
         start = pos;
-        prev = (*it)->w;
+        prev = it->w;
       }
     }
   }
-  SORT(ev.begin(), ev.end(), lt);
+  SORTWCOMP(ev.begin(), ev.end(), lt);
 }
 
 
@@ -224,7 +249,7 @@ void rank_vector(std::vector<const edge*>& ev, bool reverse, bool absolute)
 int import(int argc, char * argv[]) {
 
   logger log(std::cerr, "import");
-  read_logger pr(log); // processed rows
+  read_logger pr(log, 100000000); // processed rows
 
 // Variables used by the function
   std::string el_file;
@@ -376,7 +401,7 @@ int import(int argc, char * argv[]) {
   log(LOG_INFO) << "Allocating initial matrix\n";
   lt_map X;
 
-  X._ev.reserve((genes.size() * (genes.size() - 1)) / 2);
+  X.reserve((genes.size() * (genes.size() - 1)) / 2);
 
   log(LOG_INFO) << "Populating matrix\n";
   std::shared_ptr<std::istream> ifs;
@@ -466,11 +491,6 @@ int import(int argc, char * argv[]) {
         inx.second = j;
         e.w = x;
         X.insert(inx, e, rev, drop_zero);
-        if (pr._i % 1000000 == 0)
-        {
-          log(LOG_INFO) << "BC: " << X._ev.bucket_count()
-                        << ", LF: " << X._ev.load_factor() << '\n';
-        }
         pr++;
       }
     }
@@ -563,7 +583,7 @@ int import(int argc, char * argv[]) {
   //log(LOG_INFO) << "Read " << pr << " edges\n";
 
   log(LOG_INFO) << "Swapping min/max edges to lower triangle\n";
-  std::vector<const edge*> vs = X.to_vec();
+  std::vector<edge>& vs = X.to_vec();
 
   log(LOG_INFO) << "Computing ranks\n";
   rank_vector(vs, rev, absolute);
@@ -618,7 +638,7 @@ int import(int argc, char * argv[]) {
 // storage mode
       if (dense && i < vs.size())
       {
-        while (vs[i]->i != di || vs[i]->j != dj)
+        while (vs[i].i != di || vs[i].j != dj)
         {
           SeidrFileEdge tmp;
           EDGE_SET_MISSING(tmp.attr.flag);
@@ -650,14 +670,14 @@ int import(int argc, char * argv[]) {
 // Only relevant in sparse mode
       if (! dense)
       {
-        e.index.i = vs[i]->i;
-        e.index.j = vs[i]->j;
+        e.index.i = vs[i].i;
+        e.index.j = vs[i].j;
       }
       if (i < vs.size())
       {
         edge_score s;
-        s.s = vs[i]->w;
-        s.r = vs[i]->r;
+        s.s = vs[i].w;
+        s.r = vs[i].r;
         e.scores.push_back(s);
 
         EDGE_SET_EXISTING(e.attr.flag);
@@ -668,7 +688,7 @@ int import(int argc, char * argv[]) {
         }
         else
         {
-          switch (vs[i]->d)
+          switch (vs[i].d)
           {
           case 0:
             EDGE_SET_UNDIRECTED(e.attr.flag);
@@ -685,7 +705,7 @@ int import(int argc, char * argv[]) {
         }
         e.serialize(ostr, h);
         cnt++;
-        if (cnt % 100000 == 0)
+        if (cnt % PRINTING_MOD == 0)
         {
           log(LOG_INFO) << cnt << " edges written ("
                         << (numeric_cast<double>(cnt) / numeric_cast<double>(vs.size())) * 100.0

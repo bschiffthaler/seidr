@@ -3,6 +3,7 @@ project(seidr)
 include(ExternalProject)
 
 enable_language(Fortran)
+link_directories(/mnt/picea/home/bastian/lib)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 
@@ -12,15 +13,25 @@ include_directories(src/External src/Common src/Narromi src/Tigress src/SVM
 
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
-set(SEIDR_MINOR_VERSION 9)
+set(SEIDR_MINOR_VERSION 10)
 set(SEIDR_PATCH_VERSION 0)
 set(SEIDR_VERSION
   ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
 
 # Add common CXX flags 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION} ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRORS")
+
+# Standard
+set(CMAKE_CXX_STANDARD 11)
+
+# Can we use parallel sorting algorithms?
+if (CMAKE_PARALLEL_SORT) # No free compiler support except intel and msvc
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PARALLEL_SORT")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
 
 # Default flags
 if (CMAKE_OFAST)
@@ -33,7 +44,11 @@ endif()
 
 # Make sure FORTRAN has the same width in relevant datatypes to interface with 
 # C++
-set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
+if(${CMAKE_Fortran_COMPILER_ID} MATCHES "Intel")
+  set(CMAKE_Fortran_FLAGS "-m64 -autodouble -fixed")
+else()
+  set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
+endif()
 
 # Make sure we can use ASAN and undefined sanitizers in debug builds
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
@@ -136,7 +151,14 @@ target_link_libraries(genie3 ranger pthread)
 
 # Make libraries position independent
 set_target_properties(seidr-common PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC")
-set_target_properties(seidr-glmnet PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC")                                          
+set_target_properties(seidr-glmnet PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC") 
+
+# Link TBB for intel parallel
+if (CMAKE_PARALLEL_SORT)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+    target_link_libraries(seidr tbb)
+  endif()
+endif()                                         
 
 # Packages:
 
@@ -240,3 +262,16 @@ target_link_libraries(seidr ${GSL_LIBRARIES})
 find_package(GLPK REQUIRED)
 include_directories(${GLPK_INCLUDE_PATH})
 target_link_libraries(narromi ${GLPK_LIBRARIES})
+
+target_link_libraries( seidr tcmalloc)
+target_link_libraries( tigress tcmalloc)
+target_link_libraries( svm-ensemble tcmalloc)
+target_link_libraries( llr-ensemble tcmalloc)
+target_link_libraries( el-ensemble tcmalloc)
+target_link_libraries( narromi tcmalloc)
+target_link_libraries( mi tcmalloc)
+target_link_libraries( plsnet tcmalloc)
+target_link_libraries( genie3 tcmalloc)
+target_link_libraries( anoverence tcmalloc)
+target_link_libraries( correlation tcmalloc)
+target_link_libraries( pcor tcmalloc)
