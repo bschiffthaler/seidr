@@ -105,12 +105,11 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
   // If not, insert edge and do nothing else
   if (! ptr->found)
   {
-    if (drop)
+    if (drop && (! almost_equal(e.w, 0)))
     {
-      if (! almost_equal(e.w, 0))
-        _ev.push_back(e);
-        ptr->offset = _ev.size() - 1;
-        ptr->found = 1;
+      _ev.push_back(e);
+      ptr->offset = _ev.size() - 1;
+      ptr->found = 1;
     }
     else
     {
