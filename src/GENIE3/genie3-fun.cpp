@@ -12,10 +12,10 @@
 #include <cmath>
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
-#include <DataDouble.h>
-#include <utility.h>
-#include <ForestRegression.h>
-#include <globals.h>
+#include <ranger/DataDouble.h>
+#include <ranger/utility.h>
+#include <ranger/ForestRegression.h>
+#include <ranger/globals.h>
 #include <map>
 #include <sstream>
 
