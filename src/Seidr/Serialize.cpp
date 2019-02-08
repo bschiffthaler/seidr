@@ -264,23 +264,20 @@ void SeidrFileHeader::unserialize(SeidrFile& file)
 
 void SeidrFileHeader::print(std::ostream& out)
 {
-  out << "#[A] Nodes: " << attr.nodes << '\n';
-  out << "#[A] Edges: " << attr.edges << '\n';
-  out << "#[A] Storage: "
+  out << "# [G] Nodes: " << attr.nodes << '\n';
+  out << "# [G] Edges: " << attr.edges << '\n';
+  out << "# [G] Storage: "
       << (attr.dense ? "Dense\n" : "Sparse\n");
-  out << "#[A] Algorithms #: " << attr.nalgs << '\n';
-  out << "#[A] Algorithms: \n";
+  out << "# [G] Algorithms #: " << attr.nalgs << '\n';
+  out << "# [G] Supplementary data #: " << attr.nsupp << '\n';
   for (auto& a : algs)
-    out << "# " << a << '\n';
-  out << "#[A] Supplementary data #: " << attr.nsupp << '\n';
-  out << "#[A] Supplementary data tags: \n";
+    out << "# [A] " << a << '\n';
   for (auto& s : supp)
-    out << "# " << s << '\n';
-  out << "#[A] Version: "    << attr.version << '\n';
-  out << "#[A] Cmd: "    << attr.cmd << '\n';
-  out << "#[A] Node list: \n";
+    out << "# [S] " << s << '\n';
+  out << "# [R] Version: "    << attr.version << '\n';
+  out << "# [R] Cmd: "    << attr.cmd << '\n';
   for (auto& n : nodes)
-    out << "# " << n << '\n';
+    out << "# [N] " << n << '\n';
 }
 
 void SeidrFileHeader::print_centrality(std::ostream& out)

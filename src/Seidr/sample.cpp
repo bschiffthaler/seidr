@@ -7,8 +7,8 @@
 #include <cmath>
 // External
 #include <random>
-#include <vitter_d.h>
-#include <simple_sample.h>
+#include <bs/vitter_d.h>
+#include <bs/simple_sample.h>
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;

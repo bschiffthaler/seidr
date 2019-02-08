@@ -54,7 +54,7 @@ add_library(networkit
 # Build ranger as a library
 file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/ranger)
 file(GLOB RANGER_HEADERS "../external/ranger/src/*.h")
-file(COPY ${RANGER_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include)
+file(COPY ${RANGER_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/ranger)
 add_library(ranger ../external/ranger/src/Data.cpp
   ../external/ranger/src/DataChar.cpp ../external/ranger/src/DataFloat.cpp 
   ../external/ranger/src/Forest.cpp ../external/ranger/src/ForestRegression.cpp 
@@ -64,8 +64,9 @@ add_library(ranger ../external/ranger/src/Data.cpp
 # Build libbs
 file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/libbs)
 file(GLOB BS_HEADERS "../external/libbs/src/*.h")
-file(COPY ${BS_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include)
+file(COPY ${BS_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/bs)
 add_library(bs ../external/libbs/src/vitter_a.cpp ../external/libbs/src/vitter_d.cpp
-  ../external/libbs/src/aux.cpp) 
+  ../external/libbs/src/aux.cpp ../external/libbs/src/describe.cpp 
+  ../external/libbs/src/histogram.cpp ../external/libbs/src/common.cpp) 
 
 

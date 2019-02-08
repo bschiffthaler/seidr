@@ -6,6 +6,7 @@
 #include <adjacency.h>
 #include <asp.h>
 #include <backbone.h>
+#include <describe.h>
 #include <index.h>
 #include <graphstats.h>
 #include <threshold.h>
@@ -116,6 +117,10 @@ int main(int argc, char* argv[])
     else if (task == "convert")
     {
       ret = convert(argc, argv);
+    }
+    else if (task == "describe")
+    {
+      ret = describe(argc, argv);
     }
     else if (task == "graphstats")
     {

@@ -12,19 +12,23 @@
 #define FLT_EPSILON 0.000000001
 #define ORDER_WEIGHT 0
 
-// Enable parallel sorts when compiled with GNU
-#ifndef __clang__
-#include <omp.h>
-#include <parallel/algorithm>
-#define SORT __gnu_parallel::sort
-#else
-#define SORT std::sort
-#endif
-
 #define SEIDR_MALLOC(type,n) (type *)malloc((n)*sizeof(type))
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
+
+#if defined(SEIDR_PARALLEL_SORT) && defined(__ICC)
+  #include <pstl/execution>
+  #define SORT(start, end) std::sort(pstl::execution::par_unseq, start, end)
+  #define SORTWCOMP(start, end, comp) std::sort(pstl::execution::par_unseq, start, end, comp)
+#elif defined(SEIDR_PARALLEL_SORT) && defined(__GNUG__)
+  #define SORT(start, end) __gnu_parallel::sort(start, end)
+  #define SORTWCOMP(start, end, comp) __gnu_parallel::sort(start, end, comp)
+#else
+  #define SORT(start, end) std::sort(start, end)
+  #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
+#endif
+
 
 #ifndef SEIDR_SCORE_DOUBLE
 typedef float seidr_score_t;

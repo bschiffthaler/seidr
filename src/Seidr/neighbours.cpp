@@ -7,7 +7,13 @@
 // External
 #include <vector>
 #include <string>
-#include <algorithm>
+#if defined(SEIDR_PARALLEL_SORT) && defined(__ICC)
+  #include <pstl/algorithm>
+#elif defined(SEIDR_PARALLEL_SORT) && defined(__GNUG__)
+  #include <parallel/algorithm>
+#else
+  #include <algorithm>
+#endif  
 #include <armadillo>
 #include <tclap/CmdLine.h>
 #include <set>
@@ -129,9 +135,9 @@ int neighbours(int argc, char * argv[])
         edges.push_back(e);
       }
       if (trank)
-        SORT(edges.begin(), edges.end(), sfe_score_sort);
+        SORTWCOMP(edges.begin(), edges.end(), sfe_score_sort);
       else
-        SORT(edges.begin(), edges.end(), sfe_rank_sort);
+        SORTWCOMP(edges.begin(), edges.end(), sfe_rank_sort);
       for (uint16_t i = 0; i < n; i++)
       {
         if (unique)
