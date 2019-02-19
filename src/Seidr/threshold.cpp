@@ -275,7 +275,11 @@ int threshold(int argc, char ** argv)
 
   try
   {
-    file_can_read(infile.c_str());
+    infile = to_absolute(infile);
+    if (! file_can_read(infile))
+    {
+      throw std::runtime_error("Can't read file: " + infile);
+    }
   }
   catch (std::runtime_error& e)
   {
