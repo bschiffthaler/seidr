@@ -162,7 +162,7 @@ int main(int argc, char ** argv) {
       if ((! force) && file_exists(outfile))
         throw std::runtime_error("File exists: " + outfile);
 
-      if ((! force) && mi_file != "")
+      if ((! force) && mi_file != "" && (! use_existing))
         if (file_exists(mi_file))
           throw std::runtime_error("File exists: " + mi_file);
 
@@ -172,8 +172,6 @@ int main(int argc, char ** argv) {
 
       if(use_existing && (! file_exists(mi_file)))
         throw std::runtime_error("MI file " + mi_file + " does not exist.");
-
-
     }
     catch (std::runtime_error& e)
     {
