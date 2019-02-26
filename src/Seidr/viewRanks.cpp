@@ -296,11 +296,14 @@ int view(int argc, char * argv[]) {
     throw std::runtime_error("Cannot read file: " + param.el_file);
   }
 
-  param.ot_file = to_absolute(param.ot_file);
-  if (! file_can_create(dirname(param.ot_file)))
+  if (param.ot_file != "")
   {
-    throw std::runtime_error("Can't create output file in: " + 
-                             dirname(param.ot_file));
+    param.ot_file = to_absolute(param.ot_file);
+    if (! file_can_create(dirname(param.ot_file)))
+    {
+      throw std::runtime_error("Can't create output file in: " +
+                               dirname(param.ot_file));
+    }
   }
 
   SeidrFile rf(param.el_file.c_str());
