@@ -111,7 +111,7 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
       ptr->offset = _ev.size() - 1;
       ptr->found = 1;
     }
-    else
+    else if(! drop)
     {
       _ev.push_back(e);
       ptr->offset = _ev.size() - 1;
@@ -589,8 +589,8 @@ int import(int argc, char * argv[]) {
 
 
   log(LOG_INFO) << "Writing data: "
-                << genes.size() << " edges, "
-                << vs.size()  << " nodes\n";
+                << genes.size() << " nodes, "
+                << vs.size()  << " edges\n";
 
   try
   {
