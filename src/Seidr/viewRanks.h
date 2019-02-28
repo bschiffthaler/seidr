@@ -14,6 +14,7 @@ struct seidr_param_view_t {
   bool titles;
   seidr_score_t threshold;
   uint32_t tpos;
+  uint32_t nlines;
   bool trank;
   bool binout;
   bool centrality;

@@ -205,6 +205,11 @@ int view(int argc, char * argv[]) {
               "", "string");
     cmd.add(arg_nodes);
 
+    TCLAP::ValueArg<uint32_t>
+    arg_lines("l", "lines", "View first N lines", false,
+              0, "int");
+    cmd.add(arg_lines);
+
     TCLAP::SwitchArg
     switch_no_names("N", "no-names", "Do not resolve node names"
                     " (print index instead)", cmd, false);
@@ -269,6 +274,7 @@ int view(int argc, char * argv[]) {
     param.delim = arg_delim.getValue();
     param.nodes = arg_nodes.getValue();
     param.no_names = switch_no_names.getValue();
+    param.nlines = arg_lines.getValue();
   }
   catch (TCLAP::ArgException& except)
   {
@@ -299,7 +305,7 @@ int view(int argc, char * argv[]) {
   if (param.ot_file != "")
   {
     param.ot_file = to_absolute(param.ot_file);
-    if (! file_can_create(dirname(param.ot_file)))
+    if (! file_can_create(param.ot_file))
     {
       throw std::runtime_error("Can't create output file in: " +
                                dirname(param.ot_file));
@@ -425,7 +431,41 @@ int view(int argc, char * argv[]) {
     }
   }
 
-  if (param.nodes != "")
+  if (param.nlines > 0)
+  {
+    rf.seek(0);
+    uint64_t cnt = 0;
+    rf.each_edge_exit_early([&](SeidrFileEdge& e, SeidrFileHeader& hlam){
+      if (do_filter)
+      {
+        bool y = ! almost_equal(eval_postfix(pf, e), 0);
+        if (y && (! param.binout))
+          e.print(*out, hlam, '\n', param.print_supp, param.delim, param.sc_delim,
+                  param.full, param.tags, param.no_names);
+        else if (y && param.binout)
+        {
+          e.serialize(of, hh);
+          hh.attr.edges++;
+        }
+      }
+      else
+      {
+        double x = param.trank ? e.scores[param.tpos].r : e.scores[param.tpos].s;
+        bool cut = param.trank ? x < param.threshold : x > param.threshold;
+        if (cut && (! param.binout))
+          e.print(*out, hlam, '\n', param.print_supp, param.delim, param.sc_delim,
+                  param.full, param.tags, param.no_names);
+        else if (cut && param.binout)
+        {
+          e.serialize(of, hh);
+          hh.attr.edges++;
+        }
+      }
+      cnt++;
+      return cnt == param.nlines;
+    });
+  }
+  else if (param.nodes != "")
   {
     if (file_exists(param.nodes))
     {
