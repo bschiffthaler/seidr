@@ -440,12 +440,16 @@ int view(int argc, char * argv[]) {
       {
         bool y = ! almost_equal(eval_postfix(pf, e), 0);
         if (y && (! param.binout))
+        {
           e.print(*out, hlam, '\n', param.print_supp, param.delim, param.sc_delim,
                   param.full, param.tags, param.no_names);
+          cnt++;
+        }
         else if (y && param.binout)
         {
           e.serialize(of, hh);
           hh.attr.edges++;
+          cnt++;
         }
       }
       else
@@ -453,15 +457,18 @@ int view(int argc, char * argv[]) {
         double x = param.trank ? e.scores[param.tpos].r : e.scores[param.tpos].s;
         bool cut = param.trank ? x < param.threshold : x > param.threshold;
         if (cut && (! param.binout))
+        {
           e.print(*out, hlam, '\n', param.print_supp, param.delim, param.sc_delim,
                   param.full, param.tags, param.no_names);
+          cnt++;
+        }
         else if (cut && param.binout)
         {
           e.serialize(of, hh);
           hh.attr.edges++;
+          cnt++;
         }
       }
-      cnt++;
       return cnt == param.nlines;
     });
   }
