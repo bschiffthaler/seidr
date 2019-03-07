@@ -1,21 +1,39 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <tiglm.h>
 #include <fs.h>
-#include <mpims.h>
+#include <mpiomp.h>
 // External
 #include <mpi.h>
 #include <cerrno>
 #include <string>
 #include <vector>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <boost/filesystem.hpp>
-
-#define TIGLM_FULL 0
-#define TIGLM_PARTIAL 1
+#include <boost/program_options.hpp>
 
 namespace fs = boost::filesystem;
+namespace po = boost::program_options;
 
 int main(int argc, char ** argv) {
 
@@ -27,150 +45,152 @@ int main(int argc, char ** argv) {
   seidr_mpi_logger log;
 
   arma::mat gene_matrix;
-  std::string infile;
-  std::string gene_file;
-  std::string targets_file;
-  bool do_scale = false;
-  bool force = false;
-  char row_delim = '\n';
-  char field_delim = '\t';
-  size_t bs;
-  size_t mode = TIGLM_FULL;
-  std::string outfile;
   std::vector<std::string> genes;
   std::vector<std::string> targets;
-  seidr_uword_t boot;
-  double fmin;
-  seidr_uword_t nsteps;
 
-  // Define program options
+  seidr_tigress_param_t param;
+
+  po::options_description umbrella("TIGRESS implementation for Seidr");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("help,h", "Show this help message")
+  ("targets,t", po::value<std::string>(&param.targets_file),
+   "File containing gene names"
+   " of genes of interest. The network will only be"
+   " calculated using these as the sources of potential connections.")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
+   "Output file path")
+  ("verbosity,v",
+   po::value<unsigned>(&param.verbosity)->default_value(3),
+   "Verbosity level (lower is less verbose)")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite if output already exists");
+
+  po::options_description algopt("TIGRESS Options");
+  algopt.add_options()
+  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+   "Transform data to z-scores")
+  ("nlambda,n",
+   po::value<seidr_uword_t>(&param.nsteps)->default_value(10),
+   "The maximum number of lambda values")
+  ("min-lambda,l",
+   po::value<double>(&param.fmin)->default_value(0.3, "0.3"),
+   "The minimum lambda as a fraction of the maximum.");
+  
+  po::options_description mpiopt("MPI Options");
+  mpiopt.add_options()
+  ("batch-size,b", po::value<uint64_t>(&param.bs)->default_value(20),
+   "Number of genes in MPI batch")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir),
+   "Temporary directory path");
+
+  po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()
+    ("threads,O", po::value<int>(&param.nthreads)->
+     default_value(omp_get_max_threads()),
+     "Number of OpenMP threads per MPI task");
+
+  po::options_description bootopt("Bootstrap Options");
+  bootopt.add_options()
+  ("ensemble,e",
+   po::value<seidr_uword_t>(&param.boot)->default_value(1000),
+   "The ensemble size");
+
+  po::options_description req("Required Options");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.infile)->required(),
+   "The expression table (without headers)")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "File containing gene names");
+
+  umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 1;
+  }
+
+  log.set_log_level(5);
+
   try
   {
-    TCLAP::CmdLine cmd("TIGRESS implementation for Seidr", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
-
-    TCLAP::ValueArg<std::string>
-    genefile_arg("g", "genes", "File containing gene names (columns in infile)",
-                 true, "", "");
-    cmd.add(genefile_arg);
-
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing gene names of genes of interes. "
-                "The network will only be calculated using these as the sources of "
-                "potential connections.", false, "", "");
-    cmd.add(targets_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    batchsize_arg("b", "batch-size", "Number of genes in batch", false, 20,
-                  "20");
-    cmd.add(batchsize_arg);
-
-    TCLAP::ValueArg<std::string>
-    outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv",
-                "edgelist.tsv");
-    cmd.add(outfile_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    boot_arg("B", "nbootstrap", "Number of bootstrap iterations", false, 1000,
-             "1000");
-    cmd.add(boot_arg);
-
-    TCLAP::ValueArg<double>
-    fmin_arg("l", "min-lambda", "Minimum lambda as a fraction of the maximum",
-             false, 0.3, "0.3");
-    cmd.add(fmin_arg);
-
-    TCLAP::ValueArg<seidr_uword_t>
-    nsteps_arg("n", "nlambda", "Number of lambdas to consider", false, 5,
-               "5");
-    cmd.add(nsteps_arg);
-
-    TCLAP::SwitchArg
-    switch_scale("s", "scale", "Transform data to z-scores", cmd, false);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    cmd.parse(argc, argv);
-
-    infile = infile_arg.getValue();
-    gene_file = genefile_arg.getValue();
-    targets_file = targets_arg.getValue();
-    bs = batchsize_arg.getValue();
-    outfile = outfile_arg.getValue();
-    do_scale = switch_scale.getValue();
-    boot = boot_arg.getValue();
-    fmin = fmin_arg.getValue();
-    nsteps = nsteps_arg.getValue();
-    force = switch_force.getValue();
-
-    if (targets_file != "") mode = TIGLM_PARTIAL;
-
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException &e)  // catch any exceptions
+  catch (std::exception& e)
   {
-    log << e.error() << " for arg " << e.argId() << '\n';
-    log.log(LOG_ERR);
-    return EINVAL;
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
   }
 
-  // Check all kinds of FS problems that may arise
+  log.set_log_level(param.verbosity);
+
+  if (vm.count("targets"))
+    param.mode = TIGLM_PARTIAL;
+
+  // Normalize paths
+  param.outfile = to_absolute(param.outfile);
+  param.infile = to_absolute(param.infile);
+  param.gene_file = to_absolute(param.gene_file);
+
+  if (param.mode == TIGLM_PARTIAL)
+  {
+    param.targets_file = to_absolute(param.targets_file);
+  }
+
+  // Check all kinds of FS problems that may arise in the master thread
   if (rank == 0)
   {
     try
     {
-      outfile = to_absolute(outfile);
-      infile = to_absolute(infile);
-      gene_file = to_absolute(gene_file);
-      verify_matrix(gene_matrix);
-      std::string tempdir = dirname(outfile) + "/.seidr_tmp_tigress";
+      assert_exists(dirname(param.outfile));
+      assert_exists(param.infile);
+      assert_is_regular_file(param.infile);
+      assert_exists(param.gene_file);
+      assert_can_read(param.gene_file);
+      assert_can_read(param.infile);
 
-      if (! file_exists(dirname(outfile)) )
-        throw std::runtime_error("Directory does not exist: " + dirname(outfile));
-
-      if (dir_exists(tempdir) && force)
+      if (param.mode == TIGLM_PARTIAL)
       {
-        log << "Removing previous temp files.\n";
-        log.send(LOG_WARN);
-        fs::remove_all(tempdir);
+        assert_exists(param.targets_file);
+        assert_can_read(param.targets_file);
       }
 
-      if (! create_directory(dirname(outfile), ".seidr_tmp_tigress") )
-        throw std::runtime_error("Cannot create tmp dir in: " + dirname(outfile));
+      if (! param.force)
+        assert_no_overwrite(param.outfile);
 
-      if (! file_exists(infile) )
-        throw std::runtime_error("File does not exist: " + infile);
-
-      if (! regular_file(infile) )
-        throw std::runtime_error("Not a regular file: " + infile);
-
-      if (! file_can_read(infile) )
-        throw std::runtime_error("Cannot read: " + infile);
-
-      if (! file_exists(gene_file) )
-        throw std::runtime_error("File does not exist: " + gene_file);
-
-      if (! file_can_read(gene_file) )
-        throw std::runtime_error("Cannot read: " + gene_file);
-
-      if (mode == TIGLM_PARTIAL)
+      if (! vm.count("tempdir"))
+        param.tempdir = tempfile(dirname(param.outfile));
+      else
+        param.tempdir = tempfile(to_absolute(param.tempdir));
+      if (dir_exists(param.tempdir))
       {
-        targets_file = to_absolute(targets_file);
-        if (! file_exists(targets_file) )
-          throw std::runtime_error("File does not exist: " + targets_file);
-
-        if (! file_can_read(targets_file))
-          throw std::runtime_error("Cannot read: " + targets_file);
+        if (param.force)
+        {
+          log << "Removing previous temp files.\n";
+          log.log(LOG_WARN);
+          fs::remove_all(param.tempdir);
+        }
+        else
+        {
+          throw std::runtime_error("Dir exists: " + param.tempdir);
+        }
+      }
+      else
+      {
+        create_directory(param.tempdir);
       }
 
-      if (! force && file_exists(outfile))
-        throw std::runtime_error("File exists: " + outfile);
-
+      assert_dir_is_writeable(param.tempdir);
+      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -179,33 +199,38 @@ int main(int argc, char ** argv) {
       return EINVAL;
     }
   }
+  else
+  {
+    mpi_sync_tempdir(&param.tempdir);
+  }
+  
   // All threads wait until checks are done
   MPI_Barrier(MPI_COMM_WORLD);
 
   try
   {
+    assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
+                         "--threads");
+    omp_set_num_threads(param.nthreads);
     // Get input files
-    gene_matrix.load(infile);
-    genes = read_genes(gene_file, row_delim, field_delim);
+    gene_matrix.load(param.infile);
+    genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
 
-    if (genes.size() != gene_matrix.n_cols)
-      throw std::runtime_error("There must be as many gene names as columns "
-                               "in the expression matrix.");
+    verify_matrix(gene_matrix, genes);
 
-    if (do_scale)
+    if (param.do_scale)
       scale(gene_matrix);
 
-    if (mode == TIGLM_PARTIAL)
-      targets = read_genes(targets_file, row_delim, field_delim);
+    if (param.mode == TIGLM_PARTIAL)
+      targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
 
-    switch (mode) {
+    switch (param.mode) {
     case TIGLM_FULL:
-      tiglm_full(gene_matrix, genes, bs, outfile, boot, fmin, nsteps);
+      tiglm_full(gene_matrix, genes, param);
       break;
 
     case TIGLM_PARTIAL:
-      tiglm_partial(gene_matrix, genes, bs, targets, outfile, boot, fmin,
-                    nsteps);
+      tiglm_partial(gene_matrix, genes, targets, param);
       break;
 
     default:

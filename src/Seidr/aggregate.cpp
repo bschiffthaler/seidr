@@ -1,29 +1,29 @@
-/**
- * @file
- * @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
- *
- * @param infs Input files to be aggregated in binary format from el2bin
- * @param genes_file File containing names of genes present in the network
- * @param method Aggregation method: 'borda' implements borda counting
- *               'last' ranks missing edges last, 'ignore' ignores missing.
- * @return int 0 if the function succeeded, an error code otherwise.
- *
- * @section DESCRIPTION
- *
- * This function aggregates any number of networks (represented as binary
- * files by the el2bin function) into a meta-network of scores in [0, 1].
- * If the chosen method is borda counting, we calculate the mean rank of
- * each edge, ranking missing vertices last. The top1 algorithm presents
- * the final score of an edge as the best score of any algorithm. The
- * neural algorithm learns how to best predict new edges from a set of
- * gold standard gene interactions.
- */
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
 
 // Seir
 #include <common.h>
 #include <Serialize.h>
 #include <fs.h>
 #include <BSlogger.h>
+#include <aggregate.h>
 // External
 #include <vector>
 #include <cmath>
@@ -32,7 +32,6 @@
 #include <fstream>
 #include <forward_list>
 #include <algorithm>
-#include <tclap/CmdLine.h>
 #include <stdexcept>
 #include <cerrno>
 #include <map>
@@ -40,7 +39,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/dynamic_bitset.hpp>
+#include <boost/program_options.hpp>
 
+namespace po = boost::program_options;
 using boost::lexical_cast;
 using boost::numeric_cast;
 namespace fs = boost::filesystem;
@@ -435,11 +436,7 @@ int aggregate(int argc, char * argv[])
   logger log(std::cerr, "aggregate");
 
   // Variables used by the function
-  std::vector<std::string> infs;
-  std::string method;
-  std::string out_file;
-  bool force = false;
-  bool keep_di = false;
+  seidr_aggregate_param_t param;
 
   // We ignore the first argument, the function name
 #ifndef TEST_BUILD
@@ -454,76 +451,84 @@ int aggregate(int argc, char * argv[])
   char ** args = argv;
 #endif
 
-  std::vector<std::string> method_constraints{"top1", "top2", "borda", "irp"};
 
-  try
+  po::options_description umbrella("Aggregate multiple SeidrFiles.");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o",
+   po::value<std::string>(&param.out_file)->default_value("aggregated.sf"),
+   "Output file name")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir)->default_value("","auto"),
+   "Directory to store temporary data");
+
+  po::options_description agropt("Aggregate Options");
+  agropt.add_options()
+  ("method,m",
+   po::value<std::string>(&param.method)->default_value("irp"),
+   "Method to aggregate networks [top1, top2, borda, irp]")
+  ("keep,k", po::bool_switch(&param.keep_di)->default_value(false),
+   "Keep directionality information");
+
+  po::options_description req("Required Options");
+  req.add_options()
+  ("in-file",
+   po::value<std::vector<std::string>>(&param.infs),
+   "Input files");
+ 
+  umbrella.add(req).add(agropt).add(opt);
+
+  po::positional_options_description p;
+  p.add("in-file", -1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
   {
-    TCLAP::ValuesConstraint<std::string> constraints_m(method_constraints);
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Aggregate a set of ranked representation networks.",
-                       ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_method("m", "method", "Method to aggregate networks <irp>.", false,
-               "irp", &constraints_m);
-    cmd.add(arg_method);
-
-    TCLAP::ValueArg<std::string>
-    arg_outfile("o", "outfile", "Where to write the output file.", false,
-                "aggregated.sf", "aggregated.sf");
-    cmd.add(arg_outfile);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    TCLAP::SwitchArg
-    switch_keep("k", "keep", "Keep directionality information", cmd,
-                false);
-
-    TCLAP::UnlabeledMultiArg<std::string>
-    arg_input_files("infiles", "Input files", true, "", "");
-
-    cmd.add(arg_input_files);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    method = arg_method.getValue();
-    infs = arg_input_files.getValue();
-    out_file = std::string(arg_outfile.getValue());
-    force = switch_force.getValue();
-    keep_di = switch_keep.getValue();
-  }
-  catch (TCLAP::ArgException& except)
-  {
-    log(LOG_ERR) << "[Invalid argument exception]: " << except.what() << '\n';
-    return EINVAL;
+    std::cerr << umbrella << '\n';
+    return 1;
   }
 
   try
   {
-    log(LOG_INFO) << out_file << '\n';
-    out_file = to_absolute(out_file);
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
 
-    if (file_exists(out_file) && ! force)
-      throw std::runtime_error("File exists: " + out_file);
+  try
+  {
+    log(LOG_INFO) << param.out_file << '\n';
+    param.out_file = to_absolute(param.out_file);
 
-    if (! file_can_create(out_file))
-      throw std::runtime_error("Can't create file " + out_file + "\n");
-
-    for (size_t i = 0; i < infs.size(); i++)
+    if (! param.force)
     {
-      infs[i] = to_canonical(infs[i]);
-      if (! file_can_read(infs[i]))
-        throw std::runtime_error("Can't read file " + infs[i] + "\n");
-      log(LOG_INFO) << "Have file " << infs[i] << '\n';
+      assert_no_overwrite(param.out_file);
+    }
+
+    assert_dir_is_writeable(dirname(param.out_file));
+
+    for (size_t i = 0; i < param.infs.size(); i++)
+    {
+      param.infs[i] = to_canonical(param.infs[i]);
+      assert_can_read(param.infs[i]);
+      log(LOG_INFO) << "Have file " << param.infs[i] << '\n';
     }
 
   }
   catch (std::runtime_error& except)
   {
-    log(LOG_ERR) << "[Runtime exception]: " << except.what() << '\n';
-    return errno;
+    log(LOG_ERR) << except.what() << '\n';
+    return 1;
   }
 
   std::vector<SeidrFile> infile_vec;
@@ -531,7 +536,7 @@ int aggregate(int argc, char * argv[])
 
   log(LOG_INFO) << "Getting headers\n";
   uint32_t counter = 0;
-  for (auto& f : infs)
+  for (auto& f : param.infs)
   {
     // Create a SeidrFile from input string and call bgzf_open()
     infile_vec.push_back(SeidrFile(f.c_str()));
@@ -567,17 +572,17 @@ int aggregate(int argc, char * argv[])
   h.nodes = header_vec[0].nodes;
   h.version_from_char(_XSTR(VERSION));
   h.cmd_from_args(argv, argc);
-  h.algs.push_back(method);
+  h.algs.push_back(param.method);
   h.attr.nalgs += 1;
 
-  if (method == "top1")
+  if (param.method == "top1")
   {
     h.attr.nsupp += 1;
     h.attr.nsupp_int += 1;
     h.supp.push_back("T");
   }
 
-  if (method == "top2")
+  if (param.method == "top2")
   {
     h.attr.nsupp += 2;
     h.attr.nsupp_int += 2;
@@ -585,7 +590,7 @@ int aggregate(int argc, char * argv[])
     h.supp.push_back("T2");
   }
 
-  if (keep_di)
+  if (param.keep_di)
   {
     h.attr.nsupp += h.attr.nalgs - 1;
     h.attr.nsupp_int += h.attr.nalgs - 1;
@@ -596,11 +601,12 @@ int aggregate(int argc, char * argv[])
   }
 
 
-  log(LOG_INFO) << "Aggregating using method: " << method << '\n';
-  std::string tempfile = out_file + std::string(".tmp");
-  tempfile = to_absolute(tempfile);
-  log(LOG_INFO) << "Using temp file: " << tempfile << '\n';
-  SeidrFile tmp(tempfile.c_str());
+  log(LOG_INFO) << "Aggregating using method: " << param.method << '\n';
+  
+  param.tempfile = tempfile(param.tempdir);
+  log(LOG_INFO) << "Using temp file: " << param.tempfile << '\n';
+
+  SeidrFile tmp(param.tempfile.c_str());
   tmp.open("w");
   h.serialize(tmp);
   double min = std::numeric_limits<double>::infinity();
@@ -625,16 +631,16 @@ int aggregate(int argc, char * argv[])
                      double&,
                      uint64_t&,
                      bool&)> aggr_fun;
-  if (method == "top1")
+  if (param.method == "top1")
     aggr_fun = aggr_top1;
-  else if (method == "borda")
+  else if (param.method == "borda")
     aggr_fun = aggr_borda;
-  else if (method == "top2")
+  else if (param.method == "top2")
     aggr_fun = aggr_top2;
-  else if (method == "irp")
+  else if (param.method == "irp")
     aggr_fun = aggr_irp;
   else
-    throw std::runtime_error("Unknown ranking method: " + method);
+    throw std::runtime_error("Unknown ranking method: " + param.method);
   // In the first run, we read once from all files
   for (auto& x : get_next)
     x = 1;
@@ -675,7 +681,7 @@ int aggregate(int argc, char * argv[])
 
       }
       SeidrFileEdge res = calc_score(header_vec, v, get_next, i, j, aggr_fun,
-                                     keep_di);
+                                     param.keep_di);
       if (EDGE_EXISTS(res.attr.flag))
       {
         h.attr.edges++;
@@ -706,7 +712,7 @@ int aggregate(int argc, char * argv[])
   SeidrFileHeader ha;
   ha.unserialize(tmp);
 
-  SeidrFile out(out_file.c_str());
+  SeidrFile out(param.out_file.c_str());
   out.open("w");
 
   // Determine storage model of final file
@@ -751,8 +757,8 @@ int aggregate(int argc, char * argv[])
   tmp.close();
   out.close();
 
-  log(LOG_INFO) << "Removing temp file: " << tempfile << '\n';
-  fs::remove(fs::path(tempfile));
+  log(LOG_INFO) << "Removing temp file: " << param.tempfile << '\n';
+  fs::remove(fs::path(param.tempfile));
   log(LOG_INFO) << "Finished\n";
   return 0;
 }

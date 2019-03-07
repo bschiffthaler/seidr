@@ -1,15 +1,34 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <tiglm.h>
 #include <glmnet2.h>
-#include <mpims.h>
+#include <mpiomp.h>
 // External
 #include <iostream>
 #include <random>
 #include <string>
 #include <fstream>
 #include <armadillo>
-#include <ctime>
 #include <cmath>
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
@@ -20,12 +39,11 @@ std::uniform_real_distribution<double> distribution(0.2, 1.0);
 
 namespace fs = boost::filesystem;
 
-class seidr_mpi_tigress : public seidr_mpi {
+class seidr_mpi_tigress : public seidr_mpi_omp {
 public:
+  using seidr_mpi_omp::seidr_mpi_omp;
   void entrypoint();
   void finalize();
-  seidr_mpi_tigress() : seidr_mpi() {}
-  seidr_mpi_tigress(unsigned long bs) : seidr_mpi(bs) {}
   void set_nboot(seidr_uword_t x) {_nboot = x;}
   void set_fmin(double x) {_fmin = x;}
   void set_nsteps(seidr_uword_t x) {_nsteps = x;}
@@ -42,25 +60,26 @@ private:
 
 void seidr_mpi_tigress::entrypoint()
 {
-  seidr_mpi_logger log;
-  std::string tmpfile = _outfilebase + "/.seidr_tmp_tigress/MPIthread_" +
-                        std::to_string(_id) + "_" + std::to_string(_indices[0]) + ".txt";
-
-  log << "Using tempfile '" << tmpfile << "'\n";
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  while (! _my_indices.empty())
+  {
+    std::vector<arma::uword> uvec;
+    for (auto i : _my_indices)
+    {
+      uvec.push_back(i);
+    }
+    tiglm(_data, _genes, uvec, _tempdir, _nboot, _fmin, _nsteps, this);
+    get_more_work();
+  }
+  log << "No more work. Waiting for other tasks to finish...\n";
   log.send(LOG_INFO);
-
-  std::vector<arma::uword> uvec;
-  for (auto i : _indices)
-    uvec.push_back(i);
-  tiglm(_data, _genes, uvec, tmpfile, _id, _nboot, _fmin, _nsteps);
-  announce_ready();
 }
 
 void seidr_mpi_tigress::finalize()
 {
-  merge_files(_outfile, _outfilebase, ".seidr_tmp_tigress", 
+  remove(_queue_file);
+  merge_files(_outfile, _tempdir,
               _targeted, _id, _genes);
-  check_logs();
 }
 
 /*
@@ -69,7 +88,8 @@ in half at random. This function takes a sample size and outputs
 a std::vector containing two arma::uvec vectors which hold the
 randomized indices of the matrix rows.
 */
-std::vector<arma::uvec> shuffle(unsigned int n) {
+std::vector<arma::uvec> shuffle(unsigned int n)
+{
   arma::uvec samples(n);
   unsigned int nA;
   unsigned int nB;
@@ -104,30 +124,38 @@ std::vector<arma::uvec> shuffle(unsigned int n) {
 }
 
 
-void tiglm(arma::mat geneMatrix, std::vector<std::string> genes,
-           std::vector<arma::uword> pred, std::string outfile,
-           int thread_id, seidr_uword_t boot, double fmin,
-           seidr_uword_t nsteps) {
-
-  seidr_mpi_logger log;
+void tiglm(const arma::mat& geneMatrix,
+           const std::vector<std::string>& genes,
+           const std::vector<arma::uword>& pred,
+           const std::string& tmpdir,
+           const seidr_uword_t& boot,
+           const double& fmin,
+           const seidr_uword_t& nsteps,
+           seidr_mpi_tigress * self)
+{
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   size_t ng = geneMatrix.n_cols - 1;
   size_t ns = geneMatrix.n_rows;
   double ns_d = geneMatrix.n_rows;
 
   size_t n_good = ceil(sqrt(ns_d / 2));
 
-  log << "Minimal required number of useful samples: "
-      << n_good << '\n';;
-  log.send(LOG_DEBUG);
-  std::ofstream ofs(outfile.c_str(), std::ios::out);
+  std::string tmpfile = tempfile(tmpdir);
+  std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
   if (! ofs)
-    throw std::runtime_error("Could not open temp file: " + outfile);
+  {
+    throw std::runtime_error("Could not open temp file: " + tmpfile);
+  }
 
-  for (size_t i = 0; i < pred.size(); i++) {
-    log << "Gene: " << pred[i] << '\n';
-    log.send(LOG_DEBUG);
-    clock_t begin = clock();
+  #pragma omp parallel for
+  for (uint64_t i = 0; i < pred.size(); i++) {
+    #pragma omp critical
+    {
+      log << "Gene: " << pred[i] << '\n';
+      log.send(LOG_INFO);
+      while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    }
     arma::uvec indices = get_i(pred[i], ng + 1);
     arma::mat cum = arma::zeros<arma::mat>(ng, nsteps);
 
@@ -162,8 +190,12 @@ void tiglm(arma::mat geneMatrix, std::vector<std::string> genes,
         nboot++;
         if (nboot > 1000)
         {
-          log << genes[pred[i]] << " encountered too many reshuffles... skipping.\n";
-          log.send(LOG_WARN);
+          #pragma omp critical
+          {
+            log << genes[pred[i]]
+            << " encountered too many reshuffles... skipping.\n";
+            log.send(LOG_WARN);
+          }
           cum.fill(0);
           iter = boot;
         }
@@ -206,95 +238,124 @@ void tiglm(arma::mat geneMatrix, std::vector<std::string> genes,
     ofs << xi << '\n';
     arma::rowvec fin = cum.row(nsteps - 1);
 
-    for (arma::uword s = 0; s < indices.n_elem; s++) {
-      if (s == xi && s < (indices.n_elem - 1))
-      {
-        ofs << 0 << '\t' << fin(s) << '\t';
-      }
-      else if (xi == s && s == (indices.n_elem - 1))
-      {
-        ofs << 0 << '\t' << fin(s) << '\n';
-      }
-      else if (xi > s && s == (indices.n_elem - 1))
-      {
-        ofs << fin(s) << '\t' << 0 << '\n';
-      }
-      else
-      {
-        ofs << fin(s) <<
-            (s == (indices.n_elem - 1) ? '\n' : '\t');
+    #pragma omp critical
+    {
+      for (arma::uword s = 0; s < indices.n_elem; s++) {
+        if (s == xi && s < (indices.n_elem - 1))
+        {
+          ofs << 0 << '\t' << fin(s) << '\t';
+        }
+        else if (xi == s && s == (indices.n_elem - 1))
+        {
+          ofs << 0 << '\t' << fin(s) << '\n';
+        }
+        else if (xi > s && s == (indices.n_elem - 1))
+        {
+          ofs << fin(s) << '\t' << 0 << '\n';
+        }
+        else
+        {
+          ofs << fin(s) <<
+              (s == (indices.n_elem - 1) ? '\n' : '\t');
+        }
       }
     }
-
-    clock_t end = clock();
-    log << "Processed gene " << pred[i] << " in "
-        << double(end - begin) / CLOCKS_PER_SEC << " s"
-        << '\n';
-    log.send(LOG_INFO);
   }
 }
 
-void tiglm_full(arma::mat GM, std::vector<std::string> genes, size_t bs,
-                std::string outfile, seidr_uword_t boot, double fmin,
-                seidr_uword_t nsteps) {
+void tiglm_full(const arma::mat& GM,
+                const std::vector<std::string>& genes,
+                const seidr_tigress_param_t& param)
+{
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
-  fs::path p_out(outfile);
+  fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  std::vector<unsigned long> uvec;
-  for (unsigned long i = 0; i < GM.n_cols; i++)
+  std::vector<uint64_t> uvec;
+  for (uint64_t i = 0; i < GM.n_cols; i++)
+  {
     uvec.push_back(i);
-  seidr_mpi_tigress mpi(bs);
+  }
 
-  mpi.set_data(GM);
-  mpi.set_genes(genes);
-  mpi.set_indices(uvec);
-  mpi.set_outfilebase(d_out.string());
-  mpi.set_outfile(p_out.string());
-  mpi.set_nboot(boot);
-  mpi.set_fmin(fmin);
-  mpi.set_nsteps(nsteps);
+  seidr_mpi_tigress mpi(param.bs, GM, uvec, genes, param.tempdir,
+                        param.outfile);
+  mpi.set_nboot(param.boot);
+  mpi.set_fmin(param.fmin);
+  mpi.set_nsteps(param.nsteps);
 
-  mpi.exec();
+  mpi.entrypoint();
+
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+
+  #pragma omp critical
+  {
+    if (mpi.rank() == 0)
+    {
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
+  }
+
+  MPI_Finalize();
 }
 
-void tiglm_partial(arma::mat GM, std::vector<std::string> genes, size_t bs,
-                   std::vector<std::string> targets, std::string outfile,
-                   seidr_uword_t boot, double fmin,
-                   seidr_uword_t nsteps) {
+void tiglm_partial(const arma::mat& GM,
+                   const std::vector<std::string>& genes,
+                   const std::vector<std::string>& targets,
+                   const seidr_tigress_param_t& param) {
 
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
-  fs::path p_out(outfile);
+  fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  std::vector<size_t> positions;
-  for (size_t i = 0; i < targets.size(); i++) {
-    size_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
-    if (pos >= genes.size()) {
-      log << "Gene " << targets[i] << " was not found in the expression set " <<
-          "and will therefore not be considered. Please check that your expression set and " <<
-          "its column names (gene file) contain an entry for " << targets[i] << ".\n";
+  std::vector<uint64_t> positions;
+  for (uint64_t i = 0; i < targets.size(); i++) {
+    uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
+    if (pos >= genes.size())
+    {
+      log << "Gene " << targets[i]
+          << " was not found in the expression set "
+          << "and will therefore not be considered."
+          << " Please check that your expression set and "
+          << "its column names (gene file) contain an entry for "
+          << targets[i] << ".\n";
       log.log(LOG_WARN);
-    } else {
+    }
+    else
+    {
       positions.push_back(pos);
     }
   }
 
-  seidr_mpi_tigress mpi(bs);
-  mpi.set_data(GM);
-  mpi.set_genes(genes);
-  mpi.set_indices(positions);
-  mpi.set_outfilebase(d_out.string());
-  mpi.set_outfile(p_out.string());
-  mpi.set_nboot(boot);
-  mpi.set_fmin(fmin);
-  mpi.set_nsteps(nsteps);
+  seidr_mpi_tigress mpi(param.bs, GM, positions, genes, param.tempdir,
+                        param.outfile);
+  mpi.set_nboot(param.boot);
+  mpi.set_fmin(param.fmin);
+  mpi.set_nsteps(param.nsteps);
   mpi.set_targeted(true);
 
-  mpi.exec();
+  mpi.entrypoint();
+
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+
+  #pragma omp critical
+  {
+    if (mpi.rank() == 0)
+    {
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
+  }
+
+  MPI_Finalize();
 }

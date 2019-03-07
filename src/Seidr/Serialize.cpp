@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include <iostream>
 #include <vector>
 #include <cstring>
@@ -36,7 +56,7 @@ void SeidrFile::seek(int64_t offset)
     throw std::runtime_error("Error seeking in SeidrFile\n");
 }
 
-void SeidrFileHeader::serialize(SeidrFile& file)
+void SeidrFileHeader::serialize(SeidrFile& file) const
 {
   ssize_t n = 0;
   n = bgzf_write(file.bgzfile, &attr, sizeof(header_attr));
@@ -280,7 +300,7 @@ void SeidrFileHeader::print(std::ostream& out)
     out << "# [N] " << n << '\n';
 }
 
-void SeidrFileHeader::print_centrality(std::ostream& out)
+void SeidrFileHeader::print_centrality(std::ostream& out) const
 {
   uint32_t nmeasures = attr.pagerank_calc + attr.closeness_calc +
                        attr.betweenness_calc + attr.strength_calc + attr.eigenvector_calc +
@@ -400,7 +420,7 @@ bool SeidrFileHeader::have_supp(std::string supp_n)
     return true;
 }
 
-void SeidrFileEdge::serialize(SeidrFile& file, SeidrFileHeader& header)
+void SeidrFileEdge::serialize(SeidrFile& file, SeidrFileHeader& header) const
 {
   ssize_t n = 0;
   if (header.attr.dense)
@@ -592,9 +612,10 @@ void SeidrFileEdge::unserialize(SeidrFile& file, SeidrFileHeader& header)
   }
 }
 
-void SeidrFileEdge::print(std::ostream& out, SeidrFileHeader& header, char end,
-                          bool print_supp, std::string delim, std::string sc_delim,
-                          bool full, bool supp_tag, bool no_name) const
+void SeidrFileEdge::print(std::ostream& out, const SeidrFileHeader& header, 
+                          char end, bool print_supp, std::string delim, 
+                          std::string sc_delim, bool full, bool supp_tag,
+                          bool no_name) const
 {
   uint32_t i = index.i;
   uint32_t j = index.j;
@@ -721,7 +742,7 @@ void SeidrFileEdge::print(std::ostream& out, SeidrFileHeader& header, char end,
 }
 
 void SeidrFileEdge::raise_err(std::string what, SeidrFile& file,
-                              SeidrFileHeader& header)
+                              SeidrFileHeader& header) const
 {
   std::string f(file.filepath);
   std::string err = "File '" + f + "', at [" + std::to_string(index.i) + "," +

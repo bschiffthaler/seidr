@@ -1,6 +1,26 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 //Seidr
 #include <mi_fun.h>
-#include <mpims.h>
+#include <mpiomp.h>
 //External
 #include <armadillo>
 #include <vector>
@@ -21,18 +41,16 @@ bool sortDesc(const aranode& lhs, const aranode& rhs)
   return lhs.v > rhs.v;
 }
 
-class seidr_mpi_mi : public seidr_mpi
+class seidr_mpi_mi : public seidr_mpi_omp
 {
 public:
+  using seidr_mpi_omp::seidr_mpi_omp;
   void entrypoint();
   void finalize();
-  seidr_mpi_mi() : seidr_mpi() {}
-  seidr_mpi_mi(unsigned long bs) : seidr_mpi(bs) {}
   void set_num_bins(size_t n) {_num_bins = n;}
   void set_spline_order(size_t s) {_spline_order = s;}
   void set_mode(char x) {_mode = x;}
   void set_mi_file(std::string x) {_mi_file = x;}
-  void set_tmpdir(std::string x) {_tmpdir = x;}
   void set_targets(std::vector<std::string> x) {_targets = x;}
   void set_genes(std::vector<std::string> x) {_genes = x;}
   void use_existing_mi_mat() {_use_existing_mi_mat = true;}
@@ -41,7 +59,6 @@ private:
   size_t _spline_order = 0;
   char _mode = 0;
   bool _use_existing_mi_mat = false;
-  std::string _tmpdir = "";
   std::string _mi_file = "";
   std::vector<std::string> _targets;
   std::vector<std::string> _genes;
@@ -49,34 +66,31 @@ private:
 
 void seidr_mpi_mi::entrypoint()
 {
-  if (_use_existing_mi_mat)
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  while (! _my_indices.empty())
   {
-    announce_ready();
-  }
-  else
-  {
-    seidr_mpi_logger log;
-    std::string tmpfile = _tmpdir + "/MPIthread_" +
-                          std::to_string(_id) + "_" +
-                          std::to_string(_indices[0]) + ".txt";
-
-    log << "Using tempfile '" << tmpfile << "'\n";
-    log.send(LOG_INFO);
-
     std::vector<arma::uword> uvec;
-    for (auto i : _indices)
+    for (auto i : _my_indices)
+    {
       uvec.push_back(i);
-    mi_sub_matrix(_data, _num_bins, _spline_order, uvec, tmpfile);
-    announce_ready();
+    }
+    mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir);
+    get_more_work();
+  }
+  #pragma omp critical
+  {
+    log << "No more work. Waiting for other tasks to finish...\n";
+    log.send(LOG_INFO);
   }
 }
 
 void seidr_mpi_mi::finalize()
 {
+  remove(_queue_file);
   if (_id == 0)
   {
     arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
-    seidr_mpi_logger log;
+    seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
     std::unordered_map<std::string, arma::uword> gene_map;
     arma::uword ctr = 0;
     for (auto g : _genes)
@@ -87,12 +101,12 @@ void seidr_mpi_mi::finalize()
       std::ifstream mifs(_mi_file.c_str());
       std::string l;
       arma::uword i = 1;
-      while(std::getline(mifs, l))
+      while (std::getline(mifs, l))
       {
         arma::uword j = 0;
         std::string f;
         std::stringstream ss(l);
-        while(std::getline(ss, f, '\t'))
+        while (std::getline(ss, f, '\t'))
         {
           double val = std::stod(f);
           mi_mat(i, j) = val;
@@ -104,11 +118,11 @@ void seidr_mpi_mi::finalize()
     }
     else
     {
-      log << "Merging tmp files from " << _tmpdir << '\n';
+      log << "Merging tmp files from " << _tempdir << '\n';
       log.log(LOG_INFO);
 
       std::vector<fs::path> files;
-      fs::path p_tmp(_tmpdir);
+      fs::path p_tmp(_tempdir);
       for (auto it = fs::directory_iterator(p_tmp);
            it != fs::directory_iterator(); it++)
       {
@@ -144,17 +158,24 @@ void seidr_mpi_mi::finalize()
 
     std::ofstream ofs(_outfile);
 
-    if ((_mode == 2 || _mi_file != "") && ( ! _use_existing_mi_mat))
+    if (_mi_file != "" && (! _use_existing_mi_mat))
     {
+      std::ofstream mofs;
+      mofs.open(_mi_file.c_str());
       log << "Outputting raw MI\n";
       log.send(LOG_INFO);
-      bool only_mi = true;
-      std::ofstream mofs;
-      if (_mi_file != "")
+      for (arma::uword i = 1; i < mi_mat.n_cols; i++)
       {
-        only_mi = false;
-        mofs.open(_mi_file.c_str());
+        for (arma::uword j = 0; j < i; j++)
+        {
+          mofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
+        }
       }
+      mofs.close();
+    }
+
+    if (_mode == 2)
+    {
       if (_targets.size() != 0)
       {
         for (auto g : _targets)
@@ -173,8 +194,7 @@ void seidr_mpi_mi::finalize()
           for (arma::uword j = 0; j < mi_mat.n_cols; j++)
           {
             if (i == j) continue;
-            (only_mi ? ofs : mofs)
-                << _genes[i] << '\t'
+            ofs << _genes[i] << '\t'
                 << _genes[j] << '\t'
                 << mi_mat(i, j) << '\n';
           }
@@ -186,9 +206,7 @@ void seidr_mpi_mi::finalize()
         {
           for (arma::uword j = 0; j < i; j++)
           {
-
-            (only_mi ? ofs : mofs) << mi_mat(i, j)
-                                   << (j == i - 1 ? '\n' : '\t');
+            ofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
           }
         }
       }
@@ -342,10 +360,8 @@ void seidr_mpi_mi::finalize()
     }
     log << "Finished\n";
     log.log(LOG_INFO);
-    fs::remove_all(_tmpdir);
+    fs::remove_all(_tempdir);
   }
-  // get remaining logs
-  check_logs();
 }
 
 
@@ -419,7 +435,7 @@ double bin_width(arma::vec& data)
   return pow(ns, (-1.0 / 3.0)) * sigma * 3.49;
 }
 
-arma::uvec bin_count(arma::mat& gm, size_t multiplier)
+arma::uvec bin_count(const arma::mat& gm, size_t multiplier)
 {
   arma::uvec ret(gm.n_cols, arma::fill::zeros);
 
@@ -450,7 +466,8 @@ arma::vec to_z(arma::vec& x) {
 }
 
 
-double basis_function(size_t i, size_t p, double t, arma::vec& knot_vector, size_t num_bins)
+double basis_function(size_t i, size_t p, double t, arma::vec& knot_vector,
+                      size_t num_bins)
 {
   double d1, n1, d2, n2, e1, e2;
   if (p == 1)
@@ -498,7 +515,7 @@ double basis_function(size_t i, size_t p, double t, arma::vec& knot_vector, size
 
 }
 
-void find_weights(arma::mat& gm, arma::vec& knots, arma::mat& wm,
+void find_weights(const arma::mat& gm, arma::vec& knots, arma::mat& wm,
                   size_t spline_order, size_t num_bins, size_t i)
 {
   // standardize data
@@ -536,7 +553,7 @@ double log2d(double x)
   return log(x) / log(2);
 }
 
-double entropy1d(arma::mat& gm, arma::vec& knots, arma::mat& wm,
+double entropy1d(const arma::mat& gm, arma::vec& knots, arma::mat& wm,
                  size_t spline_order, size_t num_bins, size_t i)
 {
   double H = 0;
@@ -567,15 +584,14 @@ void hist2d(arma::vec& x, arma::vec& y, arma::vec& knots,
         double n = x.n_elem;
         hist(cur_bin_x, cur_bin_y) +=
           wx(cur_bin_x * x.n_elem + cur_sample) *
-          wy(cur_bin_y * x.n_elem + cur_sample) /
-          n;
+          wy(cur_bin_y * x.n_elem + cur_sample) / n;
       }
     }
   }
 
 }
 
-double entropy2d(arma::mat& gm, arma::vec& knots,
+double entropy2d(const arma::mat& gm, arma::vec& knots,
                  arma::mat& wm, size_t spline_order,
                  size_t num_bins, size_t xi, size_t yi)
 {
@@ -603,50 +619,69 @@ double entropy2d(arma::mat& gm, arma::vec& knots,
   return H;
 }
 
-void mi_sub_matrix(arma::mat& gm, size_t num_bins, size_t spline_order,
-                   std::vector<arma::uword> targets, std::string tempfile)
+void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
+                   std::vector<arma::uword>& targets,
+                   const std::string& tmpdir)
 {
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   arma::vec knots = knot_vector(spline_order, num_bins);
   arma::mat weights(gm.n_rows * num_bins, gm.n_cols, arma::fill::zeros);
   arma::vec entropies(gm.n_cols, arma::fill::zeros);
 
   std::sort(targets.begin(), targets.end());
 
-  std::ofstream ofs(tempfile.c_str(), std::ios::out);
+  std::string tmpfile = tempfile(tmpdir);
+  std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
+  #pragma omp parallel for
   for (size_t i = 0; i < gm.n_cols; i++)
   {
     find_weights(gm, knots, weights, spline_order, num_bins, i);
     entropies(i) = entropy1d(gm, knots, weights, spline_order, num_bins, i);
   }
 
-  for (size_t row : targets)
+
+  for (size_t i = 0; i < targets.size(); i++)
   {
+    size_t row = targets[i];
     if (row > 0)
     {
-      ofs << row << '\n';
+      // Parallelize inner loop which works a bit better with pragma critical
+      // and won't make much of a difference in practice as row == col
+      #pragma omp parallel for
       for (size_t col = 0; col < row; col++)
       {
         double e2d = entropy2d(gm, knots, weights, spline_order, num_bins,
                                col, row);
-        ofs <<  entropies(col) + entropies(row) - e2d;
-        ofs << (col == row - 1 ? '\n' : '\t');
+        #pragma omp critical
+        {
+          if (col == 0)
+          {
+            ofs << row << '\n';
+          }
+          ofs <<  entropies(col) + entropies(row) - e2d;
+          ofs << (col == row - 1 ? '\n' : '\t');
+        }
       }
-      log << "Finished gene " << row << '\n';
-      log.send(LOG_INFO);
+      #pragma omp critical
+      {
+        log << "Finished gene " << row << '\n';
+        log.send(LOG_INFO);
+      }
     }
+    ofs.close();
   }
 }
 
 
-void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
-             std::string outfile, char mode, std::string mi_file,
-             std::vector<std::string> genes, std::vector<std::string> targets,
-             bool use_existing_mi_mat)
+void mi_full(const arma::mat & gm,
+             const std::vector<std::string>& genes,
+             std::vector<std::string>& targets,
+             const seidr_mi_param_t& param)
 {
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   std::string mode_str;
-  switch (mode)
+  switch (param.m)
   {
   case 0:
     mode_str = std::string("CLR");
@@ -661,35 +696,45 @@ void mi_full(arma::mat& gm, size_t spline_order, size_t num_bins, size_t bs,
     throw std::runtime_error("Post processing mode not known");
   }
 
-  fs::path p_out(outfile);
+  fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  std::string tmpdir = d_out.string() + "/.seidr_tmp_mi_" + mode_str;
-
-  std::vector<unsigned long> indices(gm.n_cols);
-  for (size_t i = 0; i < gm.n_cols; i++)
+  std::vector<uint64_t> indices(gm.n_cols);
+  for (uint64_t i = 0; i < gm.n_cols; i++)
+  {
     indices[i] = i;
+  }
 
   std::random_shuffle(indices.begin(), indices.end());
 
-  seidr_mpi_mi mpi(bs);
-
-  mpi.set_data(gm);
-  mpi.set_indices(indices);
-  mpi.set_outfilebase(d_out.string());
-  mpi.set_outfile(p_out.string());
-  mpi.set_tmpdir(tmpdir);
-  mpi.set_spline_order(spline_order);
-  mpi.set_num_bins(num_bins);
-  mpi.set_mode(mode);
-  mpi.set_mi_file(mi_file);
+  seidr_mpi_mi mpi(param.bs, gm, indices, genes, param.tempdir,
+                   param.outfile);
+  mpi.set_spline_order(param.spline_order);
+  mpi.set_num_bins(param.num_bins);
+  mpi.set_mode(param.m);
+  mpi.set_mi_file(param.mi_file);
   mpi.set_genes(genes);
-  if(use_existing_mi_mat)
+  if (param.use_existing)
+  {
     mpi.use_existing_mi_mat();
+  }
   mpi.set_targets(targets);
+  mpi.entrypoint();
 
-  mpi.exec();
-  //mpi.finalize();
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+
+  #pragma omp critical
+  {
+    if (mpi.rank() == 0)
+    {
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
+  }
+
+  MPI_Finalize();
 }

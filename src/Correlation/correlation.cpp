@@ -1,127 +1,137 @@
-#include <cor_fun.h>
-#include <armadillo>
-#include <tclap/CmdLine.h>
-#include <common.h>
-#include <fs.h>
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include <BSlogger.h>
-#include <vector>
+#include <common.h>
+#include <cor_fun.h>
+#include <fs.h>
+
+#include <cmath>
 #include <string>
 #include <unordered_map>
-#include <cmath>
+#include <vector>
+
+#include <armadillo>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 int main(int argc, char ** argv)
 {
-  std::string infile;
-  std::string outfile;
-  std::string method;
-  std::string gene_file;
-  std::string targets_file;
-  bool do_scale;
-  bool abs;
-  bool force = false;
-  LOG_INIT_CLOG();
-  unsigned verbosity;
+  logger log(std::cerr, "correlation");
 
-  try
+  seidr_cor_param_t param;
+
+  po::options_description umbrella("Pearson/Spearman correlation for Seidr");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("help,h", "Show this help message")
+  ("targets,t", po::value<std::string>(&param.targets_file),
+   "File containing gene names"
+   " of genes of interest. The network will only be"
+   " calculated using these as the sources of potential connections.")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("<method>_scores.tsv"),
+   "Output file path")
+  ("verbosity,v",
+   po::value<unsigned>(&param.verbosity)->default_value(3),
+   "Verbosity level (lower is less verbose)")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite if output already exists");
+
+  po::options_description algopt("Correlation specific Options");
+  algopt.add_options()
+  ("method,m",
+   po::value<std::string>(&param.method)->default_value("pearson"),
+   "Correlation method")
+  ("absolute,a", po::bool_switch(&param.abs)->default_value(false),
+   "Report absolute values")
+  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+   "Transform data to z-scores");
+
+  po::options_description req("Required Options");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.infile)->required(),
+   "The expression table (without headers)")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "File containing gene names");
+
+  umbrella.add(req).add(algopt).add(opt);
+
+  po::positional_options_description p;
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") > 0 || argc == 1)
   {
-    TCLAP::CmdLine cmd("Pearson/Spearman correlation for Seidr", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
-
-    TCLAP::ValueArg<std::string>
-    genefile_arg("g", "genes", "File containing gene names", true, "",
-                 "string");
-    cmd.add(genefile_arg);
-
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing gene names"
-                " of genes of interest. The network will only be"
-                " calculated using these as the sources of potential connections.",
-                false, "", "string");
-    cmd.add(targets_arg);
-
-    TCLAP::ValueArg<std::string>
-    outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv",
-                "edgelist.tsv");
-    cmd.add(outfile_arg);
-
-    std::vector<std::string> method_vec{"pearson", "spearman"};
-    TCLAP::ValuesConstraint<std::string> allowed_methods( method_vec );
-    TCLAP::ValueArg<std::string>
-    method_arg("m", "method", "Correlation method <pearson>", false, "pearson",
-               &allowed_methods);
-    cmd.add(method_arg);
-
-    TCLAP::ValueArg<unsigned>
-    verbosity_arg("v", "verbosity", "Verbosity level (lower is less verbose)",
-                  false, 3, "3");
-    cmd.add(verbosity_arg);
-
-    TCLAP::SwitchArg
-    switch_scale("s", "scale", "Transform data to z-scores", cmd, false);
-
-    TCLAP::SwitchArg
-    switch_abs("a", "absolute", "Report absolute values", cmd, false);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    cmd.parse(argc, argv);
-    infile = infile_arg.getValue();
-    outfile = outfile_arg.getValue();
-    do_scale = switch_scale.getValue();
-    method = method_arg.getValue();
-    abs = switch_abs.getValue();
-    force = switch_force.getValue();
-    gene_file = genefile_arg.getValue();
-    targets_file = targets_arg.getValue();
-    verbosity = verbosity_arg.getValue();
-
-    log.set_log_level(verbosity);
-  }
-  catch (TCLAP::ArgException &e)  // catch any exceptions
-  {
-    log(LOG_ERR) << e.error() << " for arg " << e.argId() << '\n';
+    std::cerr << umbrella << '\n';
     return 1;
   }
 
   try
   {
-    outfile = to_absolute(outfile);
-    infile = to_absolute(infile);
-    gene_file = to_absolute(gene_file);
-    if (targets_file != "")
-      targets_file = to_absolute(targets_file);
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
+  }
 
-    if (! file_exists(dirname(outfile)) )
-      throw std::runtime_error("Directory does not exist: " + dirname(outfile));
+  log.set_log_level(param.verbosity);
 
-    if (! file_exists(infile) )
-      throw std::runtime_error("File does not exist: " + infile);
+  try
+  {
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-    if (! file_exists(gene_file) )
-      throw std::runtime_error("File does not exist: " + gene_file);
+    assert_exists(dirname(param.outfile));
+    assert_exists(param.infile);
+    assert_is_regular_file(param.infile);
+    assert_exists(param.gene_file);
+    assert_can_read(param.gene_file);
+    assert_can_read(param.infile);
 
-    if (! file_exists(targets_file) && targets_file != "" )
-      throw std::runtime_error("File does not exist: " + targets_file);
+    if (vm.count("targets") > 0)
+    {
+      param.targets_file = to_absolute(param.targets_file);
+      assert_exists(param.targets_file);
+    }
 
-    if (! regular_file(infile) )
-      throw std::runtime_error("Not a regular file: " + infile);
+    if (vm.count("outfile") == 0)
+    {
+      param.outfile = param.method + "_scores.tsv";
+    }
 
-    if (! file_can_read(infile) )
-      throw std::runtime_error("Cannot read: " + infile);
-
-    if (! force && file_exists(outfile))
-      throw std::runtime_error("File exists: " + outfile);
+    if (! param.force)
+    {
+      assert_no_overwrite(param.outfile);
+    }
 
   }
   catch (std::runtime_error& e)
   {
-    log(LOG_ERR) << "[Runtime error]: " << e.what() << '\n';
+    log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
@@ -129,34 +139,36 @@ int main(int argc, char ** argv)
 
   try
   {
-    gm.load(infile.c_str(), arma::raw_ascii);
+    gm.load(param.infile, arma::raw_ascii);
     verify_matrix(gm);
-    if (do_scale)
+    if (param.do_scale)
     {
       log(LOG_INFO) << "Transforming matrix to z-score\n";
       scale(gm);
     }
 
-    if (method == "spearman")
+    if (param.method == "spearman")
     {
       log(LOG_INFO) << "Transforming matrix to value ranks\n";
       to_rank(gm);
     }
 
     gm = arma::cor(gm);
-    if (targets_file == "")
+    if (vm.count("targets") == 0)
     {
-      write_lm(gm, outfile, abs);
+      write_lm(gm, param.outfile, param.abs);
     }
     else
     {
-      std::vector<std::string> genes = read_genes(gene_file);
-      std::vector<std::string> targets = read_genes(targets_file);
+      std::vector<std::string> genes = read_genes(param.gene_file);
+      std::vector<std::string> targets = read_genes(param.targets_file);
       std::unordered_map<std::string, uint64_t> gene_map;
       uint64_t ctr = 0;
       for (auto& g : genes)
+      {
         gene_map[g] = ctr++;
-      std::ofstream ofs(outfile, std::ios::out);
+      }
+      std::ofstream ofs(param.outfile, std::ios::out);
       for (auto& t : targets)
       {
         uint64_t i;
@@ -171,16 +183,19 @@ int main(int argc, char ** argv)
         }
         for (uint64_t j = 0; j < gm.n_cols; j++)
         {
-          if (i == j) continue;
+          if (i == j)
+          {
+            continue;
+          }
           ofs << genes[i] << '\t' << genes[j] << '\t' <<
-              (abs ? fabs(gm(i, j)) : gm(i, j)) << '\n';
+              (param.abs ? fabs(gm(i, j)) : gm(i, j)) << '\n';
         }
       }
     }
   }
   catch (std::runtime_error& e)
   {
-    log(LOG_ERR) << "[Runtime error]: " << e.what() << '\n';
+    log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
   return 0;

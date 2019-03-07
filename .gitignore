@@ -2,6 +2,9 @@
 *.tsv
 *.o
 *.sf
+*.a
+*.so
+*.tmp
 a.out
 build/
 bin/
@@ -14,3 +17,7 @@ test/
 _build
 _static
 _templates
+*.Rproj
+.Rproj.user
+.Rbuildignore
+.RHistory

@@ -1,71 +1,67 @@
-/**
- * @file
- * @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
- * @version 0.01
- *
- * @section DESCRIPTION
- *
- * This is a collection of functions common to most other routines.
- */
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
+#include <Serialize.h>
 #include <common.h>
 #include <fs.h>
-#include <mpims.h>
+#include <mpiomp.h>
 // External
-#include <armadillo>
 #include <cerrno>
-#include <iostream>
 #include <fstream>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <stdexcept>
-#include <boost/tokenizer.hpp>
-#include <boost/filesystem.hpp>
+#include <iostream>
 #include <map>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <armadillo>
+#include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+#include <boost/tokenizer.hpp>
 
 namespace fs = boost::filesystem;
+namespace po = boost::program_options;
 
-typedef std::pair<std::streampos, std::string> file_index_t;
-typedef std::map<seidr_uword_t, file_index_t> result_file_map_t;
+using file_index_t = std::pair<std::streampos, std::string>;
+using result_file_map_t = std::map<seidr_uword_t, file_index_t>;
 
-/**
- * Get a set difference of a single gene versus all genes
- *
- * This function will return the set difference between any
- * single gene and the collection of all genes. Useful for
- * all vs. all style tests.
- *
- * @param ind A vector (armadillo uword) for indices in 1:N
- *            for all genes.
- * @param s   A single index which should be excluded from
- *            the output.
- * @return arma::uvec A vector of indicies without the
- *                    excluded one.
- */
 arma::uvec get_i(arma::uword ind, size_t s) {
   arma::uvec res(s - 1);
   arma::uword ri = 0;
   for (arma::uword f = 0; f < s; f++) {
-    if (f < ind) res(ri++) = f;
-    if (f > ind) res(ri++) = f;
+    if (f < ind)
+    {
+      res(ri++) = f;
+    }
+    if (f > ind)
+    {
+      res(ri++) = f;
+    }
   }
   return res;
 }
 
-/**
- * Read in genes from a genes file.
- *
- * This function will read all genes into a vector of strings.
- * The gene names can be delimited by a tab or by newlines.
- *
- * @param input The file path.
- * @param row_delim The dilimiter character for rows ('\n')
- * @param field_delim The delimiter character for columns ('\t')
- * @return std::vector<std::string> of gene names.
- */
-
-std::vector<std::string> read_genes(std::string input,
+std::vector<std::string> read_genes(const std::string& input,
                                     char row_delim, char field_delim) {
   std::vector<std::string> res;
   const char rd = row_delim;
@@ -88,26 +84,22 @@ std::vector<std::string> read_genes(std::string input,
   return res;
 }
 
-/**
- * Test if a file is GZipped based on magic numbers
- *
- * @param input An iostream (open in binary)
- * @return bool true if the file is GZipped, false if not
- */
-
-bool is_gzip(std::string input)
+bool is_gzip(const std::string& input)
 {
   std::ifstream _input(input.c_str(), std::ios::in | std::ios::binary);
   bool gzip = false;
   char byte1 = _input.get();
   char byte2 = _input.get();
-  if ((byte1 == '\x1F') && (byte2 == '\x8B')) gzip = true;
+  if ((byte1 == '\x1F') && (byte2 == '\x8B'))
+  {
+    gzip = true;
+  }
   _input.close();
   return gzip;
 }
 
 
-//Almost equal a la Bruce Dawson
+// Almost equal a la Bruce Dawson
 bool almost_equal(seidr_score_t A, seidr_score_t B)
 {
   // Calculate the difference.
@@ -117,12 +109,11 @@ bool almost_equal(seidr_score_t A, seidr_score_t B)
   // Find the largest
   seidr_score_t largest = (B > A) ? B : A;
 
-  if (diff <= largest * FLT_EPSILON)
-    return true;
-  return false;
+  return (diff <= largest * SFLT_EPSILON);
 }
 
-seidr_score_t unity_stand(seidr_score_t xmin, seidr_score_t xmax, seidr_score_t xi)
+seidr_score_t unity_stand(seidr_score_t xmin, seidr_score_t xmax,
+                          seidr_score_t xi)
 {
   seidr_score_t x = 1 - ( (xi - xmin) / (xmax - xmin) );
   return x;
@@ -137,7 +128,8 @@ void scale(arma::mat& x) {
   });
 }
 
-std::vector<std::string> tokenize_delim(std::string nodes, std::string delim)
+std::vector<std::string> tokenize_delim(const std::string& nodes,
+                                        const std::string& delim)
 {
   std::vector<std::string> nodelist;
   boost::char_separator<char> sep(delim.c_str());
@@ -149,24 +141,25 @@ std::vector<std::string> tokenize_delim(std::string nodes, std::string delim)
   return nodelist;
 }
 
-void merge_files(std::string outfile, std::string outfilebase,
-                 std::string tempdir, bool targeted, int id,
-                 std::vector<std::string>& genes)
+void merge_files(const std::string& outfile,
+                 std::string tempdir, bool targeted,
+                 int id, const std::vector<std::string>& genes)
 {
   result_file_map_t rmap;
   if (id == 0)
   {
-    seidr_mpi_logger log;
-    log << "Merging tmp files and cleaning up.\n";
+    seidr_mpi_logger log("merge_files@" + mpi_get_host());
+    log << "Looking for files to merge...\n";
     log.send(LOG_INFO);
     std::vector<fs::path> files;
-    std::string tmpdir = outfilebase + "/" + tempdir;
-    fs::path p_tmp(tmpdir);
+    fs::path p_tmp(tempdir);
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
       if ( fs::is_regular_file( it->path() ) )
+      {
         files.push_back( (*it).path() );
+      }
     }
     std::ofstream ofs(outfile);
 
@@ -184,12 +177,27 @@ void merge_files(std::string outfile, std::string outfilebase,
       ifs.close();
     }
 
-    auto it = rmap.begin();
-    auto gene_index = it->second.first;
-    auto file_path = it->second.second;
-    std::ifstream ifs(file_path);
-    for (; it != rmap.end(); it++)
+    log << "Merging " << rmap.size() << " genes from " << files.size()
+        << " temporary files\n";
+    log.send(LOG_INFO);
+
+    std::ifstream ifs;
+    std::string file_path;
+    for (auto it = rmap.begin(); it != rmap.end(); it++)
     {
+      if (file_path.empty()) // First iteration
+      {
+        file_path = it->second.second;
+        ifs = std::ifstream(it->second.second.c_str());
+      }
+      else if (file_path != it->second.second) // New file
+      {
+        ifs.close();
+        file_path = it->second.second;
+        ifs = std::ifstream(it->second.second.c_str());
+      }
+      std::streampos gene_index = it->second.first;
+
       ifs.seekg(gene_index);
       std::string l;
       std::getline(ifs, l);
@@ -203,7 +211,9 @@ void merge_files(std::string outfile, std::string outfilebase,
         while (ss >> token)
         {
           if (i != j)
+          {
             ofs << genes[i] << '\t' << genes[j] << '\t' << token << '\n';
+          }
           j++;
         }
       }
@@ -211,23 +221,8 @@ void merge_files(std::string outfile, std::string outfilebase,
       {
         ofs << l << '\n';
       }
-
-      auto nx = std::next(it);
-      if (nx != rmap.end())
-      {
-        if (nx->second.second != file_path)
-        {
-          ifs.close();
-          ifs.open(nx->second.second);
-          gene_index = nx->second.first;
-        }
-        else
-        {
-          gene_index = nx->second.first;
-        }
-      }
     }
-    remove(tmpdir, true);
+    remove(tempdir, true);
   }
 }
 
@@ -244,12 +239,75 @@ bool any_const_expr(arma::mat& inp)
   return false;
 }
 
+void verify_matrix(arma::mat& inp, std::vector<std::string>& genes)
+{
+  if (genes.size() != inp.n_cols)
+  {
+    throw std::runtime_error("There must be as many gene names as columns "
+                             "in the expression matrix.");
+  }
+  verify_matrix(inp);
+}
+
 void verify_matrix(arma::mat& inp)
 {
+  if (! inp.is_finite())
+  {
+    throw std::runtime_error("Not all elements in input matrix are finite.");
+  }
   if (any_const_expr(inp))
   {
     throw std::runtime_error("Constant values detected in at least one column"
-                               ". Please filter your input to contain only "
-                               "columns with non-zero variance.");
+                             ". Please filter your input to contain only "
+                             "columns with non-zero variance.");
   }
+}
+
+void assert_mutually_exclusive(const po::variables_map& vm,
+                               const std::vector<std::string> targets)
+{
+  uint64_t count = 0;
+  for (const auto& t : targets)
+  {
+    if (vm.count(t) > 0)
+    {
+      if (! vm[t].defaulted())
+      {
+        count++;
+      }
+    }
+  }
+  if (count > 1)
+  {
+    throw std::runtime_error("Arguments " + str_join(targets, ",") +
+                             " are mutually exclusive");
+  }
+}
+
+std::string str_join(const std::vector<std::string>& source,
+                     const std::string& delim)
+{
+  std::string ret;
+  for (uint64_t i = 0; i < source.size(); i++)
+  {
+    ret += source[i];
+    if (i < (source.size() - 1))
+    {
+      ret += delim;
+    }
+  }
+  return ret;
+}
+
+void make_tpos(uint32_t& tpos, const SeidrFileHeader& h)
+{
+  if (tpos == 0)
+  {
+    tpos = h.attr.nalgs - 1;
+  }
+  else
+  {
+    tpos--;
+  }
+  assert_in_range<uint32_t>(tpos, 0, h.attr.nalgs - 1);
 }

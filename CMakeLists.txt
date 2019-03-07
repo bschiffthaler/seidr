@@ -3,17 +3,16 @@ project(seidr)
 include(ExternalProject)
 
 enable_language(Fortran)
-link_directories(/mnt/picea/home/bastian/lib)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 
-include_directories(src/External src/Common src/Narromi src/Tigress src/SVM 
+include_directories(src/Common src/Narromi src/Tigress src/SVM 
   src/ElNet src/Seidr src/Correlation src/MI src/PLSNET src/PCor 
-  external/ranger/src src/GENIE3 src/Anoverence)
+  src/GENIE3 src/Anoverence)
 
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
-set(SEIDR_MINOR_VERSION 10)
+set(SEIDR_MINOR_VERSION 11)
 set(SEIDR_PATCH_VERSION 0)
 set(SEIDR_VERSION
   ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
@@ -27,8 +26,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRO
 set(CMAKE_CXX_STANDARD 11)
 
 # Can we use parallel sorting algorithms?
-if (CMAKE_PARALLEL_SORT) # No free compiler support except intel and msvc
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PARALLEL_SORT")
+if (SEIDR_PSTL) # No free compiler support except intel and msvc
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PSTL")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
@@ -77,9 +76,11 @@ if(OPENMP_FOUND)
 endif()
 
 # Create library from common files to avoid re-compiling them 
-add_library(seidr-common src/External/gzstream.C src/Common/common.cpp 
-  src/Common/fs.cpp src/Common/mpims.cpp src/Common/BSlogger.cpp)
-add_library(seidr-glmnet src/External/glmnet5.f90)
+add_library(seidr-common src/Common/common.cpp 
+  src/Common/fs.cpp src/Common/BSlogger.cpp 
+  src/Common/mpiomp.cpp)
+add_library(seidr-glmnet external/glmnet/src/glmnet5dp.f)
+add_library(seidr-bgzf external/bgzf/bgzf.c)
 
 # Build a custom library from the networkit sources
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
@@ -87,15 +88,18 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/deps/include)
 
 # Build executables:
 ## Seidr
-add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/backbone.cpp 
-src/Seidr/seidr.cpp src/Seidr/graphstats.cpp 
-src/Seidr/viewRanks.cpp src/Seidr/import.cpp src/Seidr/aggregate.cpp
-src/Seidr/threshold.cpp src/Seidr/roc.cpp  src/Seidr/convert.cpp 
-src/Seidr/compare_clusters.cpp src/Seidr/Serialize.cpp
-src/Seidr/stats.cpp src/Seidr/index.cpp src/Seidr/neighbours.cpp
-src/Seidr/test.cpp src/Seidr/compare.cpp src/Seidr/resolve.cpp
-src/Seidr/reheader.cpp src/Seidr/top.cpp src/Seidr/tau.cpp src/Seidr/asp.cpp
-src/Seidr/sample.cpp src/Seidr/describe.cpp)
+add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/aggregate.cpp 
+               src/Seidr/asp.cpp src/Seidr/backbone.cpp 
+               src/Seidr/compare.cpp src/Seidr/compare_clusters.cpp
+               src/Seidr/convert.cpp src/Seidr/describe.cpp
+               src/Seidr/graphstats.cpp src/Seidr/import.cpp
+               src/Seidr/index.cpp src/Seidr/neighbours.cpp
+               src/Seidr/reheader.cpp src/Seidr/resolve.cpp
+               src/Seidr/roc.cpp src/Seidr/sample.cpp
+               src/Seidr/Serialize.cpp src/Seidr/stats.cpp 
+               src/Seidr/tau.cpp src/Seidr/test.cpp 
+               src/Seidr/threshold.cpp src/Seidr/top.cpp
+               src/Seidr/viewRanks.cpp src/Seidr/seidr.cpp)
 ## Tigress
 add_executable(tigress src/Tigress/tiglm.cpp src/Tigress/tigress.cpp 
   src/Tigress/glmnet2.cpp)
@@ -104,10 +108,12 @@ add_executable(el-ensemble src/ElNet/el-ensemble.cpp src/ElNet/elnet-fun.cpp
   src/ElNet/glmnetx.cpp)
 ## SVM ensemble
 add_executable(svm-ensemble src/SVM/svm-ensemble.cpp src/SVM/svm-fun.cpp 
-  src/External/svm.cpp)
+  external/libsvm/svm.cpp)
+target_include_directories(svm-ensemble PRIVATE external/libsvm)
 ## llr ensemble
 add_executable(llr-ensemble src/SVM/linear-ensemble.cpp src/SVM/linear-fun.cpp 
-  src/External/linear.cpp src/External/tron.cpp)
+  external/liblinear/linear.cpp external/liblinear/tron.cpp)
+target_include_directories(llr-ensemble PRIVATE external/liblinear)
 ## Narromi
 add_executable(narromi src/Narromi/stats_fun.cpp src/Narromi/IP_LPT.cpp 
   src/Narromi/narromi_fun.cpp src/Narromi/narromi.cpp)
@@ -125,6 +131,7 @@ add_executable(plsnet src/PLSNET/plsnet.cpp src/PLSNET/plsnet-fun.cpp)
 add_executable(pcor src/PCor/pcor.cpp src/PCor/pcor-fun.cpp)
 ## Genie3
 add_executable(genie3 src/GENIE3/genie3.cpp src/GENIE3/genie3-fun.cpp)
+target_include_directories(genie3 PRIVATE external/ranger/src)
 
 # Link libraries
 target_link_libraries(seidr seidr-common)
@@ -162,10 +169,12 @@ endif()
 
 # Packages:
 
-# ZLIB for BGZIP compression
+# ZLIB & BGZIP compression
 find_package( ZLIB REQUIRED )
 include_directories( ${ZLIB_INCLUDE_DIRS} )
 target_link_libraries( seidr ${ZLIB_LIBRARIES} )
+target_include_directories( seidr PRIVATE external/bgzf )
+target_link_libraries( seidr seidr-bgzf )
 
 # Armadillo
 find_package( Armadillo REQUIRED )
@@ -182,6 +191,7 @@ target_link_libraries( mi ${ARMADILLO_LIBRARIES})
 target_link_libraries( plsnet ${ARMADILLO_LIBRARIES})
 target_link_libraries( pcor ${ARMADILLO_LIBRARIES})
 target_link_libraries( genie3 ${ARMADILLO_LIBRARIES})
+
 find_package(BLAS REQUIRED)
 include_directories(${BLAS_INCLUDE_PATH})
 target_link_libraries(narromi ${BLAS_LIBRARIES})
@@ -243,22 +253,12 @@ if(MPI_LINK_FLAGS)
   set_target_properties(genie3 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-# BLAS (check if required?)
-find_package(BLAS REQUIRED)
-include_directories(${BLAS_INCLUDE_PATH})
-target_link_libraries(narromi ${BLAS_LIBRARIES})
-target_link_libraries(llr-ensemble ${BLAS_LIBRARIES})
-
-# HTSLIB for BGZIP
-find_package(HTSLIB REQUIRED)
-include_directories(${HTSLIB_INCLUDE_DIR})
-target_link_libraries(seidr ${HTSLIB_LIBRARIES})
-
 # GSL
 find_package(GSL REQUIRED)
 include_directories(${GSL_INCLUDE_PATH})
 target_link_libraries(seidr ${GSL_LIBRARIES})
 
+# GLPK
 find_package(GLPK REQUIRED)
 include_directories(${GLPK_INCLUDE_PATH})
 target_link_libraries(narromi ${GLPK_LIBRARIES})

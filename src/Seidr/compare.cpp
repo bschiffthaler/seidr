@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <compare.h>
@@ -12,8 +32,11 @@
 #include <sstream>
 #include <fstream>
 #include <set>
-#include <tclap/CmdLine.h>
 #include <boost/numeric/conversion/cast.hpp>
+
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 cindex::cindex(SeidrFileHeader& a, SeidrFileHeader& b)
 {
@@ -170,50 +193,76 @@ SeidrFileEdge create_edge(SeidrFileEdge& e1, SeidrFileHeader& h1,
   return e;
 }
 
-void finalize(std::string& file_out, SeidrFileHeader& h,
+void finalize(seidr_compare_param_t& param, SeidrFileHeader& h,
               double min, double max)
 {
-  std::string tmp = file_out + ".tmp";
-  SeidrFile out(tmp.c_str());
+  SeidrFile out(param.tempfile.c_str());
   out.open("r");
   SeidrFileHeader ho;
   ho.unserialize(out);
 
-  SeidrFile fin(file_out.c_str());
-  fin.open("w");
-  h.serialize(fin);
-
-  if (h.attr.dense)
+  if (param.file_out == "-")
   {
-
+    if (h.attr.dense)
+    {
+      throw std::runtime_error("Serializing dense output is not implemented");
+    }
+    else
+    {
+      for (uint64_t i = 0; i < h.attr.edges; i++)
+      {
+        SeidrFileEdge e;
+        e.unserialize(out, ho);
+        e.scores[0].s = unity_stand(min, max, e.scores[0].r);
+        e.print(h);
+      }
+    }
   }
   else
   {
-    for (uint64_t i = 0; i < h.attr.edges; i++)
+    SeidrFile fin(param.file_out.c_str());
+    fin.open("w");
+    h.serialize(fin);
+
+    if (h.attr.dense)
     {
-      SeidrFileEdge e;
-      e.unserialize(out, ho);
-      e.scores[0].s = unity_stand(min, max, e.scores[0].r);
-      e.serialize(fin, h);
+      throw std::runtime_error("Serializing dense output is not implemented");
     }
+    else
+    {
+      for (uint64_t i = 0; i < h.attr.edges; i++)
+      {
+        SeidrFileEdge e;
+        e.unserialize(out, ho);
+        e.scores[0].s = unity_stand(min, max, e.scores[0].r);
+        e.serialize(fin, h);
+      }
+    }
+    fin.close();
   }
-
   out.close();
-  fin.close();
-
-  remove(tmp);
-
+  remove(param.tempfile);
 }
 
 void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
                    SeidrFile& f2, SeidrFileHeader& h2,
-                   std::string& trans)
+                   seidr_compare_param_t& param)
 {
   cindex index;
-  if (trans == "")
+  if (param.trans == "")
     index = cindex(h1, h2);
   else
-    index = cindex(h1, h2, trans);
+    index = cindex(h1, h2, param.trans);
+
+  std::shared_ptr<std::ostream> out;
+  if (param.file_out == "-")
+  {
+    out.reset(&std::cout, [](...) {});
+  }
+  else
+  {
+    out.reset(new std::ofstream(param.file_out.c_str()));
+  }
 
   std::vector<std::string> node_names = index.node_union();
   std::map<std::string, int> nm;
@@ -242,7 +291,7 @@ void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
   });
   for (auto& n : nm)
   {
-    std::cout << n.first << '\t' << n.second << '\n';
+    (*out) << n.first << '\t' << n.second << '\n';
   }
   f1.close();
   f2.close();
@@ -275,12 +324,11 @@ void next_edge(SeidrFileEdge& e, SeidrFile& f, SeidrFileHeader& h,
 
 void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
                 SeidrFile& f2, SeidrFileHeader& h2,
-                std::string& file_out,
-                uint32_t tindex1, uint32_t tindex2,
-                SeidrFileHeader& h3, std::string& trans)
+                SeidrFileHeader& h3,
+                seidr_compare_param_t& param)
 {
-  std::string tmp = file_out + ".tmp";
-  SeidrFile out(tmp.c_str());
+
+  SeidrFile out(param.tempfile.c_str());
   out.open("w");
 
   uint64_t e1i = 1;
@@ -289,10 +337,10 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   uint64_t e2j = 0;
 
   cindex index;
-  if (trans == "")
+  if (param.trans == "")
     index = cindex(h1, h2);
   else
-    index = cindex(h1, h2, trans);
+    index = cindex(h1, h2, param.trans);
 
   SeidrFileEdge e1;
   next_edge(e1, f1, h1, e1i, e1j);
@@ -334,7 +382,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
     SeidrFileEdge e3;
     if (p1r.first < p2r.first)
     {
-      e3 = create_edge(e1, h1, e2, h2, p1r, 1, tindex1, tindex2);
+      e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       // Check if this was the last edge in the file
       if (break1)
@@ -347,7 +395,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
     }
     else if (p1r.first > p2r.first)
     {
-      e3 = create_edge(e1, h1, e2, h2, p2r, 2, tindex1, tindex2);
+      e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       // Check if this was the last edge in the file
       if (break2)
@@ -362,7 +410,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
     {
       if (p1r.second < p2r.second)
       {
-        e3 = create_edge(e1, h1, e2, h2, p1r, 1, tindex1, tindex2);
+        e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
         // Check if this was the last edge in the file
         if (break1)
@@ -375,7 +423,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
       }
       else if (p1r.second > p2r.second)
       {
-        e3 = create_edge(e1, h1, e2, h2, p2r, 2, tindex1, tindex2);
+        e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
         if (break2)
           break;
@@ -387,7 +435,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
       }
       else
       {
-        e3 = create_edge(e1, h1, e2, h2, p1r, 0, tindex1, tindex2);
+        e3 = create_edge(e1, h1, e2, h2, p1r, 0, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
         if (break1 && break2)
         {
@@ -434,7 +482,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   {
     for (uint64_t i = ctr2 - 1; i < h2.attr.edges; i++)
     {
-      e3 = create_edge(e1, h1, e2, h2, p2r, 2, tindex1, tindex2);
+      e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       if (i < h2.attr.edges - 1)
       {
@@ -450,7 +498,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   {
     for (uint64_t i = ctr1 - 1; i < h1.attr.edges; i++)
     {
-      e3 = create_edge(e1, h1, e2, h2, p1r, 1, tindex1, tindex2);
+      e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       if (i < h1.attr.edges - 1)
       {
@@ -466,7 +514,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   // Calc standardized scores
   uint64_t ne = ctr1 + ctr2 - ctr3 - 1;
   h3.attr.edges = ne;
-  finalize(file_out, h3, min, max);
+  finalize(param, h3, min, max);
 }
 
 int compare(int argc, char * argv[]) {
@@ -474,14 +522,7 @@ int compare(int argc, char * argv[]) {
   logger log(std::cerr, "compare");
 
   // Variables used by the function
-  std::string net1;
-  std::string net2;
-  std::string file_out;
-  uint32_t tindex1;
-  uint32_t tindex2;
-  std::string trans;
-  bool node_mode;
-  bool force = false;
+  seidr_compare_param_t param;
 
   // We ignore the first argument
   const char * args[argc - 1];
@@ -491,74 +532,84 @@ int compare(int argc, char * argv[]) {
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
+  po::options_description umbrella("Compare edges or nodes in two networks.");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o", po::value<std::string>(&param.file_out)->default_value("-"),
+   "Output file name ['-' for stdout]")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir)->default_value("", "auto"),
+   "Directory to store temporary data");
+
+  po::options_description copt("Compare Options");
+  copt.add_options()
+  ("index-a,i",
+   po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
+   "Merge scores on this index for network A")
+  ("index-b,j",
+   po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
+   "Merge scores on this index for network B")
+  ("translate,t",
+   po::value<std::string>(&param.trans)->default_value(""),
+   "Translate node names in network A according to this table")
+  ("nodes,n", po::bool_switch(&param.node_mode)->default_value(false),
+   "Print overlap of nodes instead of edges");
+
+
+  po::options_description req("Required Options [can be positional]");
+  req.add_options()
+  ("network-1", po::value<std::string>(&param.net1)->required(),
+   "Input SeidrFile for network A")
+  ("network-2", po::value<std::string>(&param.net2)->required(),
+   "Input SeidrFile for network B");
+
+  umbrella.add(req).add(copt).add(opt);
+
+  po::positional_options_description p;
+  p.add("network-1", 1);
+  p.add("network-2", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return EINVAL;
+  }
+
   try
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Compare edges or nodes in two networks.\n", 
-                       ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_out("o", "outfile", "Output file (Merged)", false, "compare.sf", 
-            "string");
-    cmd.add(arg_out);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_tindex1("i", "index-a", "Merge scores on this index for network A", 
-                false, 0, "int");
-
-    cmd.add(arg_tindex1);
-    TCLAP::ValueArg<uint32_t>
-    arg_tindex2("j", "index-b", "Merge scores on this index for network B", 
-                false, 0, "int");
-
-    cmd.add(arg_tindex2);
-
-    TCLAP::ValueArg<std::string>
-    arg_trans("t", "translate", "Translate node names in network 1 according "
-              "to this table", false, "", "string");
-    cmd.add(arg_trans);
-
-    TCLAP::SwitchArg
-    switch_nodes("n", "nodes", "Print node overlap", cmd, false);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_net1("network-1",
-             "Input file (aggregated gene counts)", true, "", "string");
-    cmd.add(arg_net1);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_net2("network-2",
-             "Input file (aggregated gene counts)", true, "", "string");
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    cmd.add(arg_net2);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    net1 = arg_net1.getValue();
-    net2 = arg_net2.getValue();
-    file_out = arg_out.getValue();
-    tindex1 = arg_tindex1.getValue();
-    tindex2 = arg_tindex2.getValue();
-    node_mode = switch_nodes.getValue();
-    trans = arg_trans.getValue();
-    force = switch_force.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException& except)
+  catch (std::exception& e)
   {
-    log(LOG_ERR) << except.what() << '\n';
+    log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
+
+  param.net1 = to_absolute(param.net1);
+  param.net2 = to_absolute(param.net2);
+
+  param.tempfile = tempfile(param.tempdir);
+
   try
   {
-    net1 = to_canonical(net1);
-    net2 = to_canonical(net2);
-    if (file_exists(file_out) && ! force)
-      throw std::runtime_error("File exists: " + file_out);
+    assert_exists(param.net1);
+    assert_exists(param.net2);
+    assert_can_read(param.net1);
+    assert_can_read(param.net2);
+    if (! param.force && param.file_out != "-")
+    {
+      assert_no_overwrite(param.file_out);
+    }
+    assert_dir_is_writeable(dirname(param.tempdir));
   }
   catch (std::runtime_error& e)
   {
@@ -566,10 +617,10 @@ int compare(int argc, char * argv[]) {
     return errno;
   }
 
-  SeidrFile n1(net1.c_str());
+  SeidrFile n1(param.net1.c_str());
   n1.open("r");
 
-  SeidrFile n2(net2.c_str());
+  SeidrFile n2(param.net2.c_str());
   n2.open("r");
 
   SeidrFileHeader h1;
@@ -578,26 +629,20 @@ int compare(int argc, char * argv[]) {
   SeidrFileHeader h2;
   h2.unserialize(n2);
 
-  if (tindex1 == 0)
-    tindex1 = h1.attr.nalgs - 1;
-  else
-    tindex1--;
+  make_tpos(param.tindex1, h1);
 
-  if (tindex2 == 0)
-    tindex2 = h2.attr.nalgs - 1;
-  else
-    tindex2--;
+  make_tpos(param.tindex2, h2);
 
-  if (node_mode)
+  if (param.node_mode)
   {
-    compare_nodes(n1, h1, n2, h2, trans);
+    compare_nodes(n1, h1, n2, h2, param);
   }
   else
   {
     SeidrFileHeader h3;
     h3.version_from_char(_XSTR(VERSION));
     h3.cmd_from_args(argv, argc);
-    compare_ss(n1, h1, n2, h2, file_out, tindex1, tindex2, h3, trans);
+    compare_ss(n1, h1, n2, h2, h3, param);
   }
 
   n1.close();

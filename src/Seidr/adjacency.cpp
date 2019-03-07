@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 /**
  * @file
  * @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
@@ -40,10 +60,7 @@ void make_full(const seidr_param_adjacency_t& param)
   SeidrFileHeader h;
   h.unserialize(sf);
   uint32_t si = param.tpos;
-  if (si == 0)
-    si = h.attr.nalgs - 1;
-  else
-    si -= 1;
+  make_tpos(si, h);
   std::shared_ptr<std::ostream> out;
   if (param.out_file == "-")
     out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
@@ -243,60 +260,77 @@ int adjacency(int argc, char * argv[]) {
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
-  po::options_description umbrella;
+  po::options_description umbrella("Transform a SeidrFile into an adjacency "
+                                   "matrix");
 
-  po::options_description opt("Options");
+  po::options_description opt("Common Options");
   opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description adopt("Adjacency Options");
+  adopt.add_options()
+  ("index,i", po::value<uint32_t>(&param.tpos)->default_value(0, "last index"),
+   "Score index to use");
+
+  po::options_description fopt("Formatting Options");
+  fopt.add_options()
   ("diagonal,D", po::bool_switch(&param.diag)->default_value(false),
    "Print matrix diagonal for triangular output format")
   ("fmt,F", po::value<std::string>(&param.outfmt)->default_value("m"),
    "Output format ['m','lm']")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("index,i", po::value<uint32_t>(&param.tpos)->default_value(0),
-   "Score index to use")
   ("missing,m", po::value<std::string>(&param.fill)->default_value("0"),
    "Fill character for missing edges")
   ("precision,p", po::value<uint16_t>(&param.prec)->default_value(8),
-   "Number of significant digits to report")
-  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
-   "Output file name");
+   "Number of significant digits to report");
 
-  po::options_description req("Required");
+  po::options_description req("Required [can be positional]");
   req.add_options()
   ("in-file", po::value<std::string>(&param.el_file)->required(),
    "Input SeidrFile");
 
-  umbrella.add(opt).add(req);
+  umbrella.add(req).add(adopt).add(fopt).add(opt);
 
   po::positional_options_description p;
-  p.add("in-file", -1);
+  p.add("in-file", 1);
 
   po::variables_map vm;
   po::store(po::command_line_parser(argc, args).
             options(umbrella).positional(p).run(), vm);
 
-  if (vm.count("help"))
+  if (vm.count("help") || argc == 1)
   {
     std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
-  po::notify(vm);
+  try
+  {
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
 
   try
   {
-    if (! file_can_read(param.el_file.c_str()))
-      throw std::runtime_error("Cannot read input file: " + param.el_file);
+    param.el_file = to_absolute(param.el_file);
+    assert_exists(param.el_file);
+    assert_can_read(param.el_file);
 
     if (param.out_file != "-")
     {
-      if (file_exists(param.out_file) && (! param.force))
-        throw std::runtime_error("File exists: " + param.out_file);
-
-      if (! file_can_create(param.out_file.c_str()))
-        throw std::runtime_error("Cannot create file: " + param.out_file);
+      param.out_file = to_absolute(param.out_file);
+      if (! param.force)
+      {
+        assert_no_overwrite(param.out_file);
+      }
+      assert_dir_is_writeable(dirname(param.out_file));
     }
   }
   catch (std::runtime_error& except)

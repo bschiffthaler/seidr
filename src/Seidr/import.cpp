@@ -1,20 +1,26 @@
-/**
-* @file
-* @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
-* @version 0.01
-*
-* @section DESCRIPTION
-*
-* This function takes an edge list of scores and transforms it
-* into a binary file of ranks (using sports ranking, e.g: if
-* two ranks were tied for the first place, both would assume
-* the first rank, but there would be no second rank).
-*/
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
 
 // Seidr
 #include <common.h>
 #include <import.h>
-#include <gzstream.h>
 #include <Serialize.h>
 #include <fs.h>
 #include <BSlogger.h>
@@ -25,21 +31,26 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#if defined(SEIDR_PARALLEL_SORT) && defined(__ICC)
-  #include <pstl/algorithm>
-#elif defined(SEIDR_PARALLEL_SORT) && defined(__GNUG__)
-  #include <parallel/algorithm>
+
+// Parallel includes
+#if defined(SEIDR_PSTL) && defined(__ICC)
+#include <tbb/task_scheduler_init.h>
+#include <pstl/algorithm>
+#elif defined(SEIDR_PSTL) && defined(__GNUG__)
+#include <omp.h>
+#include <parallel/algorithm>
 #else
-  #include <algorithm>
-#endif  
-//#include <functional>
+#include <algorithm>
+#endif
+
 #include <map>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <memory>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
+#include <boost/program_options.hpp>
 
+namespace po = boost::program_options;
 using boost::lexical_cast;
 using boost::numeric_cast;
 typedef std::map<std::string, uint32_t> stringmap;
@@ -111,7 +122,7 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
       ptr->offset = _ev.size() - 1;
       ptr->found = 1;
     }
-    else if(! drop)
+    else if (! drop)
     {
       _ev.push_back(e);
       ptr->offset = _ev.size() - 1;
@@ -250,22 +261,10 @@ int import(int argc, char * argv[]) {
   logger log(std::cerr, "import");
   read_logger pr(log, 100000000); // processed rows
 
-// Variables used by the function
-  std::string el_file;
-  std::string gene_file;
-  std::string out_file;
-  bool rev;
   std::vector<std::string> genes;
-  std::string name;
-  bool is_lm = false;
-  bool is_aracne = false;
-  bool is_full_matrix = false;
-  bool is_edge_list = false;
-  bool force_undirected;
-  bool absolute;
-  bool drop_zero;
-  bool force = false;
-  std::string format;
+
+// Variables used by the function
+  seidr_import_param_t param;
 
 // We ignore the first argument
   const char * args[argc - 1];
@@ -276,109 +275,113 @@ int import(int argc, char * argv[]) {
   argc--;
 
 
-  try
+  po::options_description
+  umbrella("Convert various text based network representations to "
+           "SeidrFiles");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message");
+
+  po::options_description ropt("Ranking Options");
+  ropt.add_options()
+  ("absolute,A", po::bool_switch(&param.absolute)->default_value(false),
+   "Rank on absolute of scores")
+  ("reverse,r", po::bool_switch(&param.rev)->default_value(false),
+   "Rank scores in descending order (highest first)")
+  ("drop-zero,z", po::bool_switch(&param.drop_zero)->default_value(false),
+   "Drop edges with a weight of zero from the network")
+  ("undirected,u", po::bool_switch(&param.force_undirected)->default_value(false),
+   "Force all edges to be interpreted as undirected");
+
+  po::options_description ompopt("OpenMP Options");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(GET_MAX_PSTL_THREADS()),
+   "Number of OpenMP threads for parallel sorting");
+
+  po::options_description req("Required");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.el_file)->required(),
+   "Input file name ['-' for stdin]")
+  ("format,F", po::value<std::string>(&param.format)->required(),
+   "The input file format [el, lm, m ,ara]")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "Gene file for input")
+  ("outfile,o", po::value<std::string>(&param.out_file)->required(),
+   "Output file name")
+  ("name,n", po::value<std::string>(&param.name)->required(),
+   "Import name (algorithm name)");
+
+  umbrella.add(req).add(ropt).add(ompopt).add(opt);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") || argc == 1)
   {
-// Add arguments from the command line
-    TCLAP::CmdLine cmd("Convert various text base network representations to"
-                       " SeidrFiles", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_genes("g", "genes", "File containing gene names",
-              true, "", "");
-    cmd.add(arg_genes);
-
-    std::vector<std::string> type_constraints{"el", "lm", "m", "ara"};
-    TCLAP::ValuesConstraint<std::string> t_constraints(type_constraints);
-    TCLAP::ValueArg<std::string>
-    arg_format("F", "format", "Input file format.", false,
-               "el", &t_constraints);
-    cmd.add(arg_format);
-
-    TCLAP::ValueArg<std::string>
-    arg_infile("i", "infile", "Input file. '-' for stdin", true,
-               "", "");
-    cmd.add(arg_infile);
-
-    TCLAP::ValueArg<std::string>
-    arg_outfile("o", "outfile", "Output file", false,
-                "elranks.sf", "");
-    cmd.add(arg_outfile);
-
-    TCLAP::ValueArg<std::string>
-    arg_name("n", "name", "Name of the network", false,
-             "unnamed", "unnamed");
-
-    cmd.add(arg_name);
-
-// Switches
-    TCLAP::SwitchArg
-    arg_absolute("A", "absolute", "Rank absolutes of values.", cmd, false);
-
-    TCLAP::SwitchArg
-    arg_reverse("r", "reverse", "Higher scores/values are better.", cmd, false);
-
-    TCLAP::SwitchArg
-    arg_drop_zero("z", "drop-zero",
-                  "Drop edges with scores of zero from the network", cmd, false);
-
-    TCLAP::SwitchArg
-    arg_undirected("u", "undirected",
-                   "Force edges to be interpreted as undirected.", cmd, false);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-// Parse arguments
-    cmd.parse(argc, args); // FIX in deploy
-    gene_file = arg_genes.getValue();
-    el_file = arg_infile.getValue();
-    rev = arg_reverse.getValue();
-    out_file = arg_outfile.getValue();
-    name = arg_name.getValue();
-    absolute = arg_absolute.getValue();
-    drop_zero = arg_drop_zero.getValue();
-    format = arg_format.getValue();
-    force_undirected = arg_undirected.getValue();
-    force = switch_force.getValue();
-
-    if (format == "el")
-      is_edge_list = true;
-    else if (format == "lm")
-      is_lm = true;
-    else if (format == "m")
-      is_full_matrix = true;
-    else if (format == "ara")
-      is_aracne = true;
-
-  }
-  catch (TCLAP::ArgException& except)
-  {
-    log(LOG_ERR) << "[Invalid argument exception]: " << except.what() << '\n';
+    std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
   try
   {
-    if (el_file != "-")
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
+
+  try
+  {
+
+#ifdef SEIDR_PSTL
+    assert_in_range<int>(param.nthreads, 1, GET_MAX_PSTL_THREADS(),
+                         "--threads");
+    SET_NUM_PSTL_THREADS(param.nthreads);
+#else
+    if (param.nthreads > 1)
     {
-      if (! file_can_read(el_file.c_str()))
-        throw std::runtime_error("Cannot read file " + el_file);
+      log(LOG_WARN) << "More than one thread selected, but seidr wasn't "
+                    << "compiled for parallel sorting. "
+                    << "Flag will have no effect.\n";
     }
-    if (! file_can_read(gene_file.c_str()))
+#endif
+
+    if (param.format == "el")
+      param.is_edge_list = true;
+    else if (param.format == "lm")
+      param.is_lm = true;
+    else if (param.format == "m")
+      param.is_full_matrix = true;
+    else if (param.format == "ara")
+      param.is_aracne = true;
+    else
+      throw std::runtime_error("Unknown input format: " + param.format);
+
+    if (param.el_file != "-")
     {
-      throw std::runtime_error("Cannot read file " + gene_file);
+      param.el_file = to_absolute(param.el_file);
+      assert_exists(param.el_file);
+      assert_can_read(param.el_file);
     }
-    if (file_exists(out_file) && ! force)
-      throw std::runtime_error("File exists: " + out_file);
-    if (! file_can_create(out_file.c_str()))
+
+    param.gene_file = to_absolute(param.gene_file);
+    assert_exists(param.gene_file);
+    assert_can_read(param.gene_file);
+
+    param.out_file = to_absolute(param.out_file);
+    if (! param.force)
     {
-      throw std::runtime_error("Cannot create file " + out_file);
+      assert_no_overwrite(param.out_file);
     }
-    if (is_lm + is_aracne + is_full_matrix + is_edge_list != 1)
-    {
-      throw std::runtime_error("Exactly one input format must be specified");
-    }
+    assert_dir_is_writeable(dirname(param.out_file));
+
   }
   catch (std::exception& except)
   {
@@ -386,7 +389,7 @@ int import(int argc, char * argv[]) {
     return errno;
   }
 
-  genes = read_genes(gene_file, '\n', '\t');
+  genes = read_genes(param.gene_file, '\n', '\t');
   stringmap g_map;
 
   size_t i = 0;
@@ -405,16 +408,16 @@ int import(int argc, char * argv[]) {
   log(LOG_INFO) << "Populating matrix\n";
   std::shared_ptr<std::istream> ifs;
 
-  if (el_file == "-")
+  if (param.el_file == "-")
   {
     ifs.reset(&(std::cin), [](...) {});
   }
   else
   {
-    ifs.reset(new std::ifstream(el_file.c_str(), std::ifstream::in));
+    ifs.reset(new std::ifstream(param.el_file.c_str(), std::ifstream::in));
   }
 
-  if (is_edge_list)
+  if (param.is_edge_list)
   {
     try
     {
@@ -447,7 +450,7 @@ int import(int argc, char * argv[]) {
         inx.first = g_map[gi];
         inx.second = g_map[gj];
         e.w = v;
-        X.insert(inx, e, rev, drop_zero);
+        X.insert(inx, e, param.rev, param.drop_zero);
         pr++;
       }
       if ((*ifs).bad())
@@ -462,7 +465,7 @@ int import(int argc, char * argv[]) {
       return errno;
     }
   }
-  else if (is_lm)
+  else if (param.is_lm)
   {
 //Lower triangular matrix, no diagonal
 //      std::istream ifs = *in_stream;
@@ -489,12 +492,12 @@ int import(int argc, char * argv[]) {
         inx.first = i;
         inx.second = j;
         e.w = x;
-        X.insert(inx, e, rev, drop_zero);
+        X.insert(inx, e, param.rev, param.drop_zero);
         pr++;
       }
     }
   }
-  else if (is_full_matrix)
+  else if (param.is_full_matrix)
   {
     if (! (*ifs).good())
     {
@@ -520,12 +523,12 @@ int import(int argc, char * argv[]) {
         inx.first = i;
         inx.second = j;
         e.w = x;
-        X.insert(inx, e, rev, drop_zero);
+        X.insert(inx, e, param.rev, param.drop_zero);
         pr++;
       }
     }
   }
-  else if (is_aracne)
+  else if (param.is_aracne)
   {
 //ARACNE code
 //      std::istream ifs = *in_stream;
@@ -566,7 +569,7 @@ int import(int argc, char * argv[]) {
           inx.first = i;
           inx.second = j;
           e.w = x;
-          X.insert(inx, e, rev, drop_zero);
+          X.insert(inx, e, param.rev, param.drop_zero);
           pr++;
         }
         tmp++;
@@ -585,7 +588,7 @@ int import(int argc, char * argv[]) {
   std::vector<edge>& vs = X.to_vec();
 
   log(LOG_INFO) << "Computing ranks\n";
-  rank_vector(vs, rev, absolute);
+  rank_vector(vs, param.rev, param.absolute);
 
 
   log(LOG_INFO) << "Writing data: "
@@ -601,7 +604,7 @@ int import(int argc, char * argv[]) {
     if (ne > ((nn * (nn - 1) / 2) * 0.66))
       dense = 1;
 
-    SeidrFile ostr(out_file.c_str());
+    SeidrFile ostr(param.out_file.c_str());
     ostr.open("w");
 
     SeidrFileHeader h;
@@ -618,7 +621,7 @@ int import(int argc, char * argv[]) {
       h.nodes.push_back(*it);
     }
 
-    std::vector<std::string> method = {name};
+    std::vector<std::string> method = {param.name};
     h.algs = method;
     h.serialize(ostr);
 
@@ -681,7 +684,7 @@ int import(int argc, char * argv[]) {
 
         EDGE_SET_EXISTING(e.attr.flag);
 
-        if (force_undirected)
+        if (param.force_undirected)
         {
           EDGE_SET_UNDIRECTED(e.attr.flag);
         }

@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <fs.h>
@@ -7,151 +27,125 @@
 #include <string>
 #include <vector>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 
-#define ANOVA_FULL 0
-#define ANOVA_PARTIAL 1
-
+namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 int main(int argc, char ** argv) {
 
-  std::string infile;
-  float weight;
-  std::string feature_file;
-  size_t mode = ANOVA_FULL;
-  std::string outfile;
-  bool force = false;
-  std::string targets_file;
-  std::string gene_file;
-
   LOG_INIT_CERR();
 
-  // Define program options
-  try
+  seidr_anova_param_t param;
+
+  po::options_description umbrella("ANOVERENCE implementation for Seidr");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("help,h", "Show this help message")
+  ("targets,t", po::value<std::string>(&param.targets_file),
+   "File containing gene names"
+   " of genes of interest. The network will only be"
+   " calculated using these as the sources of potential connections.")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("anova_scores.tsv"),
+   "Output file path")
+  ("verbosity,v",
+   po::value<unsigned>(&param.verbosity)->default_value(3),
+   "Verbosity level (lower is less verbose)")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite if output already exists");
+
+  po::options_description algopt("ANOVERENCE specific Options");
+  algopt.add_options()
+  ("weight,w",
+   po::value<float>(&param.weight)->default_value(1.0, "1.0"),
+   "Weight for knockout genes");
+
+  po::options_description req("Required Options");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.infile)->required(),
+   "The expression table (without headers)")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "File containing gene names")
+  ("features,e", po::value<std::string>(&param.feature_file)->required(),
+   "File containing experiment metadata");
+
+  umbrella.add(req).add(algopt).add(opt);
+
+  po::positional_options_description p;
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") || argc == 1)
   {
-    TCLAP::CmdLine cmd("ANOVERENCE implementation for seidr", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
-
-    TCLAP::ValueArg<double>
-    weight_arg("w", "weight", "Weight for knockout genes",
-               true, 1.0, "1.0");
-    cmd.add(weight_arg);
-
-    TCLAP::ValueArg<std::string>
-    feature_arg("e", "features", "File containing experiment metadata.", true,
-                "", "");
-    cmd.add(feature_arg);
-
-    TCLAP::ValueArg<std::string>
-    outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv",
-                "edgelist.tsv");
-    cmd.add(outfile_arg);
-
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing target gene ids", false,
-                "", "");
-    cmd.add(targets_arg);
-
-    TCLAP::ValueArg<std::string>
-    genes_arg("g", "genes", "File containing gene ids", false, "", "");
-    cmd.add(genes_arg);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    cmd.parse(argc, argv);
-
-    infile = infile_arg.getValue();
-    outfile = outfile_arg.getValue();
-    feature_file = feature_arg.getValue();
-    weight = weight_arg.getValue();
-    targets_file = targets_arg.getValue();
-    gene_file = genes_arg.getValue();
-    force = switch_force.getValue();
-
-    if (targets_file != "")
-      mode = ANOVA_PARTIAL;
-
-  }
-  catch (TCLAP::ArgException& e)  // catch any exceptions
-  {
-    log(LOG_ERR) << e.error() << " for arg " << e.argId() << '\n';
-    return EINVAL;
+    std::cerr << umbrella << '\n';
+    return 1;
   }
 
-  // Check all kinds of FS problems that may arise
   try
   {
-    outfile = to_absolute(outfile);
-    infile = to_absolute(infile);
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
+  }
 
-    if (! file_exists(dirname(outfile)) )
-      throw std::runtime_error("Directory does not exist: " +
-                               dirname(outfile));
+  log.set_log_level(param.verbosity);
 
-    if (! file_exists(infile) )
-      throw std::runtime_error("File does not exist: " + infile);
+  try
+  {
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-    if (! regular_file(infile) )
-      throw std::runtime_error("Not a regular file: " + infile);
+    assert_exists(dirname(param.outfile));
+    assert_exists(param.infile);
+    assert_exists(param.feature_file);
+    assert_is_regular_file(param.infile);
+    assert_exists(param.gene_file);
+    assert_can_read(param.gene_file);
+    assert_can_read(param.infile);
+    assert_can_read(param.feature_file);
 
-    if (! file_can_read(infile) )
-      throw std::runtime_error("Cannot read: " + infile);
-
-    if (weight < 0 || almost_equal(weight, 0))
-      throw std::runtime_error("Weight can't be less than or equal 0");
-
-
-    if (mode == ANOVA_PARTIAL)
+    if (vm.count("targets"))
     {
-      targets_file = to_absolute(targets_file);
-      if (! file_exists(targets_file) )
-        throw std::runtime_error("File does not exist: " + targets_file);
-
-      if (! file_can_read(targets_file))
-        throw std::runtime_error("Cannot read: " + targets_file);
-
-      gene_file = to_absolute(gene_file);
-      if (! file_exists(gene_file) )
-        throw std::runtime_error("File does not exist: " + gene_file);
-
-      if (! file_can_read(gene_file))
-        throw std::runtime_error("Cannot read: " + gene_file);
-
+      param.targets_file = to_absolute(param.targets_file);
+      assert_exists(param.targets_file);
     }
 
-    if (! force && file_exists(outfile))
-      throw std::runtime_error("File exists: " + outfile);
+    if (! param.force)
+      assert_no_overwrite(param.outfile);
 
   }
   catch (std::runtime_error& e)
   {
     log(LOG_ERR) << e.what() << '\n';
-    return EINVAL;
+    return 1;
   }
 
   try
   {
     // Get input files
-    int geneNamesSize = readGeneFile(gene_file);
-    int geneNumber = readExpressionData(infile);
-    
-    if(geneNamesSize != geneNumber) {
+    int geneNamesSize = readGeneFile(param.gene_file);
+    int geneNumber = readExpressionData(param.infile);
+
+    if (geneNamesSize != geneNumber) {
       throw std::runtime_error("Data genes and gene names total are not equal.\n");
     }
-    readFeatures(feature_file);
+    readFeatures(param.feature_file);
+
+    if (vm.count("targets"))
+      param.mode = ANOVA_PARTIAL;
 
 
     std::vector<std::string> targets;
-    if (mode == ANOVA_PARTIAL)
-      targets = read_genes(targets_file, '\t', '\n');
+    if (param.mode == ANOVA_PARTIAL)
+      targets = read_genes(param.targets_file, '\t', '\n');
 
 
     // Common functions that are always called
@@ -160,13 +154,13 @@ int main(int argc, char ** argv) {
     selectPairs();
 
 
-    switch (mode) {
+    switch (param.mode) {
     case ANOVA_FULL:
-      analizeGenePairs(outfile, weight);
+      analizeGenePairs(param.outfile, param.weight);
       break;
 
     case ANOVA_PARTIAL:
-      analizePartialPairs(targets, outfile, weight);
+      analizePartialPairs(targets, param.outfile, param.weight);
       break;
 
     default:

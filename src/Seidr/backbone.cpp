@@ -1,15 +1,37 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seir
 #include <common.h>
 #include <fs.h>
 #include <BSlogger.h>
 #include <Serialize.h>
 #include <backbone.h>
-#include <tclap/CmdLine.h>
 // External
 #include <cmath>
 #include <map>
 #include <vector>
 #include <string>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 // Binomial cumulative distribution function adjusted for seidr where
 // k always [0, 1]
@@ -36,10 +58,7 @@ int backbone(int argc, char * argv[])
 
   logger log(std::cerr, "backbone");
 
-  std::string infile;
-  uint32_t tpos;
-  double filter;
-  std::string outfile;
+  seidr_backbone_param_t param;
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
@@ -48,80 +67,96 @@ int backbone(int argc, char * argv[])
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
+  po::options_description umbrella("Determine noisy network backbone scores. "
+                                   "Optionally filter on these scores");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("out-file,o", po::value<std::string>(&param.outfile)->default_value("auto"),
+   "Output file name ['-' for stdout]")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir)->default_value("", "auto"),
+   "Directory to store temporary data");
+
+  po::options_description bopt("Backbone Options");
+  bopt.add_options()
+  ("index,i", po::value<uint32_t>(&param.tpos)->default_value(0, "last index"),
+   "Score index to use")
+  ("filter,F", po::value<double>(&param.filter)->default_value(-1, "no filter"),
+   "Subset network to edges with at least this SD. "
+   "1.28, 1.64, and 2.32 correspond to ~P0.01, 0.05 and 0.1.");
+
+  po::options_description req("Required [can be positional]");
+  req.add_options()
+  ("in-file", po::value<std::string>(&param.infile)->required(),
+   "Input SeidrFile");
+
+  umbrella.add(req).add(bopt).add(opt);
+
+  po::positional_options_description p;
+  p.add("in-file", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return EINVAL;
+  }
+
   try
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Calculate P values to determine network backbone.", ' ',
-                       version);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_tpos("i", "index", "Index of score to use", false,
-             0, "last column");
-    cmd.add(arg_tpos);
-
-    TCLAP::ValueArg<double>
-    arg_filter("f", "filter", "Subset network to edges with at least this SD. "
-               "1.28, 1.64, and 2.32 correspond to ~P0.01, 0.05 and 0.1.",
-               false, -1, "no filter");
-    cmd.add(arg_filter);
-
-    TCLAP::ValueArg<std::string>
-    arg_outfile("o", "out-file", "Name of the new file to create",
-                false, "auto", "auto");
-    cmd.add(arg_outfile);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_infile("in-file", "Input file", true, "", "file");
-    cmd.add(arg_infile);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    infile = arg_infile.getValue();
-    tpos = arg_tpos.getValue();
-    filter = arg_filter.getValue();
-    outfile = arg_outfile.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException& except)
+  catch (std::exception& e)
   {
-    log(LOG_ERR) << except.what() << '\n';
+    log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
+  if (param.outfile == "auto")
+  {
+    param.outfile = to_absolute(param.infile);
+    param.outfile = replace_ext(param.outfile, "bb.sf");
+  }
+
+  param.tempfile = tempfile(param.tempdir);
+
   try
   {
-    infile = to_canonical(infile);
+    param.infile = to_absolute(param.infile);
+    assert_exists(param.infile);
+    assert_can_read(param.infile);
+    assert_dir_is_writeable(dirname(param.outfile));
+    if (! param.force)
+    {
+      assert_no_overwrite(param.outfile);
+    }
   }
   catch (std::runtime_error& e)
   {
     log(LOG_ERR) << e.what() << '\n';
-    log(LOG_ERR) << "Make sure that the file " << infile << " exists.\n";
-    return errno;
+    return 1;
   }
 
-  if (outfile == "auto")
-  {
-    outfile = infile;
-    outfile = replace_ext(outfile, "bb.sf");
-  }
-
-  SeidrFile rf(infile.c_str());
+  SeidrFile rf(param.infile.c_str());
   rf.open("r");
 
   SeidrFileHeader h;
   h.unserialize(rf);
 
-  if (tpos == 0)
-    tpos = h.attr.nalgs - 1;
-  else
-    tpos--;
+  make_tpos(param.tpos, h);
 
   uint32_t cnt = 0;
   std::map<std::string, uint32_t> node_map;
   for (std::string& node : h.nodes)
     node_map[node] = cnt++;
   rf.close();
-
-  
 
   // Setup phase. Calculate global sum of edge weight and per-node sum of
   // edge weights
@@ -135,11 +170,11 @@ int backbone(int argc, char * argv[])
     // Reset reading position to beginning of file
     rf.open("r");
     rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
-      if (std::isfinite(e.scores[tpos].s))
+      if (std::isfinite(e.scores[param.tpos].s))
       {
-        global_strength += e.scores[tpos].s;
-        node_strengths[e.index.i] += e.scores[tpos].s;
-        node_strengths[e.index.j] += e.scores[tpos].s;
+        global_strength += e.scores[param.tpos].s;
+        node_strengths[e.index.i] += e.scores[param.tpos].s;
+        node_strengths[e.index.j] += e.scores[param.tpos].s;
       }
     });
     rf.close();
@@ -154,8 +189,8 @@ int backbone(int argc, char * argv[])
   rf.open("r");
 
   // Set up output
-  std::string tmp = infile + ".tmp";
-  SeidrFile out(tmp.c_str());
+  log(LOG_INFO) << "Using temp file: " << param.tempfile << '\n';
+  SeidrFile out(param.tempfile.c_str());
   out.open("w");
   if (! nc_calculcated)
   {
@@ -189,11 +224,11 @@ int backbone(int argc, char * argv[])
   rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & hs) {
     if (! nc_calculcated) // Need to add the backbone data
     {
-      if (std::isfinite(e.scores[tpos].s))
+      if (std::isfinite(e.scores[param.tpos].s))
       {
         double& ni = node_strengths[e.index.i];
         double& nj = node_strengths[e.index.j];
-        double nij = e.scores[tpos].s;
+        double nij = e.scores[param.tpos].s;
         // Essentially a verbatim copy of Coscia's & Neffe's
         // (https://ieeexplore.ieee.org/document/7929996/) python source. If you
         // need this in actually readable form, I suggest chapter IV of the
@@ -230,9 +265,9 @@ int backbone(int argc, char * argv[])
         e.supp_flt.push_back(NAN);
       }
     }
-    if (filter > 0)
+    if (param.filter > 0)
     {
-      if (e.supp_flt[nc_score_ind] - (e.supp_flt[nc_sdev_ind] * filter) > 0)
+      if (e.supp_flt[nc_score_ind] - (e.supp_flt[nc_sdev_ind] * param.filter) > 0)
       {
         e.serialize(out, h);
         ectr++;
@@ -266,7 +301,7 @@ int backbone(int argc, char * argv[])
   else
     h.attr.dense = 0;
 
-  SeidrFile rfx(outfile.c_str());
+  SeidrFile rfx(param.outfile.c_str());
   rfx.open("w");
   h.serialize(rfx);
 
@@ -309,7 +344,14 @@ int backbone(int argc, char * argv[])
   out.close();
   rfx.close();
 
-  remove(tmp);
+  remove(param.tempfile);
+
+  if (param.filter > 0)
+  {
+    log(LOG_WARN) << "Unless you need to keep node indices consistent, you "
+                  << "probably want to run 'seidr reheader' "
+                  << "on the filtered file\n";
+  }
 
   return 0;
 }

@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Calculate pairwise tau scores for nodes in two networks
 // Mostly from SciPy https://github.com/scipy/scipy/blob/v0.15.1/scipy/stats/stats.py#L2827
 // and https://www.geeksforgeeks.org/merge-sort/
@@ -193,15 +213,8 @@ void get_tau(const seidr_param_tau_t& param)
   h1.unserialize(sf1);
   h2.unserialize(sf2);
 
-  if (si1 == 0)
-    si1 = h1.attr.nalgs - 1;
-  else
-    si1 -= 1;
-
-  if (si2 == 0)
-    si2 = h2.attr.nalgs - 1;
-  else
-    si2 -= 1;
+  make_tpos(si1, h1);
+  make_tpos(si2, h2);
 
   std::map<std::string, uint32_t> node_union;
 
@@ -289,15 +302,8 @@ void get_tau_cs(const seidr_param_tau_t& param)
   h1.unserialize(sf1);
   h2.unserialize(sf2);
 
-  if (si1 == 0)
-    si1 = h1.attr.nalgs - 1;
-  else
-    si1 -= 1;
-
-  if (si2 == 0)
-    si2 = h2.attr.nalgs - 1;
-  else
-    si2 -= 1;
+  make_tpos(si1, h1);
+  make_tpos(si2, h2);
 
   std::map<std::string, std::set<std::string>> a_to_b;
   std::map<std::string, std::set<std::string>> b_to_a;
@@ -491,19 +497,22 @@ int tau(int argc, char * argv[]) {
 
   po::options_description umbrella;
 
-  po::options_description opt("Options");
+  po::options_description opt("Common Options");
   opt.add_options()
-  ("dict,d", po::value<std::string>(&param.dict)->default_value(""),
-   "Dictionary of orthologies")
+  ("help,h", "Show this help message")
   ("force,f", po::bool_switch(&param.force)->default_value(false),
    "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
+  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description topt("Tau Options");
+  topt.add_options()
+  ("dict,d", po::value<std::string>(&param.dict)->default_value(""),
+   "Dictionary of orthologies")
   ("index-a,a", po::value<uint32_t>(&param.tpos_a)->default_value(0),
    "Score index to use for first network")
   ("index-b,b", po::value<uint32_t>(&param.tpos_b)->default_value(0),
-   "Score index to use for second network")
-  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
-   "Output file name");
+   "Score index to use for second network");
 
   po::options_description req("Required");
   req.add_options()
@@ -512,7 +521,7 @@ int tau(int argc, char * argv[]) {
   ("net-b", po::value<std::string>(&param.network_b)->required(),
    "Second input SeidrFile");
 
-  umbrella.add(opt).add(req);
+  umbrella.add(req).add(topt).add(opt);
 
   po::positional_options_description p;
   p.add("net-a", 1);
@@ -522,27 +531,40 @@ int tau(int argc, char * argv[]) {
   po::store(po::command_line_parser(argc, args).
             options(umbrella).positional(p).run(), vm);
 
-  if (vm.count("help"))
+  if (vm.count("help") || argc == 1)
   {
     std::cerr << umbrella << '\n';
-    return EINVAL;
+    return 22;
   }
-
-  po::notify(vm);
 
   try
   {
-    if (! file_can_read(param.network_a.c_str()))
-      throw std::runtime_error("Cannot read input file: " + param.network_a);
-    if (! file_can_read(param.network_b.c_str()))
-      throw std::runtime_error("Cannot read input file: " + param.network_b);
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
+
+  try
+  {
+    param.network_a = to_absolute(param.network_a);
+    assert_exists(param.network_a);
+    assert_can_read(param.network_a);
+
+    param.network_b = to_absolute(param.network_b);
+    assert_exists(param.network_b);
+    assert_can_read(param.network_b);
 
     if (param.out_file != "-")
     {
-      if (file_exists(param.out_file) && (! param.force))
-        throw std::runtime_error("File exists: " + param.out_file);
-      else if (! file_can_create(param.out_file.c_str()))
-        throw std::runtime_error("Cannot create file: " + param.out_file);
+      param.out_file = to_absolute(param.out_file);
+      if (! param.force)
+      {
+        assert_no_overwrite(param.out_file);
+      }
+      assert_dir_is_writeable(dirname(param.out_file));
     }
   }
   catch (std::runtime_error& except)

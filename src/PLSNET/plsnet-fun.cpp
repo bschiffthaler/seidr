@@ -1,7 +1,28 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <plsnet-fun.h>
-#include <mpims.h>
+#include <mpiomp.h>
+#include <fs.h>
 // External
 #include <iostream>
 #include <random>
@@ -19,12 +40,11 @@ namespace fs = boost::filesystem;
 std::random_device rd;
 std::mt19937 gen(rd());
 
-class seidr_mpi_plsnet : public seidr_mpi {
+class seidr_mpi_plsnet : public seidr_mpi_omp {
 public:
+  using seidr_mpi_omp::seidr_mpi_omp;
   void entrypoint();
   void finalize();
-  seidr_mpi_plsnet() : seidr_mpi() {}
-  seidr_mpi_plsnet(unsigned long bs) : seidr_mpi(bs) {}
   void set_predictor_sample_size(arma::uword x) {_predictor_sample_size = x;}
   void set_ensemble_size(arma::uword x) {_ensemble_size = x;}
   void set_ncomp(arma::uword x) {_ncomp = x;}
@@ -38,50 +58,61 @@ private:
 
 void seidr_mpi_plsnet::entrypoint()
 {
-  seidr_mpi_logger log;
-  std::string tmpfile = _outfilebase + "/.seidr_tmp_plsnet/MPIthread_" +
-                        std::to_string(_id) + "_" + std::to_string(_indices[0]) + ".txt";
-
-  log << "Using tempfile '" << tmpfile << "'\n";
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  while (! _my_indices.empty())
+  {
+    std::vector<arma::uword> uvec;
+    for (auto i : _my_indices)
+    {
+      uvec.push_back(i);
+    }
+    plsnet(_data, _genes, uvec, _tempdir, _predictor_sample_size,
+           _ensemble_size, _ncomp);
+    get_more_work();
+  }
+  log << "No more work. Waiting for other tasks to finish...\n";
   log.send(LOG_INFO);
-
-  std::vector<arma::uword> uvec;
-  for (auto i : _indices)
-    uvec.push_back(i);
-  plsnet(_data, _genes, uvec, tmpfile, _id, _predictor_sample_size,
-         _ensemble_size, _ncomp);
-  announce_ready();
 }
 
 void seidr_mpi_plsnet::finalize()
 {
-  merge_files(_outfile, _outfilebase, ".seidr_tmp_plsnet", 
+  remove(_queue_file);
+  merge_files(_outfile, _tempdir,
               _targeted, _id, _genes);
-  check_logs();
 }
 
 
-void plsnet(arma::mat geneMatrix, std::vector<std::string> genes,
-            std::vector<arma::uword> uvec, std::string outfile,
-            int thread_id,
-            arma::uword predictor_sample_size,
-            arma::uword ensemble_size, arma::uword ncomp)
+void plsnet(const arma::mat& geneMatrix,
+            const std::vector<std::string>& genes,
+            const std::vector<arma::uword>& uvec,
+            const std::string& tmpdir,
+            const arma::uword& predictor_sample_size,
+            const arma::uword& ensemble_size,
+            const arma::uword& ncomp)
 {
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  std::string tmpfile = tempfile(tmpdir);
+  std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
-  seidr_mpi_logger log;
-  std::ofstream ofs(outfile.c_str(), std::ios::out);
   if (! ofs)
-    throw std::runtime_error("Could not open temp file: " + outfile);
+  {
+    throw std::runtime_error("Could not open temp file: " + tmpfile);
+  }
 
   // Create random generators for samples and genes
   std::uniform_int_distribution<> sample_gen(0, geneMatrix.n_rows - 1);
 
   arma::vec ret(geneMatrix.n_cols, arma::fill::zeros);
 
-  for (auto& target : uvec)
+  #pragma omp parallel for
+  for (uint64_t i = 0; i < uvec.size(); i++)
   {
-    log << "Started gene: " << genes[target] << ".\n";
-    log.send(LOG_INFO);
+    auto& target = uvec[i];
+    #pragma omp critical
+    {
+      log << "Started gene: " << genes[target] << ".\n";
+      log.send(LOG_INFO);
+    }
     arma::uvec pred(geneMatrix.n_cols - 1);
     arma::uword j = 0;
     for (arma::uword i = 0; i < geneMatrix.n_cols; i++)
@@ -123,57 +154,75 @@ void plsnet(arma::mat geneMatrix, std::vector<std::string> genes,
       arma::vec vim = vip(X, Y, ncomp);
       ret(pred_sub) += vim;
     }
-    ofs << target << '\n';
-    for (seidr_uword_t i = 0; i < ret.size(); i++)
+    #pragma omp critical
     {
-      ofs << ret[i] << (i == ret.size() - 1 ? '\n' : '\t');
+      ofs << target << '\n';
+      for (seidr_uword_t i = 0; i < ret.size(); i++)
+      {
+        ofs << ret[i] << (i == ret.size() - 1 ? '\n' : '\t');
+      }
     }
   }
+  ofs.close();
 }
 
-void plsnet_full(arma::mat GM, std::vector<std::string> genes, size_t bs,
-                 std::string outfile,
-                 arma::uword predictor_sample_size,
-                 arma::uword ensemble_size, arma::uword ncomp) {
-
-  fs::path p_out(outfile);
+void plsnet_full(const arma::mat& GM,
+                 const std::vector<std::string>& genes,
+                 const seidr_plsnet_param_t& param) {
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  std::vector<unsigned long> uvec;
-  for (unsigned long i = 0; i < GM.n_cols; i++)
+  std::vector<uint64_t> uvec;
+  for (uint64_t i = 0; i < GM.n_cols; i++)
+  {
     uvec.push_back(i);
-  seidr_mpi_plsnet mpi(bs);
+  }
 
-  mpi.set_data(GM);
-  mpi.set_genes(genes);
-  mpi.set_indices(uvec);
-  mpi.set_outfilebase(d_out.string());
-  mpi.set_outfile(p_out.string());
-  mpi.set_predictor_sample_size(predictor_sample_size);
-  mpi.set_ensemble_size(ensemble_size);
-  mpi.set_ncomp(ncomp);
+  seidr_mpi_plsnet mpi(param.bs, GM, uvec, genes, param.tempdir,
+                       param.outfile);
+  mpi.set_predictor_sample_size(param.predictor_sample_size);
+  mpi.set_ensemble_size(param.ensemble_size);
+  mpi.set_ncomp(param.ncomp);
 
-  mpi.exec();
+  mpi.entrypoint();
+
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+
+  #pragma omp critical
+  {
+    if (mpi.rank() == 0)
+    {
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
+  }
+
+  MPI_Finalize();
 }
 
-void plsnet_partial(arma::mat GM, std::vector<std::string> genes, size_t bs,
-                    std::vector<std::string> targets, std::string outfile,
-                    arma::uword predictor_sample_size,
-                    arma::uword ensemble_size, arma::uword ncomp) {
+void plsnet_partial(const arma::mat& GM,
+                    const std::vector<std::string>& genes,
+                    const std::vector<std::string>& targets,
+                    const seidr_plsnet_param_t& param) {
 
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
-  fs::path p_out(outfile);
+  fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  std::vector<size_t> positions;
-  for (size_t i = 0; i < targets.size(); i++) {
-    size_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
-    if (pos >= genes.size()) {
+  std::vector<uint64_t> positions;
+  for (uint64_t i = 0; i < targets.size(); i++)
+  {
+    uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
+    if (pos >= genes.size())
+    {
       log << "Gene " << targets[i]
           << " was not found in the expression set "
           << "and will therefore not be considered."
@@ -181,23 +230,36 @@ void plsnet_partial(arma::mat GM, std::vector<std::string> genes, size_t bs,
           << "its column names (gene file) contain an entry for "
           << targets[i] << ".\n";
       log.log(LOG_WARN);
-    } else {
+    }
+    else
+    {
       positions.push_back(pos);
     }
   }
 
-  seidr_mpi_plsnet mpi(bs);
-  mpi.set_data(GM);
-  mpi.set_genes(genes);
-  mpi.set_indices(positions);
-  mpi.set_outfilebase(d_out.string());
-  mpi.set_outfile(p_out.string());
-  mpi.set_predictor_sample_size(predictor_sample_size);
-  mpi.set_ensemble_size(ensemble_size);
-  mpi.set_ncomp(ncomp);
+  seidr_mpi_plsnet mpi(param.bs, GM, positions, genes, param.tempdir,
+                       param.outfile);
+  mpi.set_predictor_sample_size(param.predictor_sample_size);
+  mpi.set_ensemble_size(param.ensemble_size);
+  mpi.set_ncomp(param.ncomp);
   mpi.set_targeted(true);
 
-  mpi.exec();
+  mpi.entrypoint();
+
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+
+  #pragma omp critical
+  {
+    if (mpi.rank() == 0)
+    {
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
+  }
+
+  MPI_Finalize();
 }
 
 arma::vec vip(arma::mat& X, arma::vec& Y, arma::uword ncomp)

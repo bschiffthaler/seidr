@@ -1,16 +1,23 @@
-/**
- * @file
- * @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
- * @version 0.01
- *
- * @param el_file Binary representation of ranked edge list or aggregated network.
- * @param gene_file File with gene names.
- * @return int 0 if the function succeeded, an error code otherwise.
- *
- * @section DESCRIPTION
- *
- * This function simply converts the binary edge lists into human readble text.
- */
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <test.h>
@@ -25,57 +32,32 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <tclap/CmdLine.h>
 
 int test(int argc, char * argv[]) {
 
-  logger log(std::cerr, "test");
+  // logger log(std::cerr, "test");
 
-  // Variables used by the function
-  std::string el_file;
+  // // Variables used by the function
+  // std::string el_file;
 
-  // We ignore the first argument
-  const char * args[argc - 1];
-  args[0] = strcat(argv[0], " test");
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
-  argc--;
+  // try
+  // {
+  //   el_file = to_canonical(el_file);
+  // }
+  // catch (std::runtime_error& e)
+  // {
+  //   log(LOG_ERR) << e.what() << '\n';
+  //   return errno;
+  // }
 
-  try
-  {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Random debug functions.", ' ', version);
-    TCLAP::UnlabeledValueArg<std::string> arg_infile("in-file", "Input file (aggregated gene counts)", true,
-        "", "string");
-    cmd.add(arg_infile);
+  // SeidrFile rf(el_file.c_str());
+  // rf.open("r");
 
-    // Parse arguments
-    cmd.parse(argc, args);
-    el_file = arg_infile.getValue();
-  }
-  catch (TCLAP::ArgException& except)
-  {
-    log(LOG_ERR) << except.what() << '\n';
-    return 1;
-  }
+  // rf.each_edge([](SeidrFileEdge& e, SeidrFileHeader& h){
+  //   e.print(h);
+  // });
 
-  try
-  {
-    el_file = to_canonical(el_file);
-  }
-  catch (std::runtime_error& e)
-  {
-    log(LOG_ERR) << e.what() << '\n';
-    return errno;
-  }
-
-  SeidrFile rf(el_file.c_str());
-  rf.open("r");
-
-  rf.each_edge([](SeidrFileEdge& e, SeidrFileHeader& h){
-    e.print(h);
-  });
-
-  rf.close();
+  // rf.close();
 
   return 0;
 }

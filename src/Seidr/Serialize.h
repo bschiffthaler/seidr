@@ -1,3 +1,22 @@
+/* * Seidr - Create and operate on gene crowd networks
+ * Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+ *
+ * This file is part of Seidr.
+ *
+ * Seidr is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Seidr is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
 #include <iostream>
@@ -162,12 +181,12 @@ public:
   std::vector<std::string> nodes;
   std::vector<std::string> algs;
   std::vector<std::string> supp;
-  void serialize(SeidrFile& file);
+  void serialize(SeidrFile& file) const;
   void unserialize(SeidrFile& file);
   void print(std::ostream& out);
-  void print_centrality(std::ostream& out);
+  void print_centrality(std::ostream& out) const;
   void print(void) {print(std::cout);}
-  void print_centrality(void) {print_centrality(std::cout);}
+  void print_centrality(void) const {print_centrality(std::cout);}
   std::vector<double> pagerank;
   std::vector<double> closeness;
   std::vector<double> betweenness;
@@ -186,14 +205,15 @@ public:
   std::vector<std::string> supp_str;
   std::vector<int> supp_int;
   std::vector<float> supp_flt;
-  void serialize(SeidrFile& file, SeidrFileHeader& header);
+  void serialize(SeidrFile& file, SeidrFileHeader& header) const;
   void unserialize(SeidrFile& file, SeidrFileHeader& header);
-  void print(std::ostream&, SeidrFileHeader& header,  char end = '\n',
+  void print(std::ostream&, const SeidrFileHeader& header,  char end = '\n',
              bool print_supp = true, std::string delim = ";",
              std::string sc_delim = ";", bool full = false,
              bool supp_tag = true, bool no_name = false) const;
   void print(SeidrFileHeader& header) const {print(std::cout, header);}
-  void raise_err(std::string what, SeidrFile& file, SeidrFileHeader& header);
+  void raise_err(std::string what, SeidrFile& file,
+                 SeidrFileHeader& header) const;
 };
 
 class SeidrFileIndex {

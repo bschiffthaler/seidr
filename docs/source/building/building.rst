@@ -11,14 +11,11 @@ Currently, seidr has the following dependencies (examplary dnf packages on Fedor
 * cmake 
 * git
 * openmpi-devel 
-* tclap 
 * boost-devel 
 * glpk-devel 
 * armadillo-devel 
 * zlib-devel
 * gsl-devel 
-
-It also needs `htslib <https://github.com/samtools/htslib>`_
 
 Once the dependencies are satisfied, build with::
 

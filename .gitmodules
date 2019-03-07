@@ -7,3 +7,12 @@
 [submodule "external/libbs"]
 	path = external/libbs
 	url = https://github.com/bschiffthaler/libbs
+[submodule "external/libsvm"]
+	path = external/libsvm
+	url = https://github.com/cjlin1/libsvm
+[submodule "external/liblinear"]
+	path = external/liblinear
+	url = https://github.com/cjlin1/liblinear
+[submodule "external/glmnet"]
+	path = external/glmnet
+	url = https://github.com/cran/glmnet

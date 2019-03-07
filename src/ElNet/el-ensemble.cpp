@@ -1,220 +1,232 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <fs.h>
-#include <mpims.h>
+#include <mpiomp.h>
 #include <elnet-fun.h>
 // External
 #include <mpi.h>
-#include <svm.h>
+#include <omp.h>
 #include <cerrno>
 #include <string>
 #include <vector>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
-
-#define EL_FULL 0
-#define EL_PARTIAL 1
+#include <boost/program_options.hpp>
 
 namespace fs = boost::filesystem;
+namespace po = boost::program_options;
+using boost::numeric_cast;
 
 int main(int argc, char ** argv) {
 
   MPI_Init(&argc, &argv);
 
   int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
-  arma::mat gene_matrix;
-  std::string infile;
-  std::string gene_file;
-  std::string targets_file;
-  bool do_scale = false;
-  bool force = false;
-  char row_delim = '\n';
-  char field_delim = '\t';
-  size_t bs;
-  size_t mode = EL_FULL;
-  std::string outfile;
-  std::vector<std::string> genes;
-  std::vector<std::string> targets;
-  arma::uword min_sample_size;
-  arma::uword max_sample_size;
-  arma::uword predictor_sample_size_min;
-  arma::uword predictor_sample_size_max;
-  arma::uword ensemble_size;
-  double alpha;
-  double flmin;
-  arma::uword nlam;
-  unsigned verbosity;
-
-  // Define program options
+  seidr_elnet_param_t param;
+  po::variables_map vm;
+  po::options_description umbrella("Elastic net ensemble implementation for"
+                                     " Seidr");
   try
   {
-    TCLAP::CmdLine cmd("Elastic net ensemble implementation for Seidr", ' ',
-                       version);
+    po::options_description opt("Common Options");
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists");
 
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
+    po::options_description algopt("ElNet Options");
+    algopt.add_options()
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores")
+    ("nlambda,n",
+     po::value<seidr_uword_t>(&param.nlam)->default_value(10),
+     "The maximum number of lambda values")
+    ("min-lambda,l",
+     po::value<double>(&param.flmin)->default_value(0.3, "0.3"),
+     "The minimum lambda as a fraction of the maximum.")
+    ("alpha,a",
+     po::value<double>(&param.alpha)->default_value(0.3, "0.3"),
+     "The elastic net mixing value alpha. 1.0 is "
+     "LASSO, 0 is Ridge.");
 
-    TCLAP::ValueArg<std::string>
-    genefile_arg("g", "genes", "File containing gene names", true, "",
-                 "string");
-    cmd.add(genefile_arg);
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,b", po::value<uint64_t>(&param.bs)->default_value(20),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
 
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing gene names"
-                " of genes of interest. The network will only be"
-                " calculated using these as the sources of potential connections.",
-                false, "", "string");
-    cmd.add(targets_arg);
+    po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()
+    ("threads,O", po::value<int>(&param.nthreads)->
+     default_value(omp_get_max_threads()),
+     "Number of OpenMP threads per MPI task");
 
-    TCLAP::ValueArg<unsigned long>
-    batchsize_arg("b", "batch-size", "Number of genes in MPI batch", false, 20,
-                  "20");
-    cmd.add(batchsize_arg);
+    po::options_description bootopt("Bootstrap Options");
+    bootopt.add_options()
+    ("ensemble,e",
+     po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
+     "The ensemble size")
+    ("min-predictor-size,p",
+     po::value<seidr_uword_t>(&param.min_sample_size)->
+     default_value(0, "20% of predictors"),
+     "The minimum number of predictors to be sampled.")
+    ("max-predictor-size,P",
+     po::value<seidr_uword_t>(&param.max_sample_size)->
+     default_value(0, "80% of predictors"),
+     "The maximum number of predictors to be sampled")
+    ("min-experiment-size,x",
+     po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
+     default_value(0, "20% of experiments"),
+     "The minimum number of experiments to be sampled")
+    ("max-experiment-size,X",
+     po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
+     default_value(0, "80% of experiments"),
+     "The maximum number of experiments to be sampled");
 
-    TCLAP::ValueArg<std::string> outfile_arg("o", "outfile", "Output file path",
-        false, "edgelist.tsv", "edgelist.tsv");
-    cmd.add(outfile_arg);
+    po::options_description req("Required Options");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
 
-    TCLAP::ValueArg<seidr_uword_t> ensemble_arg("e", "ensemble",
-        "The ensemble size", false, 1000, "1000");
-    cmd.add(ensemble_arg);
+    umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
-    TCLAP::ValueArg<seidr_uword_t> min_pred_arg("p", "min-predictor-size",
-        "The minimum number of predictors to be sampled.", false,
-        0, "1/5th of genes");
-    cmd.add(min_pred_arg);
 
-    TCLAP::ValueArg<seidr_uword_t> max_pred_arg("P", "max-predictor-size",
-        "The maximum number of preditors to be sampled", false,
-        0, "4/5th of genes");
-    cmd.add(max_pred_arg);
-
-    TCLAP::ValueArg<seidr_uword_t> min_exp_arg("x", "min-experiment-size",
-        "The minimum number of experiments to be sampled.", false,
-        0, "1/5th of experiments");
-    cmd.add(min_exp_arg);
-
-    TCLAP::ValueArg<seidr_uword_t> max_exp_arg("X", "max-experiment-size",
-        "The maximum number of experiments to be sampled", false,
-        0, "4/5th of experiments");
-    cmd.add(max_exp_arg);
-
-    TCLAP::ValueArg<seidr_uword_t>
-    nlam_arg("n", "nlambda", "The maximum number of lambda values", false,
-             10, "10");
-    cmd.add(nlam_arg);
-
-    TCLAP::ValueArg<double>
-    alpha_arg("a", "alpha", "The elastic net mixing value alpha. 1.0 is "
-              "LASSO, 0 is Ridge.", false, 0.3, "0.3");
-    cmd.add(alpha_arg);
-
-    TCLAP::ValueArg<double>
-    flmin_arg("l", "min-lambda", "The minimum lambda as a fraction "
-              "of the maximum.", false, 0.3, "0.3");
-    cmd.add(flmin_arg);
-
-    TCLAP::ValueArg<unsigned>
-    verbosity_arg("v", "verbosity", "Verbosity level (lower is less verbose)",
-                  false, 3, "3");
-    cmd.add(verbosity_arg);
-
-    TCLAP::SwitchArg switch_scale("s", "scale", "Transform data to z-scores",
-                                  cmd, false);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-
-    cmd.parse(argc, argv);
-
-    infile = infile_arg.getValue();
-    gene_file = genefile_arg.getValue();
-    targets_file = targets_arg.getValue();
-    bs = batchsize_arg.getValue();
-    outfile = outfile_arg.getValue();
-    do_scale = switch_scale.getValue();
-    ensemble_size = ensemble_arg.getValue();
-    min_sample_size = min_exp_arg.getValue();
-    max_sample_size = max_exp_arg.getValue();
-    predictor_sample_size_min = min_pred_arg.getValue();
-    predictor_sample_size_max = max_pred_arg.getValue();
-    nlam = nlam_arg.getValue();
-    flmin = flmin_arg.getValue();
-    alpha = alpha_arg.getValue();
-    force = switch_force.getValue();
-    verbosity = verbosity_arg.getValue();
-
-    if (targets_file != "") mode = EL_PARTIAL;
-    log.set_log_level(verbosity);
-
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
   }
-  catch (TCLAP::ArgException &e)  // catch any exceptions
+  catch (std::exception& e)
   {
-    log << e.error() << " for arg " << e.argId() << '\n';
-    log.log(LOG_ERR);
-    return EINVAL;
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
   }
 
-  // Check all kinds of FS problems that may arise
+  if (vm.count("help") != 0 || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 1;
+  }
+
+  log.set_log_level(5);
+
+  try
+  {
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
+
+  log.set_log_level(param.verbosity);
+
+  if (vm.count("targets") != 0)
+  {
+    param.mode = EL_PARTIAL;
+  }
+
+  // Normalize paths
+  param.outfile = to_absolute(param.outfile);
+  param.infile = to_absolute(param.infile);
+  param.gene_file = to_absolute(param.gene_file);
+
+  if (param.mode == EL_PARTIAL)
+  {
+    param.targets_file = to_absolute(param.targets_file);
+  }
+
+  // Check all kinds of FS problems that may arise in the master thread
   if (rank == 0)
   {
     try
     {
-      outfile = to_absolute(outfile);
-      infile = to_absolute(infile);
-      gene_file = to_absolute(gene_file);
-      std::string tempdir = dirname(outfile) + "/.seidr_tmp_elnet";
+      assert_exists(dirname(param.outfile));
+      assert_exists(param.infile);
+      assert_is_regular_file(param.infile);
+      assert_exists(param.gene_file);
+      assert_can_read(param.gene_file);
+      assert_can_read(param.infile);
 
-      if (! file_exists(dirname(outfile)) )
-        throw std::runtime_error("Directory does not exist: " + dirname(outfile));
-
-      if (dir_exists(tempdir) && force)
+      if (param.mode == EL_PARTIAL)
       {
-        log << "Removing previous temp files.\n";
-        log.send(LOG_WARN);
-        fs::remove_all(tempdir);
+        assert_exists(param.targets_file);
+        assert_can_read(param.targets_file);
       }
 
-      if (! create_directory(dirname(outfile), ".seidr_tmp_elnet") )
-        throw std::runtime_error("Cannot create tmp dir in: " + dirname(outfile));
-
-      if (! file_exists(infile) )
-        throw std::runtime_error("File does not exist: " + infile);
-
-      if (! regular_file(infile) )
-        throw std::runtime_error("Not a regular file: " + infile);
-
-      if (! file_can_read(infile) )
-        throw std::runtime_error("Cannot read: " + infile);
-
-      if (! file_exists(gene_file) )
-        throw std::runtime_error("File does not exist: " + gene_file);
-
-      if (! file_can_read(gene_file) )
-        throw std::runtime_error("Cannot read: " + gene_file);
-
-      if (mode == EL_PARTIAL)
+      if (! param.force)
       {
-        targets_file = to_absolute(targets_file);
-        if (! file_exists(targets_file) )
-          throw std::runtime_error("File does not exist: " + targets_file);
-
-        if (! file_can_read(targets_file))
-          throw std::runtime_error("Cannot read: " + targets_file);
+        assert_no_overwrite(param.outfile);
       }
 
-      if (! force && file_exists(outfile))
-        throw std::runtime_error("File exists: " + outfile);
+      if (vm.count("tempdir") == 0)
+      {
+        param.tempdir = tempfile(dirname(param.outfile));
+      }
+      else
+      {
+        param.tempdir = tempfile(to_absolute(param.tempdir));
+      }
+      if (dir_exists(param.tempdir))
+      {
+        if (param.force)
+        {
+          log << "Removing previous temp files.\n";
+          log.log(LOG_WARN);
+          fs::remove_all(param.tempdir);
+        }
+        else
+        {
+          throw std::runtime_error("Dir exists: " + param.tempdir);
+        }
+      }
+      else
+      {
+        create_directory(param.tempdir);
+      }
 
+      assert_dir_is_writeable(param.tempdir);
+      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -223,70 +235,96 @@ int main(int argc, char ** argv) {
       return EINVAL;
     }
   }
+  else
+  {
+    mpi_sync_tempdir(&param.tempdir);
+  }
   // All threads wait until checks are done
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 
   try
   {
+    assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
+                         "--threads");
+    omp_set_num_threads(param.nthreads);
+    arma::mat gene_matrix;
+    std::vector<std::string> genes;
+    std::vector<std::string> targets;
+
     // Get input files
-    gene_matrix.load(infile);
-    verify_matrix(gene_matrix);
-    genes = read_genes(gene_file, row_delim, field_delim);
+    gene_matrix.load(param.infile);
+    genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
+    verify_matrix(gene_matrix, genes);
 
-    if (genes.size() != gene_matrix.n_cols)
-      throw std::runtime_error("There must be as many gene names as columns "
-                               "in the expression matrix.");
-
-    if (do_scale)
+    if (param.do_scale)
+    {
       scale(gene_matrix);
+    }
 
-    if (mode == EL_PARTIAL)
-      targets = read_genes(targets_file, row_delim, field_delim);
+    if (param.mode == EL_PARTIAL)
+    {
+      targets = read_genes(param.targets_file, param.row_delim,
+                           param.field_delim);
+    }
 
-    if (min_sample_size == 0)
-      min_sample_size = gene_matrix.n_rows * 0.2;
-    if (max_sample_size == 0)
-      max_sample_size = gene_matrix.n_rows * 0.8;
-    if (predictor_sample_size_min == 0)
-      predictor_sample_size_min = (gene_matrix.n_cols - 1) * 0.2;
-    if (predictor_sample_size_max == 0)
-      predictor_sample_size_max = (gene_matrix.n_cols - 1) * 0.8;
+    if (param.min_sample_size == 0)
+    {
+      param.min_sample_size =
+        numeric_cast<arma::uword>(gene_matrix.n_rows * 0.2);
+    }
+    if (param.max_sample_size == 0)
+    {
+      param.max_sample_size =
+        numeric_cast<arma::uword>(gene_matrix.n_rows * 0.8);
+    }
+    if (param.predictor_sample_size_min == 0)
+    {
+      param.predictor_sample_size_min =
+        numeric_cast<arma::uword>((gene_matrix.n_cols - 1) * 0.2);
+    }
+    if (param.predictor_sample_size_max == 0)
+    {
+      param.predictor_sample_size_max =
+        numeric_cast<arma::uword>((gene_matrix.n_cols - 1) * 0.8);
+    }
 
     // Check if sampling settings are sane
-    if (min_sample_size > max_sample_size)
+    if (param.min_sample_size > param.max_sample_size)
+    {
       throw std::runtime_error("Minimum experiment sample size can't be "
                                "larger than maximum");
-    if (max_sample_size > gene_matrix.n_rows)
+    }
+    if (param.max_sample_size > gene_matrix.n_rows)
+    {
       throw std::runtime_error("Maximum experiment sample size can't be "
                                "larger than number of experiments");
-    if (predictor_sample_size_min > predictor_sample_size_max)
+    }
+    if (param.predictor_sample_size_min > param.predictor_sample_size_max)
+    {
       throw std::runtime_error("Minimum predictor sample size can't be "
                                "larger than maximum");
-    if (predictor_sample_size_max > gene_matrix.n_cols - 1)
+    }
+    if (param.predictor_sample_size_max > gene_matrix.n_cols - 1)
+    {
       throw std::runtime_error("Maximum predictor sample size can't be "
                                "larger than the number of genes - 1");
+    }
 
-    if (min_sample_size == 0 ||
-        max_sample_size == 0 ||
-        predictor_sample_size_min == 0 ||
-        predictor_sample_size_max == 0)
+    if (param.min_sample_size == 0 ||
+        param.max_sample_size == 0 ||
+        param.predictor_sample_size_min == 0 ||
+        param.predictor_sample_size_max == 0)
+    {
       throw std::runtime_error("None of the sampling settings should be 0");
+    }
 
-    switch (mode) {
+    switch (param.mode) {
     case EL_FULL:
-      el_full(gene_matrix, genes, bs, outfile,
-              min_sample_size, max_sample_size,
-              predictor_sample_size_min,
-              predictor_sample_size_max,
-              ensemble_size, alpha, flmin, nlam);
+      el_full(gene_matrix, genes, param);
       break;
 
     case EL_PARTIAL:
-      el_partial(gene_matrix, genes, bs, targets, outfile,
-                 min_sample_size, max_sample_size,
-                 predictor_sample_size_min,
-                 predictor_sample_size_max,
-                 ensemble_size, alpha, flmin, nlam);
+      el_partial(gene_matrix, genes, targets, param);
       break;
 
     default:

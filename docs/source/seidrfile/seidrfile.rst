@@ -21,25 +21,46 @@ A SeidrFile has a **header** that keeps information such as the number of edges,
 
 The output might look something like this::
 
-    #[A] Nodes: 1643
-    #[A] Edges: 678548
-    #[A] Storage: Sparse
-    #[A] Algorithms #: 1
-    #[A] Algorithms:
-    # ELNET
-    #[A] Supplementary data #: 0
-    #[A] Supplementary data tags:
-    #[A] Version: 0.5.0
-    #[A] Cmd: seidr import -f m -rz -i elnet_scores.tsv -n ELNET -o elnet_scores.sf -g ../vala_run_2017_8_29_22_28/genes.tsv
-    #[A] Node list:
-    # G1
-    # G2
-    # G3
-    # G4
-    # G5
-    # G6
-    # G7
-    # G8
+    # [G] Nodes: 50
+    # [G] Edges: 1225
+    # [G] Storage: Dense
+    # [G] Algorithms #: 14
+    # [G] Supplementary data #: 13
+    # [A] ARACNE
+    # [A] CLR
+    # [A] ELNET
+    # [A] MI
+    # [A] GENIE3
+    # [A] LLR
+    # [A] NARROMI
+    # [A] PCOR
+    # [A] PEARSON
+    # [A] PLSNET
+    # [A] SPEARMAN
+    # [A] SVM
+    # [A] TIGRESS
+    # [A] irp
+    # [S] D1
+    # [S] D2
+    # [S] D3
+    # [S] D4
+    # [S] D5
+    # [S] D6
+    # [S] D7
+    # [S] D8
+    # [S] D9
+    # [S] D10
+    # [S] D11
+    # [S] D12
+    # [S] D13
+    # [R] Version: 0.10.0
+    # [R] Cmd: seidr aggregate -f -k -m irp aracne.sf clr.sf elnet.sf elranks.sf genie3.sf llr.sf narromi.sf pcor.sf pearson.sf plsnet.sf spearman.sf svm.sf tigress.sf
+    # [N] G1
+    # [N] G2
+    # [N] G3
+    # [N] G4
+    # [N] G5
+    # [N] G6
 
 The SeidrFile body
 ^^^^^^^^^^^^^^^^^^

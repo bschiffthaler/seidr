@@ -1,20 +1,39 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <genie3-fun.h>
 #include <fs.h>
-#include <mpims.h>
+#include <mpiomp.h>
 // External
+#include <omp.h>
 #include <mpi.h>
 #include <cerrno>
 #include <string>
 #include <vector>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 
-#define GENIE3_FULL 0
-#define GENIE3_PARTIAL 1
-
+namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 int main(int argc, char ** argv) {
@@ -24,162 +43,167 @@ int main(int argc, char ** argv) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
   arma::mat gene_matrix;
-  std::string infile;
-  std::string gene_file;
-  std::string targets_file;
-  bool do_scale = false;
-  bool force = false;
-  char row_delim = '\n';
-  char field_delim = '\t';
-  size_t bs;
-  size_t mode = GENIE3_FULL;
-  std::string outfile;
   std::vector<std::string> genes;
   std::vector<std::string> targets;
-  seidr_uword_t ntree;
-  seidr_uword_t mtry;
-  seidr_uword_t min_node_size;
-  double alpha;
-  double minprop;
 
-  // Define program options
+  seidr_genie3_param_t param;
+
+  po::options_description umbrella("GENIE3 implementation for Seidr");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("help,h", "Show this help message")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite if output already exists")
+  ("targets,t", po::value<std::string>(&param.targets_file),
+   "File containing gene names"
+   " of genes of interest. The network will only be"
+   " calculated using these as the sources of potential connections.")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("genie3_scores.tsv"),
+   "Output file path")
+  ("verbosity,v",
+   po::value<unsigned>(&param.verbosity)->default_value(3),
+   "Verbosity level (lower is less verbose)");
+
+  po::options_description algopt("GENIE3 Options");
+  algopt.add_options()
+  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+   "Transform data to z-scores")
+  ("min-node-size,N",
+   po::value<uint64_t>(&param.min_node_size)->
+   default_value(5), "Minimum node size")
+  ("min-prop,p",
+   po::value<double>(&param.minprop)->
+   default_value(0.1, "0.1"), "Minimal proportion in random forest")
+  ("alpha,a",
+   po::value<double>(&param.alpha)->default_value(0.5, "0.5"),
+   "Alpha value for random forests");
+
+  po::options_description bootopt("Bootstrap Options");
+  bootopt.add_options()
+  ("ntree,n",
+   po::value<uint64_t>(&param.ntree)->default_value(1000),
+   "Number of random forest trees to grow")
+  ("mtry,m",
+   po::value<uint64_t>(&param.mtry)->
+   default_value(0, "sqrt(m)"), "Number of features to sample in each tree");
+  
+  po::options_description mpiopt("MPI Options");
+  mpiopt.add_options()
+  ("batch-size,b", po::value<uint64_t>(&param.bs)->default_value(20),
+   "Number of genes in MPI batch")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir),
+   "Temporary directory path");
+
+  po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()
+    ("threads,O", po::value<int>(&param.nthreads)->
+     default_value(omp_get_max_threads()),
+     "Number of OpenMP threads per MPI task");
+
+  po::options_description req("Required");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.infile)->required(),
+   "The expression table (without headers)")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "File containing gene names");
+
+  umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 1;
+  }
+
   try
   {
-    TCLAP::CmdLine cmd("GENIE3 implementation for Seidr", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
-
-    TCLAP::ValueArg<std::string>
-    genefile_arg("g", "genes", "File containing gene names (columns in infile)",
-                 true, "", "");
-    cmd.add(genefile_arg);
-
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing gene names of genes of interes. "
-                "The network will only be calculated using these as the sources of "
-                "potential connections.", false, "", "");
-    cmd.add(targets_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    batchsize_arg("b", "batch-size", "Number of genes in batch", false, 20,
-                  "20");
-    cmd.add(batchsize_arg);
-
-    TCLAP::ValueArg<std::string>   
-    outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv", 
-                "edgelist.tsv");
-    cmd.add(outfile_arg);
-
-    TCLAP::ValueArg<unsigned long> 
-    ntree_arg("n", "ntree", "Number of random forest trees to grow", false, 1000,
-        "1000");
-    cmd.add(ntree_arg);
-
-    TCLAP::ValueArg<unsigned long> 
-    mtry_arg("m", "mtry", "Number of features to sample in each tree", false, 0,
-                                            "sqrt(ngenes)");
-    cmd.add(mtry_arg);
-
-    TCLAP::ValueArg<unsigned long> 
-    min_node_size_arg("N", "min-node-size", "Minimum node size", false, 0,
-        "5");
-    cmd.add(min_node_size_arg);
-
-    TCLAP::ValueArg<double> 
-    alpha_arg("a", "alpha", "Alpha value for random forests", false, 0.5,
-                                      "0.5");
-    cmd.add(alpha_arg);
-
-    TCLAP::ValueArg<double> 
-    minprop_arg("p", "min-prop", "Minimal proportion in random forest", false, 0.1,
-                                        "0.1");
-    cmd.add(minprop_arg);
-
-    TCLAP::SwitchArg 
-    switch_scale("s", "scale", "Transform data to z-scores", cmd, false);
-
-    TCLAP::SwitchArg 
-    switch_force("f", "force", "Force overwrite if output already exists", cmd, 
-                 false);
-
-    cmd.parse(argc, argv);
-
-    infile = infile_arg.getValue();
-    gene_file = genefile_arg.getValue();
-    targets_file = targets_arg.getValue();
-    bs = batchsize_arg.getValue();
-    outfile = outfile_arg.getValue();
-    do_scale = switch_scale.getValue();
-    ntree = ntree_arg.getValue();
-    mtry = mtry_arg.getValue();
-    alpha = alpha_arg.getValue();
-    minprop = minprop_arg.getValue();
-    force = switch_force.getValue();
-    min_node_size = min_node_size_arg.getValue();
-
-    if (targets_file != "") mode = GENIE3_PARTIAL;
-
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException &e)  // catch any exceptions
+  catch (std::exception& e)
   {
-    log << e.error() << " for arg " << e.argId() << '\n';
-    log.log(LOG_ERR);
-    return EINVAL;
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
   }
 
-  // Check all kinds of FS problems that may arise
+  log.set_log_level(param.verbosity);
+
+  if (vm.count("targets"))
+  {
+    param.mode = GENIE3_PARTIAL;
+  }
+
+  // Normalize paths
+  param.outfile = to_absolute(param.outfile);
+  param.infile = to_absolute(param.infile);
+  param.gene_file = to_absolute(param.gene_file);
+
+  if (param.mode == GENIE3_PARTIAL)
+  {
+    param.targets_file = to_absolute(param.targets_file);
+  }
+
+  // Check all kinds of FS problems that may arise in the master thread
   if (rank == 0)
   {
     try
     {
-      outfile = to_absolute(outfile);
-      infile = to_absolute(infile);
-      gene_file = to_absolute(gene_file);
-      std::string tempdir = dirname(outfile) + "/.seidr_tmp_genie3";
+      assert_exists(dirname(param.outfile));
+      assert_exists(param.infile);
+      assert_is_regular_file(param.infile);
+      assert_exists(param.gene_file);
+      assert_can_read(param.gene_file);
+      assert_can_read(param.infile);
 
-      if (! file_exists(dirname(outfile)) )
-        throw std::runtime_error("Directory does not exist: " + dirname(outfile));
-
-      if (dir_exists(tempdir) && force)
+      if (param.mode == GENIE3_PARTIAL)
       {
-        log << "Removing previous temp files.\n";
-        log.send(LOG_WARN);
-        fs::remove_all(tempdir);
+        assert_exists(param.targets_file);
+        assert_can_read(param.targets_file);
       }
 
-      if (! create_directory(dirname(outfile), ".seidr_tmp_genie3") )
-        throw std::runtime_error("Cannot create tmp dir in: " + dirname(outfile));
-
-      if (! file_exists(infile) )
-        throw std::runtime_error("File does not exist: " + infile);
-
-      if (! regular_file(infile) )
-        throw std::runtime_error("Not a regular file: " + infile);
-
-      if (! file_can_read(infile) )
-        throw std::runtime_error("Cannot read: " + infile);
-
-      if (! file_exists(gene_file) )
-        throw std::runtime_error("File does not exist: " + gene_file);
-
-      if (! file_can_read(gene_file) )
-        throw std::runtime_error("Cannot read: " + gene_file);
-
-      if (mode == GENIE3_PARTIAL)
+      if (! param.force)
       {
-        targets_file = to_absolute(targets_file);
-        if (! file_exists(targets_file) )
-          throw std::runtime_error("File does not exist: " + targets_file);
-
-        if (! file_can_read(targets_file))
-          throw std::runtime_error("Cannot read: " + targets_file);
+        assert_no_overwrite(param.outfile);
       }
+
+      if (! vm.count("tempdir"))
+      {
+        param.tempdir = tempfile(dirname(param.outfile));
+      }
+      else
+      {
+        param.tempdir = tempfile(to_absolute(param.tempdir));
+      }
+      if (dir_exists(param.tempdir))
+      {
+        if (param.force)
+        {
+          log << "Removing previous temp files.\n";
+          log.log(LOG_WARN);
+          fs::remove_all(param.tempdir);
+        }
+        else
+        {
+          throw std::runtime_error("Dir exists: " + param.tempdir);
+        }
+      }
+      else
+      {
+        create_directory(param.tempdir);
+      }
+
+      assert_dir_is_writeable(param.tempdir);
+      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -188,35 +212,43 @@ int main(int argc, char ** argv) {
       return EINVAL;
     }
   }
+  else
+  {
+    mpi_sync_tempdir(&param.tempdir);
+  }
+
   // All threads wait until checks are done
   MPI_Barrier(MPI_COMM_WORLD);
 
   try
   {
+    assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
+                         "--threads");
+    omp_set_num_threads(param.nthreads);
     // Get input files
-    gene_matrix.load(infile);
-    verify_matrix(gene_matrix);
-    genes = read_genes(gene_file, row_delim, field_delim);
+    gene_matrix.load(param.infile);
+    genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
 
-    if (genes.size() != gene_matrix.n_cols)
-      throw std::runtime_error("There must be as many gene names as columns "
-                               "in the expression matrix.");
+    verify_matrix(gene_matrix, genes);
 
-    if (do_scale)
+    if (param.do_scale)
+    {
       scale(gene_matrix);
+    }
 
-    if (mode == GENIE3_PARTIAL)
-      targets = read_genes(targets_file, row_delim, field_delim);
+    if (param.mode == GENIE3_PARTIAL)
+    {
+      targets = read_genes(param.targets_file, param.row_delim, 
+                           param.field_delim);
+    }
 
-    switch (mode) {
+    switch (param.mode) {
     case GENIE3_FULL:
-      genie3_full(gene_matrix, genes, bs, outfile, ntree, mtry, alpha,
-                  min_node_size, minprop);
+      genie3_full(gene_matrix, genes, param);
       break;
 
     case GENIE3_PARTIAL:
-      genie3_partial(gene_matrix, genes, bs, targets, outfile, ntree, mtry,
-                     min_node_size, alpha, minprop);
+      genie3_partial(gene_matrix, genes, targets, param);
       break;
 
     default:

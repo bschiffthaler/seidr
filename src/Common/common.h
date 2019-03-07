@@ -1,15 +1,40 @@
+/* * Seidr - Create and operate on gene crowd networks
+ * Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+ *
+ * This file is part of Seidr.
+ *
+ * Seidr is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Seidr is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #pragma once
+
+#include <Serialize.h>
 
 #include <iostream>
 #include <armadillo>
 #include <vector>
 #include <string>
 #include <fstream>
+
 #include <boost/tokenizer.hpp>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 #define RANK_TYPE 0
 #define AGGR_TYPE 1
-#define FLT_EPSILON 0.000000001
+#define SFLT_EPSILON 0.000000001
 #define ORDER_WEIGHT 0
 
 #define SEIDR_MALLOC(type,n) (type *)malloc((n)*sizeof(type))
@@ -17,18 +42,27 @@
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
 
-#if defined(SEIDR_PARALLEL_SORT) && defined(__ICC)
-  #include <pstl/execution>
+#if defined(SEIDR_PSTL) && defined(__ICC)
   #define SORT(start, end) std::sort(pstl::execution::par_unseq, start, end)
   #define SORTWCOMP(start, end, comp) std::sort(pstl::execution::par_unseq, start, end, comp)
-#elif defined(SEIDR_PARALLEL_SORT) && defined(__GNUG__)
+  #define SET_NUM_PSTL_THREADS(x) tbb::task_scheduler_init init(x)
+  #define GET_MAX_PSTL_THREADS() tbb::task_scheduler_init::default_num_threads()
+  #define PSTL_INCLUDES #include <tbb/task_scheduler_init.h> \
+                        #include <pstl/algorithm>
+#elif defined(SEIDR_PSTL) && defined(__GNUG__)
   #define SORT(start, end) __gnu_parallel::sort(start, end)
   #define SORTWCOMP(start, end, comp) __gnu_parallel::sort(start, end, comp)
+  #define SET_NUM_PSTL_THREADS(x) omp_set_num_threads(x)
+  #define GET_MAX_PSTL_THREADS() omp_get_max_threads()
+  #define PSTL_INCLUDES #include <omp.h> \
+                        #include <parallel/algorithm>
 #else
   #define SORT(start, end) std::sort(start, end)
   #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
+  #define SET_NUM_PSTL_THREADS(x)
+  #define GET_MAX_PSTL_THREADS() 1
+   #define PSTL_INCLUDES #include <algorithm>
 #endif
-
 
 #ifndef SEIDR_SCORE_DOUBLE
 typedef float seidr_score_t;
@@ -49,10 +83,10 @@ typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
 arma::uvec get_i(arma::uword ind, size_t s);
 
 // Read gene names
-std::vector<std::string> read_genes(std::string inputs, 
-				    char row_delim = '\n', char field_delim = '\t');
+std::vector<std::string> read_genes(const std::string& inputs,
+                                    char row_delim = '\n', char field_delim = '\t');
 
-bool is_gzip(std::string input);
+bool is_gzip(const std::string& input);
 
 bool almost_equal(seidr_score_t, seidr_score_t);
 
@@ -69,12 +103,45 @@ inline void SWAP(T &x, T &y)
   x = y; y = tmp;
 }
 
-std::vector<std::string> tokenize_delim(std::string nodes, std::string delim);
+std::vector<std::string> tokenize_delim(const std::string& nodes,
+                                        const std::string& delim);
 
-void merge_files(std::string outfile, std::string outfilebase,
+void merge_files(const std::string& outfile,
                  std::string tempdir, bool targeted, int id,
-                 std::vector<std::string>& genes);
+                 const std::vector<std::string>& genes);
 
 bool any_const_expr(arma::mat& inp);
 
 void verify_matrix(arma::mat& inp);
+void verify_matrix(arma::mat& inp, std::vector<std::string>& genes);
+
+template<typename T>
+void assert_in_range(const T& num, const T& min, const T& max,
+                     const std::string& nam = "")
+{
+  if (num < min || num > max)
+  {
+    if (! nam.empty())
+    {
+      throw std::runtime_error("Value of " + nam + " (=" + std::to_string(num) +
+                               ") not in allowed range of "
+                               "[" + std::to_string(min) + "," +
+                               std::to_string(max) + "]");
+    }
+    else
+    {
+      throw std::runtime_error("Value (=" + std::to_string(num) +
+                               ") not in allowed range of "
+                               "[" + std::to_string(min) + "," +
+                               std::to_string(max) + "]");
+    }
+  }
+}
+
+void assert_mutually_exclusive(const po::variables_map& vm,
+                               const std::vector<std::string> targets);
+
+std::string str_join(const std::vector<std::string>& source,
+                     const std::string& delim);
+
+void make_tpos(uint32_t& tpos, const SeidrFileHeader& h);

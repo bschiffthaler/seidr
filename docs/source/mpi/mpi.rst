@@ -4,7 +4,7 @@ Using multiple processors to infer networks
 ===========================================
 
 A number of computationally intensive network inference algorithms in ``seidr``
-are written within a message parsing framework (OpenMPI 3). This allows for
+are written using a hybrid MPI/OpenMP approach. This allows for sahred memory
 parallelism on a single computer or across many nodes in a cluster. Some inference
 algorithms in ``seidr`` have been run on hundreds of CPUs across many nodes in
 a high performance compute cluster.
@@ -12,30 +12,31 @@ a high performance compute cluster.
 Running in MPI mode
 ^^^^^^^^^^^^^^^^^^^
 
-By default all inference algorithms will use a single core to process data. Let's
+By default all inference algorithms will use all cores to process data. Let's
 use ``CLR`` as an example::
 
   mi -m CLR -i expr_mat.tsv -g genes.txt
 
-This will spawn a single compute thread to process the data. In order to use 
-multiple processors, we can run the same command as a child of the ``mpirun``
-program. The ``-np`` option in ``mpirun`` defines the number of CPU cores.
-In this case, I will choose 8 CPU cores::
+This will spawn eight compute threads (on my laptop) to process the data.
+In order to control the allocated number of CPUs, we can use the ``-O`` flag
+of the ``mi`` program::
 
-  mpirun -np 8 mi -m CLR -i expr_mat.tsv -g genes.txt
+  mi -O 4 -m CLR -i expr_mat.tsv -g genes.txt
 
-This will spawn 7 compute threads and a single master thread. The master thread
-will handle communication with all other threads and final data processing of the
-result matrix and will require more memory than the compute threads. In a 
-multi-node run, the master process (rank 0) should be on high memory node.
+This will use 4 compute threads.
 
-As the master thread is not very active during most of the computation, it doesn't
-make sense to reserve an entire compute core for it, but ``mpirun`` won't let
-us use more threads than compute cores by default. We can get around that by
-using the ``--oversubscribe`` option to ``mpirun``. I have 8 threads available in
-my computer, therefore I want to use 8 compute threads and 1 master thread::
+If we want to use multiple nodes, we can use  we can run the same command as a child of the ``mpirun``
+program. You should first define a `hostfile <https://www.open-mpi.org/doc/current/man1/mpirun.1.php#sect6>`_.::
 
-  mpirun -np 9 --oversubscribe mi -m CLR -i expr_mat.tsv -g genes.txt
+  mpirun -hostfile myhostfile.cfg mi -m CLR -i expr_mat.tsv -g genes.txt
+
+This will spawn a distributed versiob of the MI inference, running the maximum
+amount of OpenMP threads. You can combine ``mpirun`` and the program's ``-O``
+argument to control the number of compute threads each MPI worker spawns.
+
+A special note on MPI rank order: the highest memory node on the cluster you are
+using should always be rank 0. If there are any high memory tasks, Seidr will
+assign them to this MPI worker.
 
 For more info on running MPI jobs (including running them on several nodes), please
 refer to the `OpenMPI webpage <https://www.open-mpi.org/faq/?category=running>`_

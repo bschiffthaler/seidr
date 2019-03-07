@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include <common.h>
 #include <asp.h>
 #include <Serialize.h>
@@ -11,23 +31,21 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <map>
-#include <tclap/CmdLine.h>
 #include <cmath>
+#include <memory>
 #include <boost/numeric/conversion/cast.hpp>
+#include <boost/program_options.hpp>
 
-
+namespace po = boost::program_options;
 
 int asp(int argc, char ** argv)
 {
   logger log(std::cerr, "asp");
 
-  uint32_t tpos;
-  std::string infile;
-  bool trank;
-  uint16_t precision;
-  bool invert;
+  seidr_asp_param_t param;
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
@@ -36,53 +54,69 @@ int asp(int argc, char ** argv)
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
+  po::options_description umbrella("Compute all shortest paths in the network");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description aspopt("ASP Options");
+  aspopt.add_options()
+  ("index,i",
+   po::value<uint32_t>(&param.tpos)->default_value(0, "last column"),
+   "Algorithm position in SeidrFile to use as weights")
+  ("use-rank,r", po::bool_switch(&param.trank)->default_value(false),
+   "Use rank as edge weight basis instead of score")
+  ("invert,I", po::bool_switch(&param.invert)->default_value(false),
+   "Invert scores (if higher scores are better)");
+
+
+  po::options_description fopt("Formatting Options");
+  fopt.add_options()
+  ("precision,p",
+   po::value<uint16_t>(&param.precision)->default_value(8),
+   "Number of decimals to print");
+
+  po::options_description req("Required Options [can be positional]");
+  req.add_options()
+  ("in-file",
+   po::value<std::string>(&param.infile),
+   "Input SeidrFile");
+
+  umbrella.add(req).add(aspopt).add(fopt).add(opt);
+
+  po::positional_options_description p;
+  p.add("in-file", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 1;
+  }
+
   try
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Compute all shortest paths in the network", ' ',
-                       version);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_index("i", "index", "Use this index", false,
-              0, "last column");
-    cmd.add(arg_index);
-
-    TCLAP::ValueArg<uint16_t>
-    arg_precision("p", "precision", "Number of digits after comma", false,
-                  8, "8");
-    cmd.add(arg_precision);
-
-    TCLAP::SwitchArg
-    arg_r("r", "use-rank",
-          "Use rank rather than score", cmd, false);
-
-    TCLAP::SwitchArg
-    arg_invert("I", "invert",
-               "Invert rank/score", cmd, false);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_infile("in-file", "Input file", true,
-               "", "");
-
-    cmd.add(arg_infile);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    infile = arg_infile.getValue();
-    tpos = arg_index.getValue();
-    trank = arg_r.getValue();
-    precision = arg_precision.getValue();
-    invert = arg_invert.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException& except)
+  catch (std::exception& e)
   {
-    log(LOG_ERR) << except.what() << '\n';
-    return EINVAL;
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
   }
 
   try
   {
-    file_can_read(infile.c_str());
+    assert_exists(param.infile);
+    assert_can_read(param.infile);
   }
   catch (std::runtime_error& e)
   {
@@ -90,23 +124,20 @@ int asp(int argc, char ** argv)
     return errno;
   }
 
-  SeidrFile rf(infile.c_str());
+  SeidrFile rf(param.infile.c_str());
   rf.open("r");
 
   SeidrFileHeader h;
   h.unserialize(rf);
 
-  if (tpos == 0)
-    tpos = h.attr.nalgs - 1;
-  else
-    tpos--;
+  make_tpos(param.tpos, h);
 
   log(LOG_INFO) << "Starting analysis\n";
 
   log(LOG_INFO) << "Reading network\n";
   std::vector<MiniEdge> edges =
     read_network_minimal(h, rf, -std::numeric_limits<double>::infinity(),
-                         tpos, trank);
+                         param.tpos, param.trank);
   log(LOG_INFO) << "Read " << edges.size() << " edges\n";
 
   NetworKit::Graph g(h.attr.nodes, true, false);
@@ -115,19 +146,29 @@ int asp(int argc, char ** argv)
     double weight = edges[i].s;
     if (almost_equal(weight, 0))
       weight = 1e-8;
-    weight = invert ? 1.0 / weight : weight;
+    weight = param.invert ? 1.0 / weight : weight;
     g.addEdge(edges[i].i, edges[i].j, weight);
   }
 
   NetworKit::APSP apsp(g);
   apsp.run();
 
+  std::shared_ptr<std::ostream> out;
+
+  if (param.outfile == "-")
+  {
+    out.reset(&std::cout, [](...){});
+  }
+  else
+  {
+    out.reset(new std::ofstream(param.outfile.c_str()));
+  }
+
   for (uint64_t i = 1; i < h.attr.nodes; i++)
   {
     for (uint64_t j = 0; j < i; j++)
     {
-      std::cout << apsp.getDistance(i, j) 
-      << ((j == i - 1) ? '\n' : '\t');
+      (*out) << apsp.getDistance(i, j) << ((j == i - 1) ? '\n' : '\t');
     }
   }
 

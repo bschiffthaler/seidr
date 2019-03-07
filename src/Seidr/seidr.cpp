@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <import.h>
@@ -12,7 +32,6 @@
 #include <threshold.h>
 #include <roc.h>
 #include <convert.h>
-#include <backbone.h>
 #include <compare_clusters.h>
 #include <compare.h>
 #include <resolve.h>
@@ -30,41 +49,49 @@
 #include <stdexcept>
 
 std::string usage_msg =
+  "Gene network utility for format conversion, ranking and aggregation.\n\n"
+  "[Create crowd networks]\n"
+  "  import                    \t Convert network text files to SeidrFiles.\n"
+  "  aggregate                 \t Aggregate a set of SeidrFiles into a crowd\n"
+  "                            \t network.\n"
   "\n"
-  "Gene network utility for format conversion, ranking and aggregation.\n"
-  "--------------------------------------------------------------------\n"
-  ""
-  "seidr adjacency           \t Convert aggregated network to adjacency\n"
-  "                          \t matrix.\n"
-  "seidr aggregate           \t Aggregate a set of SeidrFiles into a crowd\n"
-  "                          \t network.\n"
-  "seidr backbone            \t Calculate network backbone and filter edges\n"
-  "                          \t based on backbone\n"
-  "seidr cluster-enrichment  \t Test wether members of clusters in two\n"
-  "                          \t networks overlap significantly or extract\n"
-  "                          \t clusters.\n"
-  "seidr compare             \t Compare two networks for shared/unique\n"
-  "                          \t edges.\n"
-  "seidr convert             \t Interconvert various text based formats.\n"
-  "seidr graphstats          \t Calculate summary statistics of graph\n"
-  "seidr import              \t Convert network text files to SeidrFiles.\n"
-  "seidr index               \t Create index for SeidrFiles.\n"
-  "seidr neighbours          \t Extract N first degree neighbours of all nodes\n"
-  "                          \t or a list of nodes in a SeidrFile.\n"
-  "seidr reheader            \t Modify SeidrFile headers.\n"
-  "seidr resolve             \t Resolve node indices in text file to node\n"
-  "                          \t names.\n"
-  "seidr roc                 \t Compute ROC curves of predictions in \n"
-  "                          \t SeidrFiles given true edges.\n"
-  "seidr sample              \t Sample random edges from a SeidrFile.\n"
-  "seidr stats               \t Compute a variety of node and edge centrality\n"
-  "                          \t measure of a SeidrFile.\n"
-  "seidr threshold           \t Calculate network threshold based on scale\n"
-  "                          \t free fit and transitivity.\n"
-  "seidr view                \t View or filter SeidrFiles.\n\n"
+  "[Filter, threshold or search SeidrFiles]\n"
+  "  backbone                  \t Calculate network backbone and filter edges\n"
+  "                            \t based on noise corrected backbone measure.\n"
+  "  index                     \t Create index for SeidrFiles.\n"
+  "  neighbours                \t Extract N first degree neighbours of all nodes\n"
+  "                            \t or a list of nodes in a SeidrFile.\n"
+  "  sample                    \t Sample random edges from a SeidrFile.\n"
+  "  threshold                 \t Calculate network threshold based on scale\n"
+  "                            \t free fit and transitivity.\n"
+  "  view                      \t View, filter or search SeidrFiles.\n\n"
+  "\n"
+  "[Calculate network statistics]\n"
+  "  stats                     \t Compute node and edge centrality\n"
+  "  graphstats                \t Calculate summary statistics of the network\n"
+  "\n"
+  "[Format conversion]\n"
+  "  adjacency                 \t Convert a SeidrFile to an adjacency\n"
+  "                            \t matrix.\n"
+  "  convert                   \t Interconvert various text based formats.\n"
+  "  resolve                   \t Convert node indices in text file to node\n"
+  "                            \t names.\n"
+  "\n"
+  "[Compare networks]\n"
+  "  cluster-enrichment        \t Test wether members of clusters in two\n"
+  "                            \t networks overlap significantly or extract\n"
+  "                            \t clusters.\n"
+  "  compare                   \t Compare two networks for shared/unique\n"
+  "                            \t edges.\n"
+  "\n"
+  "[Evaluate networks]\n"
+  "  roc                       \t Compute ROC curves of predictions in \n"
+  "                            \t SeidrFiles given true edges.\n"
+  "\n"
+  "[Other utility]\n"
+  "  reheader                  \t Modify SeidrFile headers.\n"
+  "\n"
   "Version " + version + "\n";
-
-
 
 int main(int argc, char* argv[])
 {
@@ -152,7 +179,7 @@ int main(int argc, char* argv[])
     } 
     else if (task == "sample")
     {
-      ret = random(argc, argv);
+      ret = sample(argc, argv);
     }
     else if (task == "stats")
     {

@@ -1,18 +1,39 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <fs.h>
-#include <mpims.h>
 #include <mi_fun.h>
 // External
-#include <mpi.h>
+#include <omp.h>
+#include <mpiomp.h>
 #include <cerrno>
 #include <string>
 #include <vector>
 #include <armadillo>
-#include <tclap/CmdLine.h>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 
 namespace fs = boost::filesystem;
+namespace po = boost::program_options;
 
 int main(int argc, char ** argv) {
 
@@ -21,103 +42,104 @@ int main(int argc, char ** argv) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  seidr_mpi_logger log;
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
   arma::mat gene_matrix;
-  std::string infile;
-  size_t bs;
-  std::string outfile;
-  std::string mi_file;
-  size_t spline_order;
-  size_t num_bins;
-  std::string mode;
-  bool force = false;
-  std::string targets_file;
-  std::string genes_file;
-  bool use_existing;
 
-  // Define program options
+  seidr_mi_param_t param;
+
+  po::options_description umbrella("MI based algorithms for seidr.\n"
+                                   "These include post processing schemes like CLR "
+                                   "or DPI (==ARACNE).");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("help,h", "Show this help message")
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite if output already exists")
+  ("targets,t", po::value<std::string>(&param.targets_file),
+   "File containing gene names"
+   " of genes of interest. The network will only be"
+   " calculated using these as the sources of potential connections.")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("mi_scores.tsv"),
+   "Output file path")
+  ("verbosity,v",
+   po::value<unsigned>(&param.verbosity)->default_value(3),
+   "Verbosity level (lower is less verbose)");
+
+  po::options_description algopt("MI Options");
+  algopt.add_options()
+  ("spline,s", po::value<unsigned long>(&param.spline_order)->default_value(3),
+   "Spline order")
+  ("bins,b", po::value<unsigned long>(&param.num_bins)->default_value(0, "auto"),
+   "Number of bins")
+  ("mi-file,M",
+   po::value<std::string>(&param.mi_file)->default_value(""),
+   "Save/load raw MI to/from this file")
+  ("mode,m",
+   po::value<std::string>(&param.mode)->default_value("RAW"),
+   "Post processing [RAW, CLR, ARACNE]");
+
+  po::options_description mpiopt("MPI Options");
+  mpiopt.add_options()
+  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
+   "Number of genes in MPI batch")
+  ("tempdir,T",
+   po::value<std::string>(&param.tempdir),
+   "Temporary directory path");
+
+  po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()
+    ("threads,O", po::value<int>(&param.nthreads)->
+     default_value(omp_get_max_threads()),
+     "Number of OpenMP threads per MPI task");
+
+  po::options_description req("Required");
+  req.add_options()
+  ("infile,i", po::value<std::string>(&param.infile)->required(),
+   "The expression table (without headers)")
+  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+   "File containing gene names");
+
+  umbrella.add(req).add(algopt).add(mpiopt).add(ompopt).add(opt);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).
+            options(umbrella).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 1;
+  }
+
+  log.set_log_level(5);
+
   try
   {
-    TCLAP::CmdLine cmd("MI based algorithms for seidr.\n"
-                       "These include post processing schemes like CLR "
-                       "or DPI (==ARACNE).",
-                       ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    infile_arg("i", "infile", "The expression table (without headers)", true,
-               "", "");
-    cmd.add(infile_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    batchsize_arg("B", "batch-size", "Number of genes in MPI batch", false, 20,
-                  "20");
-    cmd.add(batchsize_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    spline_arg("s", "spline", "Spline order", false, 3,
-               "3");
-    cmd.add(spline_arg);
-
-    TCLAP::ValueArg<std::string>
-    targets_arg("t", "targets", "File containing gene names"
-                " of genes of interest. The network will only be"
-                " calculated using these as the sources of potential connections.",
-                false, "", "");
-    cmd.add(targets_arg);
-
-    TCLAP::ValueArg<std::string>
-    genefile_arg("g", "genes", "File containing gene names", true, "",
-                 "");
-    cmd.add(genefile_arg);
-
-    TCLAP::ValueArg<unsigned long>
-    bins_arg("b", "bins", "Number of bins (0 = auto detection)", false, 0,
-             "auto");
-    cmd.add(bins_arg);
-
-    TCLAP::ValueArg<std::string>
-    outfile_arg("o", "outfile", "Output file path", false, "edgelist.tsv",
-                "edgelist.tsv");
-    cmd.add(outfile_arg);
-
-    TCLAP::ValueArg<std::string>
-    mi_file_arg("M", "mi-out", "Save raw MI to this file", false, "", "");
-    cmd.add(mi_file_arg);
-
-    std::vector<std::string> modes{"CLR", "ARACNE", "RAW"};
-    TCLAP::ValuesConstraint<std::string> modes_constraint(modes);
-    TCLAP::ValueArg<std::string>
-    mode_arg("m", "mode", "Post processing <RAW>", false, "RAW",
-             &modes_constraint);
-    cmd.add(mode_arg);
-
-    TCLAP::SwitchArg
-    switch_force("f", "force", "Force overwrite if output already exists", cmd,
-                 false);
-    TCLAP::SwitchArg
-    switch_use_existing("u", "use-existing", "Use existing MI matrix", cmd,
-                        false);
-
-    cmd.parse(argc, argv);
-
-    infile = infile_arg.getValue();
-    bs = batchsize_arg.getValue();
-    outfile = outfile_arg.getValue();
-    mi_file = mi_file_arg.getValue();
-    spline_order = spline_arg.getValue();
-    num_bins = bins_arg.getValue();
-    mode = mode_arg.getValue();
-    force = switch_force.getValue();
-    genes_file = genefile_arg.getValue();
-    targets_file = targets_arg.getValue();
-    use_existing = switch_use_existing.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException &e)  // catch any exceptions
+  catch (std::exception& e)
   {
-    log << e.error() << " for arg " << e.argId() << '\n';
-    log.log(LOG_ERR);
-    return EINVAL;
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
+
+  log.set_log_level(param.verbosity);
+
+  param.outfile = to_absolute(param.outfile);
+  param.infile = to_absolute(param.infile);
+  param.gene_file = to_absolute(param.gene_file);
+  if (exists(param.mi_file))
+  {
+    param.use_existing = true;
+    param.mi_file = to_absolute(param.mi_file);
+  }
+  if (vm.count("targets"))
+  {
+    param.targets_file = to_absolute(param.targets_file);
   }
 
   // Check all kinds of FS problems that may arise
@@ -125,53 +147,58 @@ int main(int argc, char ** argv) {
   {
     try
     {
-      outfile = to_absolute(outfile);
-      if (mi_file != "")
-        mi_file = to_absolute(mi_file);
-      infile = to_absolute(infile);
-      std::string tempdir = dirname(outfile) + "/.seidr_tmp_mi_" + mode;
+      assert_exists(dirname(param.outfile));
+      assert_exists(param.infile);
+      assert_is_regular_file(param.infile);
+      assert_exists(param.gene_file);
+      assert_can_read(param.gene_file);
+      assert_can_read(param.infile);
 
-      if (! file_exists(dirname(outfile)) )
-        throw std::runtime_error("Directory does not exist: " + dirname(outfile));
-
-      if (dir_exists(tempdir) && force)
+      if (vm.count("targets"))
       {
-        log << "Removing previous temp files.\n";
-        log.send(LOG_WARN);
-        fs::remove_all(tempdir);
+        log << "Targets selected, but this algorithm will still need to "
+            << "calculate (or load) the full MI matrix first.\n";
+        assert_exists(param.targets_file);
+        assert_can_read(param.targets_file);
       }
 
-      if (! create_directory(dirname(outfile), ".seidr_tmp_mi_" + mode) )
-        throw std::runtime_error("Cannot create tmp dir in: " + dirname(outfile));
+      if (exists(param.mi_file))
+      {
+        assert_can_read(param.mi_file);
+      }
+      else if (vm.count("mi-out"))
+      {
+        assert_dir_is_writeable(dirname(param.mi_file));
+      }
 
-      if (! file_exists(infile) )
-        throw std::runtime_error("File does not exist: " + infile);
 
-      if (! regular_file(infile) )
-        throw std::runtime_error("Not a regular file: " + infile);
+      if (! param.force)
+        assert_no_overwrite(param.outfile);
 
-      if (! file_can_read(infile) )
-        throw std::runtime_error("Cannot read: " + infile);
+      if (! vm.count("tempdir"))
+        param.tempdir = tempfile(dirname(param.outfile));
+      else
+        param.tempdir = tempfile(to_absolute(param.tempdir));
+      if (dir_exists(param.tempdir))
+      {
+        if (param.force)
+        {
+          log << "Removing previous temp files.\n";
+          log.log(LOG_WARN);
+          fs::remove_all(param.tempdir);
+        }
+        else
+        {
+          throw std::runtime_error("Dir exists: " + param.tempdir);
+        }
+      }
+      else
+      {
+        create_directory(param.tempdir);
+      }
 
-      if (! file_can_read(genes_file) )
-        throw std::runtime_error("Cannot read: " + genes_file);
-
-      if (! file_can_read(targets_file) && targets_file != "" )
-        throw std::runtime_error("Cannot read: " + targets_file);
-
-      if ((! force) && file_exists(outfile))
-        throw std::runtime_error("File exists: " + outfile);
-
-      if ((! force) && mi_file != "" && (! use_existing))
-        if (file_exists(mi_file))
-          throw std::runtime_error("File exists: " + mi_file);
-
-      if(use_existing && mi_file == "")
-        throw std::runtime_error("MI file needs to be provided if "
-                                 "--use-existing is set.");
-
-      if(use_existing && (! file_exists(mi_file)))
-        throw std::runtime_error("MI file " + mi_file + " does not exist.");
+      assert_dir_is_writeable(param.tempdir);
+      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -180,32 +207,40 @@ int main(int argc, char ** argv) {
       return EINVAL;
     }
   }
+  else
+  {
+    mpi_sync_tempdir(&param.tempdir);
+  }
   // All threads wait until checks are done
   MPI_Barrier(MPI_COMM_WORLD);
 
   try
   {
+    assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
+                         "--threads");
+    omp_set_num_threads(param.nthreads);
     // Get input files
-    gene_matrix.load(infile);
+    gene_matrix.load(param.infile);
     verify_matrix(gene_matrix);
-    if (num_bins == 0)
+    if (param.num_bins == 0)
     {
       arma::uvec bc = bin_count(gene_matrix, 1);
 
       double s = arma::stddev(bc);
-      num_bins = arma::median(bc);
-      if (num_bins < 2)
-        throw std::runtime_error("Autodetected bin count " + std::to_string(num_bins) +
+      param.num_bins = arma::median(bc);
+      if (param.num_bins < 2)
+        throw std::runtime_error("Autodetected bin count " +
+                                 std::to_string(param.num_bins) +
                                  " is too low.");
-      else if (num_bins > 15)
+      else if (param.num_bins > 15)
       {
-        log << "Bin count " << num_bins
+        log << "Bin count " << param.num_bins
             << " is high and might use a high amount of memory.\n";
         log.log(LOG_WARN);
       }
       else
       {
-        log << "Detected bin count " << num_bins << ", stddev: " <<
+        log << "Detected bin count " << param.num_bins << ", stddev: " <<
             s << '\n';
         log.log(LOG_INFO);
       }
@@ -219,21 +254,19 @@ int main(int argc, char ** argv) {
       log.log(LOG_WARN);
     }
 
-    char m = 0;
-    if (mode == "CLR")
-      m = 0;
-    else if (mode == "ARACNE")
-      m = 1;
-    else if (mode == "RAW")
-      m = 2;
+    if (param.mode == "CLR")
+      param.m = 0;
+    else if (param.mode == "ARACNE")
+      param.m = 1;
+    else if (param.mode == "RAW")
+      param.m = 2;
 
     std::vector<std::string> genes;
-    genes = read_genes(genes_file);
+    genes = read_genes(param.gene_file);
     std::vector<std::string> targets;
-    if (targets_file != "")
-      targets = read_genes(targets_file);
-    mi_full(gene_matrix, spline_order, num_bins, bs, outfile, m, mi_file,
-            genes, targets, use_existing);
+    if (vm.count("targets"))
+      targets = read_genes(param.targets_file);
+    mi_full(gene_matrix, genes, targets, param);
   }
   catch (const std::runtime_error& e)
   {

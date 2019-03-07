@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include <compare_clusters.h>
 #include <common.h>
 #include <fs.h>
@@ -10,7 +30,9 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
-#include <tclap/CmdLine.h>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 double div_as_double(unsigned long lhs,
                      unsigned long rhs)
@@ -247,13 +269,7 @@ int cluster_enrichment(int argc, char ** argv)
 
   logger log(std::cerr, "cluster_enrichment");
 
-  std::string in_left;
-  std::string in_right;
-  std::string delim;
-
-  double alpha = 0.05;
-  unsigned long min_members = 20;
-  unsigned long max_members = 100;
+  seidr_cc_param_t param;
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
@@ -262,71 +278,106 @@ int cluster_enrichment(int argc, char ** argv)
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
-  try
+  po::options_description umbrella("Test wether clusters of two networks show"
+                                   " significant overlap or extract clusters");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o", po::value<std::string>(&param.file_out)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description ccopt("Cluster-Compare Options");
+  ccopt.add_options()
+  ("second,2",
+   po::value<std::string>(&param.in_right),
+   "Another cluster->gene mapping [can be positional]")
+  ("delim,d",
+   po::value<std::string>(&param.delim)->default_value(","),
+   "Output delimiter")
+  ("alpha,a",
+   po::value<double>(&param.alpha)->default_value(0.1, "0.1"),
+   "Adjusted p-value cutoff")
+  ("min-members,m",
+   po::value<unsigned long>(&param.min_members)->default_value(20),
+   "Minimum members of a cluster")
+  ("max-members,M",
+   po::value<unsigned long>(&param.max_members)->default_value(200),
+   "Maximum members of a cluster");
+
+  po::options_description req("Required Options [can be positional]");
+  req.add_options()
+  ("first,1",
+   po::value<std::string>(&param.in_left)->required(),
+   "First cluster->gene mapping");
+
+  umbrella.add(req).add(ccopt).add(opt);
+
+  po::positional_options_description p;
+  p.add("first", 1);
+  p.add("second", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Test wether clusters of two networks show"
-                       " significant overlap or extract clusters", ' ', 
-                       version);
-
-    TCLAP::ValueArg<std::string>
-    arg_left("1", "first", "First cluster->gene mapping", true,
-             "", "");
-    cmd.add(arg_left);
-
-    TCLAP::ValueArg<std::string>
-    arg_right("2", "second", "Second cluster->gene mapping", false,
-              "", "");
-    cmd.add(arg_right);
-
-    TCLAP::ValueArg<std::string>
-    arg_delim("d", "delim", "Output delimiter", false,
-              ",", ",");
-    cmd.add(arg_delim);
-
-    TCLAP::ValueArg<double>
-    arg_alpha("a", "alpha", "Adjusted p-value cutoff", false,
-              0.1, "0.1");
-    cmd.add(arg_alpha);
-
-    TCLAP::ValueArg<unsigned long>
-    arg_minm("m", "min-members", "Minimum members of a cluster", false,
-             20, "20");
-    cmd.add(arg_minm);
-
-    TCLAP::ValueArg<unsigned long>
-    arg_maxm("M", "max-members", "Maximum members of a cluster", false,
-             100, "100");
-    cmd.add(arg_maxm);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    in_left = arg_left.getValue();
-    in_right = arg_right.getValue();
-    alpha = arg_alpha.getValue();
-    min_members = arg_minm.getValue();
-    max_members = arg_maxm.getValue();
-    delim = arg_delim.getValue();
-  }
-  catch (TCLAP::ArgException& except)
-  {
-    log(LOG_ERR) << except.what() << '\n';
+    std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
-  if (in_right != "")
+  try
   {
+    po::notify(vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
 
+  try
+  {
+    param.in_left = to_absolute(param.in_left);
+    assert_exists(param.in_left);
+    assert_can_read(param.in_left);
+    if (param.file_out != "-")
+    {
+      param.file_out = to_absolute(param.file_out);
+      assert_dir_is_writeable(dirname(param.file_out));
+      if (! param.force)
+      {
+        assert_no_overwrite(param.file_out);
+      }
+    }
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
+
+  std::shared_ptr<std::ostream> out;
+
+  if (param.file_out == "-")
+  {
+    out.reset(&std::cout, [](...) {});
+  }
+  else
+  {
+    out.reset(new std::ofstream(param.file_out));
+  }
+
+  if (vm.count("second"))
+  {
     try
     {
-      in_left = to_absolute(in_left);
-      in_right = to_absolute(in_right);
-
-      if (! file_can_read(in_left))
-        throw std::runtime_error("Cannot read file " + in_left);
-
-      if (! file_can_read(in_right))
-        throw std::runtime_error("Cannot read file " + in_right);
+      param.in_right = to_absolute(param.in_right);
+      assert_exists(param.in_right);
+      assert_can_read(param.in_right);
     }
     catch (std::exception& e)
     {
@@ -334,8 +385,8 @@ int cluster_enrichment(int argc, char ** argv)
       return 1;
     }
 
-    auto x = cluster_map(in_left, min_members, max_members);
-    auto y = cluster_map(in_right, min_members, max_members);
+    auto x = cluster_map(param.in_left, param.min_members, param.max_members);
+    auto y = cluster_map(param.in_right, param.min_members, param.max_members);
 
     std::vector<std::string> lname, rname;
     std::vector<double> padj;
@@ -360,50 +411,40 @@ int cluster_enrichment(int argc, char ** argv)
 
     padj = bh_adjust(padj);
 
-    std::cout << "First\tSecond\tFirst_Size\tSecond_size"
-              << "\tMt\tNt\tMpat\tNpat\tRepr\tP_Adj\n";
+    (*out) << "First\tSecond\tFirst_Size\tSecond_size"
+           << "\tMt\tNt\tMpat\tNpat\tRepr\tP_Adj\n";
 
     for (unsigned long i = 0; i < padj.size(); i++)
     {
-      if (padj[i] < alpha)
+      if (padj[i] < param.alpha)
       {
-        std::cout << lname[i] << '\t'
-                  << rname[i] << '\t'
-                  << lhss[i] << '\t'
-                  << rhss[i] << '\t'
-                  << mt[i] << '\t'
-                  << nt[i] << '\t'
-                  << mpat[i] << '\t'
-                  << npat[i] << '\t'
-                  << div_as_double(nt[i], rhss[i]) << '\t'
-                  << padj[i] << '\n';
+        (*out) << lname[i] << '\t'
+               << rname[i] << '\t'
+               << lhss[i] << '\t'
+               << rhss[i] << '\t'
+               << mt[i] << '\t'
+               << nt[i] << '\t'
+               << mpat[i] << '\t'
+               << npat[i] << '\t'
+               << div_as_double(nt[i], rhss[i]) << '\t'
+               << padj[i] << '\n';
       }
     }
   }
   else
   {
-    try
-    {
-      in_left = to_absolute(in_left);
-      if (! file_can_read(in_left))
-        throw std::runtime_error("Cannot read file " + in_left);
-    }
-    catch (std::exception& e)
-    {
-      log(LOG_ERR) << e.what() << '\n';
-      return 1;
-    }
-    auto x = cluster_map(in_left, min_members, max_members);
+    auto x = cluster_map(param.in_left, param.min_members, param.max_members);
     for (auto& i : x)
     {
       auto members = i.second.get_members();
-      if (members.size() >= min_members && members.size() <= max_members)
+      if (members.size() >= param.min_members &&
+          members.size() <= param.max_members)
       {
-        std::cout << i.first << '\t';
+        (*out) << i.first << '\t';
         for (uint64_t j = 0; j < members.size(); j++)
         {
-          std::cout << members[j]
-                    << (j == members.size() - 1 ? "\n" : delim);
+          (*out) << members[j]
+                 << (j == members.size() - 1 ? "\n" : param.delim);
         }
       }
     }

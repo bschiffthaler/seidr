@@ -1,23 +1,22 @@
-/**
- * @file
- * @author Bastian Schiffthaler <bastian.schiffthaler@umu.se>
- *
- * @param infs Input files to be aggregated in binary format from el2bin
- * @param genes_file File containing names of genes present in the network
- * @param method Aggregation method: 'borda' implements borda counting
- *               'last' ranks missing edges last, 'ignore' ignores missing.
- * @return int 0 if the function succeeded, an error code otherwise.
- *
- * @section DESCRIPTION
- *
- * This function aggregates any number of networks (represented as binary
- * files by the el2bin function) into a meta-network of scores in [0, 1].
- * If the chosen method is borda counting, we calculate the mean rank of
- * each edge, ranking missing vertices last. The top1 algorithm presents
- * the final score of an edge as the best score of any algorithm. The
- * neural algorithm learns how to best predict new edges from a set of
- * gold standard gene interactions.
- */
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
 
 // Seidr
 #include <common.h>
@@ -31,10 +30,11 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
-#include <tclap/CmdLine.h>
 #include <map>
 #include <boost/numeric/conversion/cast.hpp>
+#include <boost/program_options.hpp>
 
+namespace po = boost::program_options;
 using boost::numeric_cast;
 
 std::vector< std::pair< uint32_t, uint32_t > >
@@ -177,7 +177,7 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
     if (f >= fedg)
     {
       log(LOG_INFO) << "Resizing to top " << cnt << " egdes in order to keep "
-      << "at least " << truth.size() * f << " TP edges.\n";
+                    << "at least " << truth.size() * f << " TP edges.\n";
       v.resize(cnt);
       break;
     }
@@ -188,10 +188,10 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
 void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
                std::vector<MiniEdge>& v,
                std::pair<uint32_t, uint32_t>& tpfp,
-               uint32_t& datap)
+               uint32_t& datap,
+               std::ostream& out)
 {
   logger log(std::cerr, "ROC");
-  uint32_t cind = 0;
   uint32_t tp = 0, fp = 0;
   uint32_t cnt = 0;
   uint32_t ne = v.size();
@@ -203,7 +203,7 @@ void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
               numeric_cast<double> (datap);
   }
   log(LOG_INFO) << "intervy: " << intervy << '\n';
-  std::cout << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
+  out << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
   for (auto& e : v)
   {
     cnt++;
@@ -225,7 +225,7 @@ void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     double ppv = numeric_cast<double> (tp) / numeric_cast<double> (cnt);
     if (cnt > intervx || cnt == ne - 1)
     {
-      std::cout << tpr << '\t' << fpr << '\t' << ppv << '\n';
+      out << tpr << '\t' << fpr << '\t' << ppv << '\n';
       intervx += intervy;
     }
   }
@@ -236,106 +236,108 @@ int roc(int argc, char * argv[])
 
   logger log(std::cerr, "ROC");
 
-  std::string gold;
-  std::string netw;
-  uint32_t tpos;
-  uint32_t nedg;
-  std::string tfs;
-  uint32_t datap;
-  double fedg;
-
   const char * args[argc - 1];
-  args[0] = strcat(argv[0], " roc");
+  std::string pr(argv[0]);
+  pr += " roc";
+  args[0] = pr.c_str();
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
+  seidr_roc_param_t param;
+
+  po::options_description
+  umbrella("Calculate ROC curves of predictions in SeidrFiles given true edges");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description ropt("ROC Options");
+  ropt.add_options()
+  ("index,i",
+   po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+   "Index of score to use")
+  ("edges,e",
+   po::value<uint32_t>(&param.nedg)->default_value(0, "all"),
+   "Number of top edges to consider")
+  ("fraction,E",
+   po::value<double>(&param.fedg)->default_value(-1, "all"),
+   "Fraction of gold standard edges to include")
+  ("points,p",
+   po::value<uint32_t>(&param.datap)->default_value(0, "all"),
+   "Number of data points to print")
+  ("tfs,t",
+   po::value<std::string>(&param.tfs),
+   "List of transcription factors to consider");
+
+  po::options_description req("Required");
+  req.add_options()
+  ("gold,g",
+   po::value<std::string>(&param.gold),
+   "Gold standard (true edges) input file")
+  ("network,n", po::value<std::string>(&param.infile)->required(),
+   "Input SeidrFile");
+
+  umbrella.add(req).add(ropt).add(opt);
+
+  po::positional_options_description p;
+  p.add("network", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 22;
+  }
+
   try
   {
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Calculate ROC curves of predictions in "
-                       "SeidrFiles given true edges", ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_gold("g", "gold", "Gold standard (true edges) input file", true,
-             "", "string");
-    cmd.add(arg_gold);
-
-    TCLAP::ValueArg<std::string>
-    arg_network("n", "network", "Network input file", true,
-                "", "string");
-    cmd.add(arg_network);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_tpos("i", "index", "Index of score to use (1-based)", false,
-             0, "int");
-    cmd.add(arg_tpos);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_nedg("e", "edges", "Number of top edges to consider", false,
-             0, "int");
-    cmd.add(arg_nedg);
-
-    TCLAP::ValueArg<double>
-    arg_fedg("E", "fraction", "Fraction of gold standard edges to include", false,
-             -1, "int");
-    cmd.add(arg_fedg);
-
-    TCLAP::ValueArg<uint32_t>
-    arg_datap("p", "points", "Number of data points to print", false,
-              0, "int");
-    cmd.add(arg_datap);
-
-    TCLAP::ValueArg<std::string>
-    arg_tfs("t", "tfs", "List of transcription factors to consider", false,
-            "", "string");
-    cmd.add(arg_tfs);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    gold = arg_gold.getValue();
-    netw = arg_network.getValue();
-    tpos = arg_tpos.getValue();
-    nedg = arg_nedg.getValue();
-    tfs = arg_tfs.getValue();
-    datap = arg_datap.getValue();
-    fedg = arg_fedg.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException& except)
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
+
+  try
+  {
+    param.infile = to_absolute(param.infile);
+    assert_exists(param.infile);
+    assert_can_read(param.infile);
+
+    if (param.outfile != "-")
+    {
+      param.outfile = to_absolute(param.outfile);
+      if (! param.force)
+      {
+        assert_no_overwrite(param.outfile);
+      }
+      assert_dir_is_writeable(dirname(param.outfile));
+    }
+  }
+  catch (std::runtime_error& except)
   {
     log(LOG_ERR) << except.what() << '\n';
     return 1;
   }
+
   try
   {
-    if (! file_can_read(gold.c_str()))
-      throw std::runtime_error("Cannot read file: " + gold);
-    if (! file_can_read(netw.c_str()))
-      throw std::runtime_error("Cannot read file: " + netw);
-    if (tfs != "")
-      if (! file_can_read(tfs.c_str()))
-        throw std::runtime_error("Cannot read file: " + tfs);
-
-    if (nedg > 0 && fedg > 0)
-      throw std::runtime_error("Please provide only one of -e and -E");
-
-    if (fedg > 1)
-      throw std::runtime_error("-E should be in (0, 1)");
-
-
-    SeidrFile f(netw.c_str());
+    SeidrFile f(param.infile.c_str());
     f.open("r");
     SeidrFileHeader h;
     h.unserialize(f);
 
-    if (tpos > h.attr.nalgs)
-    {
-      throw std::runtime_error("Index (-i) selected is larger than the number"
-                               " of algorithms in the network.");
-    }
-    if (tpos == 0)
-      tpos = h.attr.nalgs - 1;
-    else
-      tpos--;
+    make_tpos(param.tpos, h);
 
     std::map<std::string, uint32_t> refmap;
     uint32_t ind = 0;
@@ -344,21 +346,27 @@ int roc(int argc, char * argv[])
       refmap[no] = ind++;
     }
 
-    auto gv = make_gold_vec(gold, refmap);
-    auto nv = read_network_minimal(h, f, -1, tpos);
+    auto gv = make_gold_vec(param.gold, refmap);
+    auto nv = read_network_minimal(h, f, -1, param.tpos);
 
     std::sort(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
-    if (tfs != "")
-      nv = filter_tf(tfs, nv, refmap);
-    if (nedg != 0)
-      nv.resize(nedg);
+    if (param.tfs != "")
+      nv = filter_tf(param.tfs, nv, refmap);
+    if (param.nedg != 0)
+      nv.resize(param.nedg);
 
-    if (fedg > 0)
-      resize_by_fraction(gv, nv, fedg);
+    if (param.fedg > 0)
+      resize_by_fraction(gv, nv, param.fedg);
 
     auto tpfp = get_tp_fp(gv, nv);
 
-    print_roc(gv, nv, tpfp, datap);
+    std::shared_ptr<std::ostream> out;
+    if (param.outfile == "-")
+      out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+    else
+      out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+
+    print_roc(gv, nv, tpfp, param.datap, *out);
 
     f.close();
     return 0;

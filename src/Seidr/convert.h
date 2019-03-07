@@ -1,3 +1,22 @@
+/* * Seidr - Create and operate on gene crowd networks
+ * Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+ *
+ * This file is part of Seidr.
+ *
+ * Seidr is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Seidr is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
 #include <vector>
@@ -11,6 +30,20 @@ typedef arma::mat mat_t;
 #else
 typedef arma::fmat mat_t;
 #endif
+
+struct seidr_conv_param_t
+{
+  std::string infile;
+  std::string gene_file;
+  std::string fill;
+  std::string in_format;
+  std::string in_sep;
+  std::string out_format;
+  std::string out_sep;
+  uint16_t prec;
+  bool force;
+  std::string outfile;
+};
 
 void parse_el(mat_t& m,
               std::map<std::string, size_t>& gm,

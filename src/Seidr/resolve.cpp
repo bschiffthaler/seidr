@@ -1,3 +1,23 @@
+//
+// Seidr - Create and operate on gene crowd networks
+// Copyright (C) 2016-2019 Bastian Schiffthaler <b.schiffthaler@gmail.com>
+//
+// This file is part of Seidr.
+//
+// Seidr is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Seidr is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 // Seidr
 #include <common.h>
 #include <resolve.h>
@@ -12,9 +32,11 @@
 #include <sstream>
 #include <fstream>
 #include <set>
-#include <tclap/CmdLine.h>
+#include <boost/program_options.hpp>
 
-void resolve_im(SeidrFileHeader& h, std::string& fname)
+namespace po = boost::program_options;
+
+void resolve_im(SeidrFileHeader& h, std::string& fname, std::ostream& out)
 {
 
   std::ifstream ifs(fname.c_str(), std::ios::in);
@@ -46,33 +68,33 @@ void resolve_im(SeidrFileHeader& h, std::string& fname)
     {
       if (ctr == 0)
       {
-        std::cout << field << '\t';
+        out << field << '\t';
         uint32_t sc = 0;
         for (char c : field)
           if (c == ':')
           {
-            std::cout << '\t';
+            out << '\t';
             sc++;
           }
           else
-            std::cout << c;
+            out << c;
         while (sc < sc_max)
         {
-          std::cout << '\t' << "NA";
+          out << '\t' << "NA";
           sc++;
         }
-        std::cout << '\t';
+        out << '\t';
         ctr++;
       }
       else if (ctr == 3)
       {
         auto index = std::stoul(field);
-        std::cout << h.nodes[index] << '\n';
+        out << h.nodes[index] << '\n';
         ctr = 0;
       }
       else
       {
-        std::cout << field << '\t';
+        out << field << '\t';
         ctr++;
       }
     }
@@ -84,64 +106,102 @@ int resolve(int argc, char * argv[])
 
   logger log(std::cerr, "resolve");
 
-  // Variables used by the function
-  std::string file_in;
-  std::string format;
-  std::string sf;
-
   // We ignore the first argument, the function name
   const char * args[argc - 1];
-  std::string a0(argv[0]);
-  a0 += " aggregate";
-  const char * a1 = a0.c_str();
-  args[0] = a1;
+  std::string pr(argv[0]);
+  pr += " resolve";
+  args[0] = pr.c_str();
   for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
   argc--;
 
-  std::vector<std::string> format_constraints{"infomap"};
+  seidr_resolve_param_t param;
+
+  po::options_description
+  umbrella("Resolve node indices in text file to node names.");
+
+  po::options_description opt("Common Options");
+  opt.add_options()
+  ("force,f", po::bool_switch(&param.force)->default_value(false),
+   "Force overwrite output file if it exists")
+  ("help,h", "Show this help message")
+  ("outfile,o",
+   po::value<std::string>(&param.outfile)->default_value("-"),
+   "Output file name ['-' for stdout]");
+
+  po::options_description ropt("Resolve Options");
+  ropt.add_options()
+  ("seidr-file,s",
+   po::value<std::string>(&param.sf),
+   "Seidr file which should be used to resolve input")
+  ("format,F",
+   po::value<std::string>(&param.format)->default_value("infomap"),
+   "File format to resolve");
+
+  po::options_description req("Required [can be positional]");
+  req.add_options()
+  ("in-file", po::value<std::string>(&param.infile)->required(),
+   "Input SeidrFile");
+
+  umbrella.add(req).add(ropt).add(opt);
+
+  po::positional_options_description p;
+  p.add("in-file", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, args).
+            options(umbrella).positional(p).run(), vm);
+
+  if (vm.count("help") || argc == 1)
+  {
+    std::cerr << umbrella << '\n';
+    return 22;
+  }
 
   try
   {
-    TCLAP::ValuesConstraint<std::string> constraints_m(format_constraints);
-    // Add arguments from the command line
-    TCLAP::CmdLine cmd("Resolve node indices in text file to node names.",
-                       ' ', version);
-
-    TCLAP::ValueArg<std::string>
-    arg_format("f", "format", "File format to resolve", false,
-               "infomap", &constraints_m);
-    cmd.add(arg_format);
-
-    TCLAP::ValueArg<std::string>
-    arg_seidrfile("s", "seidr-file",
-                  "Seidr file which should be used to resolve input", false,
-                  "", "<file>");
-    cmd.add(arg_seidrfile);
-
-    TCLAP::UnlabeledValueArg<std::string>
-    arg_input_file("infiles", "Input file",
-                   true, "", "string");
-    cmd.add(arg_input_file);
-
-    // Parse arguments
-    cmd.parse(argc, args);
-    format = arg_format.getValue();
-    file_in = arg_input_file.getValue();
-    sf = arg_seidrfile.getValue();
+    po::notify(vm);
   }
-  catch (TCLAP::ArgException& except)
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
+  }
+
+  try
+  {
+    param.infile = to_absolute(param.infile);
+    assert_exists(param.infile);
+    assert_can_read(param.infile);
+
+    if (param.outfile != "-")
+    {
+      param.outfile = to_absolute(param.outfile);
+      if (! param.force)
+      {
+        assert_no_overwrite(param.outfile);
+      }
+      assert_dir_is_writeable(dirname(param.outfile));
+    }
+  }
+  catch (std::runtime_error& except)
   {
     log(LOG_ERR) << except.what() << '\n';
-    return EINVAL;
+    return 1;
   }
 
-  if (format == "infomap")
+  std::shared_ptr<std::ostream> out;
+  if (param.outfile == "-")
+    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+  else
+    out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+
+  if (param.format == "infomap")
   {
-    SeidrFile fin(sf.c_str());
+    SeidrFile fin(param.sf.c_str());
     fin.open("r");
     SeidrFileHeader h;
     h.unserialize(fin);
-    resolve_im(h, file_in);
+    resolve_im(h, param.infile, *out);
   }
 
   return 0;
