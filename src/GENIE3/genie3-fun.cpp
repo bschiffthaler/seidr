@@ -186,63 +186,61 @@ void genie3(const arma::mat& gm,
   }
   //SeidrForestData data(gm, genes);
   #pragma omp parallel for
+  for (arma::uword i = 0; i < pred.size(); i++)
   {
-    for (arma::uword i = 0; i < pred.size(); i++)
+
+    #pragma omp critical
     {
+      log << "Gene: " << pred[i] << '\n';
+      log.send(LOG_INFO);
+    }
 
-      #pragma omp critical
+
+    //Forest* forest = new ForestRegression;
+    //forest->verbose_out=&std::cout;
+    std::vector<std::string> catvars;
+    std::ostream nullstream(0);
+    SeidrForest forest(genes[pred[i]], gm, genes, ntree, mtry, min_node_size,
+                       alpha, minprop, nullstream);
+
+    // forest->init(genes[pred[i]], MEM_DOUBLE, data, mtry, "ranger_out_s",
+    //              ntree, 314159265, 1, IMP_GINI, min_node_size, "", false,
+    //              true, catvars, false, LOGRANK, false, 1, alpha, minprop,
+    //              false, RESPONSE, 1);
+
+    forest.run(false, false);
+    std::vector<double> varimp = forest.getVariableImportance();
+    #pragma omp critical
+    {
+      ofs << pred[i] << '\n';
+
+      arma::uword j = pred[i];
+
+      if (j == 0)
       {
-        log << "Gene: " << pred[i] << '\n';
-        log.send(LOG_INFO);
+        ofs << 0 << '\t';
+        for (arma::uword k = 0; k < varimp.size(); k++)
+        {
+          ofs << varimp[k]
+              << (k == varimp.size() - 1 ? '\n' : '\t');
+        }
       }
-
-
-      //Forest* forest = new ForestRegression;
-      //forest->verbose_out=&std::cout;
-      std::vector<std::string> catvars;
-      std::ostream nullstream(0);
-      SeidrForest forest(genes[pred[i]], gm, genes, ntree, mtry, min_node_size,
-                         alpha, minprop, nullstream);
-
-      // forest->init(genes[pred[i]], MEM_DOUBLE, data, mtry, "ranger_out_s",
-      //              ntree, 314159265, 1, IMP_GINI, min_node_size, "", false,
-      //              true, catvars, false, LOGRANK, false, 1, alpha, minprop,
-      //              false, RESPONSE, 1);
-
-      forest.run(false, false);
-      std::vector<double> varimp = forest.getVariableImportance();
-      #pragma omp critical
+      else if (j == varimp.size())
       {
-        ofs << pred[i] << '\n';
-
-        arma::uword j = pred[i];
-
-        if (j == 0)
+        for (arma::uword k = 0; k < varimp.size(); k++)
         {
-          ofs << 0 << '\t';
-          for (arma::uword k = 0; k < varimp.size(); k++)
-          {
-            ofs << varimp[k]
-                << (k == varimp.size() - 1 ? '\n' : '\t');
-          }
+          ofs << varimp[k] << '\t';
         }
-        else if (j == varimp.size())
+        ofs << 0 << '\n';
+      }
+      else
+      {
+        for (arma::uword k = 0; k < varimp.size(); k++)
         {
-          for (arma::uword k = 0; k < varimp.size(); k++)
-          {
-            ofs << varimp[k] << '\t';
-          }
-          ofs << 0 << '\n';
-        }
-        else
-        {
-          for (arma::uword k = 0; k < varimp.size(); k++)
-          {
-            if (j == k)
-              ofs << 0 << '\t';
-            ofs << varimp[k]
-                << (k == varimp.size() - 1 ? '\n' : '\t');
-          }
+          if (j == k)
+            ofs << 0 << '\t';
+          ofs << varimp[k]
+              << (k == varimp.size() - 1 ? '\n' : '\t');
         }
       }
     }

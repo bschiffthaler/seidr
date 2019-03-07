@@ -23,7 +23,7 @@
 #include <vector>
 #include <cstring>
 #include <string>
-#include <htslib/bgzf.h>
+#include <bgzf.h>
 #include <map>
 #include <set>
 #include <limits>

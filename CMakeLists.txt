@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 
 include_directories(src/Common src/Narromi src/Tigress src/SVM 
   src/ElNet src/Seidr src/Correlation src/MI src/PLSNET src/PCor 
-  src/GENIE3 src/Anoverence)
+  src/GENIE3 src/Anoverence external/bgzf)
 
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
@@ -170,11 +170,12 @@ endif()
 # Packages:
 
 # ZLIB & BGZIP compression
+target_include_directories( seidr PRIVATE external/bgzf )
+target_link_libraries( seidr seidr-bgzf )
+# Link zlib _after_ bgzf to avoid undef refl issues
 find_package( ZLIB REQUIRED )
 include_directories( ${ZLIB_INCLUDE_DIRS} )
 target_link_libraries( seidr ${ZLIB_LIBRARIES} )
-target_include_directories( seidr PRIVATE external/bgzf )
-target_link_libraries( seidr seidr-bgzf )
 
 # Armadillo
 find_package( Armadillo REQUIRED )

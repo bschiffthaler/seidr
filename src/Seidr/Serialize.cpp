@@ -23,7 +23,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
-#include <htslib/bgzf.h>
+#include <bgzf.h>
 #include <Serialize.h>
 #include <cmath>
 #include <set>
