@@ -24,6 +24,15 @@
 #include <fs.h>
 #include <roc.h>
 #include <BSlogger.h>
+#include <parallel_control.h>
+// Parallel includes
+#if defined(SEIDR_PSTL)
+#include <tbb/task_scheduler_init.h>
+#include <pstl/execution>
+#include <pstl/algorithm>
+#else
+#include <algorithm>
+#endif
 // External
 #include <vector>
 #include <string>
@@ -82,7 +91,7 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
                   << "node which was not present in the network and were "
                   << "omitted.\n";
   }
-  std::sort(ret.begin(), ret.end());
+  SORT(ret.begin(), ret.end());
   return ret;
 }
 
@@ -98,7 +107,7 @@ std::vector<MiniEdge> filter_tf(std::string tfs,
   while (std::getline(ifs, line))
     tfs_mapped.push_back(refmap[line]);
 
-  std::sort(tfs_mapped.begin(), tfs_mapped.end());
+  SORT(tfs_mapped.begin(), tfs_mapped.end());
   for (auto& e : nv)
   {
     if (std::binary_search(tfs_mapped.begin(), tfs_mapped.end(), e.i) ||
@@ -257,6 +266,12 @@ int roc(int argc, char * argv[])
    po::value<std::string>(&param.outfile)->default_value("-"),
    "Output file name ['-' for stdout]");
 
+  po::options_description ompopt("OpenMP Options");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(GET_MAX_PSTL_THREADS()),
+   "Number of OpenMP threads for parallel sorting");
+
   po::options_description ropt("ROC Options");
   ropt.add_options()
   ("index,i",
@@ -283,7 +298,7 @@ int roc(int argc, char * argv[])
   ("network,n", po::value<std::string>(&param.infile)->required(),
    "Input SeidrFile");
 
-  umbrella.add(req).add(ropt).add(opt);
+  umbrella.add(req).add(ropt).add(ompopt).add(opt);
 
   po::positional_options_description p;
   p.add("network", 1);
@@ -310,6 +325,7 @@ int roc(int argc, char * argv[])
 
   try
   {
+    set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
@@ -349,7 +365,7 @@ int roc(int argc, char * argv[])
     auto gv = make_gold_vec(param.gold, refmap);
     auto nv = read_network_minimal(h, f, -1, param.tpos);
 
-    std::sort(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
+    SORTWCOMP(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
     if (param.tfs != "")
       nv = filter_tf(param.tfs, nv, refmap);
     if (param.nedg != 0)

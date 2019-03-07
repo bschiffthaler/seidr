@@ -28,6 +28,7 @@ struct seidr_aggregate_param_t
   bool keep_di = false;
   std::string tempdir;
   std::string tempfile;
+  int nthreads;
 };
 
 int aggregate(int argc, char * argv[]);

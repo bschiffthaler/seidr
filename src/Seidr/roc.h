@@ -29,6 +29,7 @@ struct seidr_roc_param_t
   double fedg;
   bool force;
   std::string outfile;
+  int nthreads;
 };
 
 int roc(int argc, char * argv[]);

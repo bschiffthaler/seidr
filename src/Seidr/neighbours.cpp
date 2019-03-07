@@ -24,17 +24,16 @@
 #include <fs.h>
 #include <neighbours.h>
 #include <BSlogger.h>
+#include <parallel_control.h>
 // External
 #include <vector>
 #include <string>
 
 // Parallel includes
-#if defined(SEIDR_PSTL) && defined(__ICC)
+#if defined(SEIDR_PSTL)
 #include <tbb/task_scheduler_init.h>
+#include <pstl/execution>
 #include <pstl/algorithm>
-#elif defined(SEIDR_PSTL) && defined(__GNUG__)
-#include <omp.h>
-#include <parallel/algorithm>
 #else
 #include <algorithm>
 #endif
@@ -74,6 +73,12 @@ int neighbours(int argc, char * argv[])
    po::value<std::string>(&param.outfile)->default_value("-"),
    "Output file name ['-' for stdout]");
 
+  po::options_description ompopt("OpenMP Options");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(GET_MAX_PSTL_THREADS()),
+   "Number of OpenMP threads for parallel sorting");
+
   po::options_description nopt("Neighbours Options");
   nopt.add_options()
   ("index,i",
@@ -94,7 +99,7 @@ int neighbours(int argc, char * argv[])
   ("in-file", po::value<std::string>(&param.infile)->required(),
    "Input SeidrFile");
 
-  umbrella.add(req).add(nopt).add(opt);
+  umbrella.add(req).add(nopt).add(ompopt).add(opt);
 
   po::positional_options_description p;
   p.add("in-file", 1);
@@ -121,6 +126,8 @@ int neighbours(int argc, char * argv[])
 
   try
   {
+    set_pstl_threads(param.nthreads);
+
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
@@ -223,9 +230,13 @@ int neighbours(int argc, char * argv[])
 
       arma::uvec sort_index;
       if (param.trank)
+      {
         sort_index = arma::sort_index(v);
+      }
       else
+      {
         sort_index = arma::sort_index(v, "descend");
+      }
 
       for (uint16_t j = 0; j < param.n; j++)
       {
@@ -233,9 +244,13 @@ int neighbours(int argc, char * argv[])
         uint32_t xj = sort_index[j];
         offset_t off = index.get_offset_pair(h.nodes[xi], h.nodes[xj]);
         if (param.unique)
+        {
           offsets_u.insert(off);
+        }
         else
+        {
           offsets_nu.push_back(off);
+        }
       }
     }
     if (param.unique)

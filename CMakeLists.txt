@@ -94,6 +94,7 @@ add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/aggregate.cpp
                src/Seidr/convert.cpp src/Seidr/describe.cpp
                src/Seidr/graphstats.cpp src/Seidr/import.cpp
                src/Seidr/index.cpp src/Seidr/neighbours.cpp
+               src/Common/parallel_control.cpp
                src/Seidr/reheader.cpp src/Seidr/resolve.cpp
                src/Seidr/roc.cpp src/Seidr/sample.cpp
                src/Seidr/Serialize.cpp src/Seidr/stats.cpp 
@@ -176,6 +177,12 @@ target_link_libraries( seidr seidr-bgzf )
 find_package( ZLIB REQUIRED )
 include_directories( ${ZLIB_INCLUDE_DIRS} )
 target_link_libraries( seidr ${ZLIB_LIBRARIES} )
+
+if (SEIDR_PSTL)
+  find_package(TBB REQUIRED)
+  target_include_directories(seidr PRIVATE ${TBB_INCLUDE_DIR})
+  target_link_libraries(seidr ${TBB_LIBRARIES})
+endif()
 
 # Armadillo
 find_package( Armadillo REQUIRED )

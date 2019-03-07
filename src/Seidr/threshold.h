@@ -32,6 +32,7 @@ struct seidr_threshold_param_t
   uint16_t precision;
   bool force;
   std::string outfile;
+  int nthreads;
 };
 
 int threshold(int argc, char ** argv);

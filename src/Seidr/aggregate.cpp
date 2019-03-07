@@ -24,6 +24,15 @@
 #include <fs.h>
 #include <BSlogger.h>
 #include <aggregate.h>
+#include <parallel_control.h>
+// Parallel includes
+#if defined(SEIDR_PSTL)
+#include <tbb/task_scheduler_init.h>
+#include <pstl/execution>
+#include <pstl/algorithm>
+#else
+#include <algorithm>
+#endif
 // External
 #include <vector>
 #include <cmath>
@@ -87,7 +96,7 @@ uint8_t majority_dir_vote(std::vector<uint8_t>& flags)
 void rank_vector(std::vector<aggr_rank_t>& ev)
 {
   logger log(std::cerr, "rank_vector");
-  std::sort(ev.begin(), ev.end(), ev_score_sort);
+  SORTWCOMP(ev.begin(), ev.end(), ev_score_sort);
   log(LOG_DEBUG) << "Computing ranks\n";
   auto it = ev.begin();
   uint64_t pos = 0;
@@ -112,7 +121,7 @@ void rank_vector(std::vector<aggr_rank_t>& ev)
       }
     }
   }
-  std::sort(ev.begin(), ev.end(), ev_index_sort);
+  SORTWCOMP(ev.begin(), ev.end(), ev_index_sort);
 }
 
 void aggr_top1(std::vector<SeidrFileHeader>& header_vec,
@@ -463,8 +472,14 @@ int aggregate(int argc, char * argv[])
    po::value<std::string>(&param.out_file)->default_value("aggregated.sf"),
    "Output file name")
   ("tempdir,T",
-   po::value<std::string>(&param.tempdir)->default_value("","auto"),
+   po::value<std::string>(&param.tempdir)->default_value("", "auto"),
    "Directory to store temporary data");
+
+  po::options_description ompopt("OpenMP Options");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(GET_MAX_PSTL_THREADS()),
+   "Number of OpenMP threads for parallel sorting");
 
   po::options_description agropt("Aggregate Options");
   agropt.add_options()
@@ -479,8 +494,8 @@ int aggregate(int argc, char * argv[])
   ("in-file",
    po::value<std::vector<std::string>>(&param.infs),
    "Input files");
- 
-  umbrella.add(req).add(agropt).add(opt);
+
+  umbrella.add(req).add(agropt).add(ompopt).add(opt);
 
   po::positional_options_description p;
   p.add("in-file", -1);
@@ -507,6 +522,7 @@ int aggregate(int argc, char * argv[])
 
   try
   {
+    set_pstl_threads(param.nthreads);
     log(LOG_INFO) << param.out_file << '\n';
     param.out_file = to_absolute(param.out_file);
 
@@ -602,7 +618,7 @@ int aggregate(int argc, char * argv[])
 
 
   log(LOG_INFO) << "Aggregating using method: " << param.method << '\n';
-  
+
   param.tempfile = tempfile(param.tempdir);
   log(LOG_INFO) << "Using temp file: " << param.tempfile << '\n';
 

@@ -23,12 +23,19 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <BSlogger.h>
+#include <parallel_control.h>
 
 #undef DEBUG
 
 #include <gsl/gsl_fit.h>
 #include <gsl/gsl_statistics.h>
-
+#if defined(SEIDR_PSTL)
+#include <tbb/task_scheduler_init.h>
+#include <pstl/execution>
+#include <pstl/algorithm>
+#else
+#include <algorithm>
+#endif
 #include <networkit/graph/Graph.h>
 #include <networkit/global/ClusteringCoefficient.h>
 #include <vector>
@@ -82,13 +89,21 @@ void get_ranks(std::vector<thresh_t>& v, std::string s)
   tr = s + "r";
 
   if (s == "ne")
-    std::sort(v.begin(), v.end(), ne_sort);
+  {
+    SORTWCOMP(v.begin(), v.end(), ne_sort);
+  }
   else if (s == "nn")
-    std::sort(v.begin(), v.end(), nn_sort);
+  {
+    SORTWCOMP(v.begin(), v.end(), nn_sort);
+  }
   else if (s == "sf")
-    std::sort(v.begin(), v.end(), sf_sort);
+  {
+    SORTWCOMP(v.begin(), v.end(), sf_sort);
+  }
   else if (s == "cc")
-    std::sort(v.begin(), v.end(), cc_sort);
+  {
+    SORTWCOMP(v.begin(), v.end(), cc_sort);
+  }
 
 
   double rank = 0;
@@ -216,7 +231,7 @@ std::vector<double> make_steps(double min, double max, uint32_t nsteps,
   ret.push_back(max);
   if (rank)
   {
-    std::sort(ret.begin(), ret.end(), reverse_sort);
+    SORTWCOMP(ret.begin(), ret.end(), reverse_sort);
   }
   return ret;
 }
@@ -246,6 +261,12 @@ int threshold(int argc, char ** argv)
    po::value<std::string>(&param.outfile)->default_value("-"),
    "Output file name ['-' for stdout]");
 
+  po::options_description ompopt("OpenMP Options");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(GET_MAX_PSTL_THREADS()),
+   "Number of OpenMP threads for parallel sorting");
+
   po::options_description topt("Threshold Options");
   topt.add_options()
   ("min,m",
@@ -272,7 +293,7 @@ int threshold(int argc, char ** argv)
   ("in-file", po::value<std::string>(&param.infile)->required(),
    "Input SeidrFile");
 
-  umbrella.add(req).add(topt).add(fopt).add(opt);
+  umbrella.add(req).add(topt).add(fopt).add(ompopt).add(opt);
 
   po::positional_options_description p;
   p.add("in-file", 1);
@@ -299,6 +320,7 @@ int threshold(int argc, char ** argv)
 
   try
   {
+    set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
@@ -349,11 +371,11 @@ int threshold(int argc, char ** argv)
 
   if (param.trank)
   {
-    std::sort(edges.begin(), edges.end(), me_rank_sort);
+    SORTWCOMP(edges.begin(), edges.end(), me_rank_sort);
   }
   else
   {
-    std::sort(edges.begin(), edges.end(), me_score_sort);
+    SORTWCOMP(edges.begin(), edges.end(), me_score_sort);
   }
 
   uint64_t stop = 0;

@@ -24,6 +24,7 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <BSlogger.h>
+#include <parallel_control.h>
 // External
 #include <cmath>
 #include <iostream>
@@ -33,12 +34,10 @@
 #include <vector>
 
 // Parallel includes
-#if defined(SEIDR_PSTL) && defined(__ICC)
+#if defined(SEIDR_PSTL)
 #include <tbb/task_scheduler_init.h>
+#include <pstl/execution>
 #include <pstl/algorithm>
-#elif defined(SEIDR_PSTL) && defined(__GNUG__)
-#include <omp.h>
-#include <parallel/algorithm>
 #else
 #include <algorithm>
 #endif
@@ -340,18 +339,7 @@ int import(int argc, char * argv[]) {
   try
   {
 
-#ifdef SEIDR_PSTL
-    assert_in_range<int>(param.nthreads, 1, GET_MAX_PSTL_THREADS(),
-                         "--threads");
-    SET_NUM_PSTL_THREADS(param.nthreads);
-#else
-    if (param.nthreads > 1)
-    {
-      log(LOG_WARN) << "More than one thread selected, but seidr wasn't "
-                    << "compiled for parallel sorting. "
-                    << "Flag will have no effect.\n";
-    }
-#endif
+    set_pstl_threads(param.nthreads);
 
     if (param.format == "el")
       param.is_edge_list = true;

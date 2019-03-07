@@ -42,26 +42,16 @@ namespace po = boost::program_options;
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
 
-#if defined(SEIDR_PSTL) && defined(__ICC)
-  #define SORT(start, end) std::sort(pstl::execution::par_unseq, start, end)
-  #define SORTWCOMP(start, end, comp) std::sort(pstl::execution::par_unseq, start, end, comp)
+#if defined(SEIDR_PSTL)
+  #define SORT(start, end) std::sort(pstl::execution::par, start, end)
+  #define SORTWCOMP(start, end, comp) std::sort(pstl::execution::par, start, end, comp)
   #define SET_NUM_PSTL_THREADS(x) tbb::task_scheduler_init init(x)
   #define GET_MAX_PSTL_THREADS() tbb::task_scheduler_init::default_num_threads()
-  #define PSTL_INCLUDES #include <tbb/task_scheduler_init.h> \
-                        #include <pstl/algorithm>
-#elif defined(SEIDR_PSTL) && defined(__GNUG__)
-  #define SORT(start, end) __gnu_parallel::sort(start, end)
-  #define SORTWCOMP(start, end, comp) __gnu_parallel::sort(start, end, comp)
-  #define SET_NUM_PSTL_THREADS(x) omp_set_num_threads(x)
-  #define GET_MAX_PSTL_THREADS() omp_get_max_threads()
-  #define PSTL_INCLUDES #include <omp.h> \
-                        #include <parallel/algorithm>
 #else
   #define SORT(start, end) std::sort(start, end)
   #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
   #define SET_NUM_PSTL_THREADS(x)
   #define GET_MAX_PSTL_THREADS() 1
-   #define PSTL_INCLUDES #include <algorithm>
 #endif
 
 #ifndef SEIDR_SCORE_DOUBLE

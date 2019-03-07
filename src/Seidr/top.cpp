@@ -163,9 +163,13 @@ int top(int argc, char * argv[]) {
 
   std::shared_ptr<std::ostream> out;
   if (param.outfile == "-")
+  {
     out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+  }
   else
+  {
     out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+  }
 
   priority_queue pq;
 
