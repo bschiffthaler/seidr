@@ -21,3 +21,6 @@ _templates
 .Rproj.user
 .Rbuildignore
 .RHistory
+*.pyc
+*.pyd
+*.ipynb

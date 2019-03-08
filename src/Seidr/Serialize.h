@@ -59,6 +59,10 @@
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 
+#ifdef MAKE_EXTERN
+extern "C" {
+#endif 
+
 struct __attribute__ ((packed)) header_attr {
   uint64_t nodes = 0;
   uint64_t edges = 0;
@@ -285,3 +289,7 @@ read_network(SeidrFileHeader& h,
              double threshold = -std::numeric_limits<double>::infinity(),
              uint32_t tpos = 0,
              bool trank = false);
+
+#ifdef MAKE_EXTERN
+}
+#endif 

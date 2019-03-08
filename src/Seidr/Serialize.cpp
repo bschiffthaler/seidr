@@ -30,6 +30,10 @@
 #include <algorithm>
 #include <armadillo>
 
+#ifdef MAKE_EXTERN
+extern "C" {
+#endif 
+
 void SeidrFile::open(const char * mode)
 {
   std::string m(mode);
@@ -1236,3 +1240,7 @@ bool sfe_rank_sort(SeidrFileEdge a, SeidrFileEdge b) {
   return (a.scores[a.scores.size() - 1].r <
           b.scores[b.scores.size() - 1].r);
 }
+
+#ifdef MAKE_EXTERN
+}
+#endif 
