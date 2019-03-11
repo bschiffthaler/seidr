@@ -274,8 +274,7 @@ SEXP SeidrFile__ptr__vectorizeSF(SEXP xpf, SEXP xph, bool scores, bool ranks, bo
       }
     }
   }
-  return List::create(wrap(rets), wrap(retr), wrap(is), wrap(js), wrap(fs),
-                      wrap(sups), wrap(supi), wrap(supf));
+  return List::create(rets, retr, is, js, fs, sups, supi, supf);
 }
 
 // [[Rcpp::export]]
@@ -382,7 +381,7 @@ SEXP SeidrFile__ptr__vectorizeSingle(SEXP xpf, SEXP xph, bool score, bool rank,
       }
     }
   }
-  return List::create(wrap(rets), wrap(retr), wrap(is), wrap(js));
+  return List::create(rets, retr, is, js);
 }
 
 // [[Rcpp::export]]

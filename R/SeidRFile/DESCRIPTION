@@ -1,7 +1,7 @@
 Package: SeidRFile
 Type: Package
 Title: Low level interface to SeidrFiles
-Version: 0.1.0
+Version: 0.1.1
 Author: Bastian Schiffthaler
 Maintainer: Bastian Schiffthaler <b.schiffthaler@gmail.com>
 Description: This package provides a relatively low level interface to

@@ -15,31 +15,31 @@ setGeneric("strength", function(object) standardGeneric("strength"))
 setGeneric("pagerank", function(object) standardGeneric("pagerank"))
 setGeneric("reset", function(object) standardGeneric("reset"))
 setGeneric("get_chunk", function(object, chunksize = 10000) standardGeneric("get_chunk"))
-setGeneric("get_ichunk", function(object, index, chunksize = 10000) standardGeneric("get_ichunk"))
+setGeneric("get_ichunk", function(object, score_index, chunksize = 10000) standardGeneric("get_ichunk"))
 
 setGeneric("seidr_apply",
            function(X, scores = TRUE, ranks = FALSE, flags = FALSE,
                     supp_str = FALSE, supp_int = FALSE, supp_flt = FALSE,
-                    indices = FALSE, FUN, ...) {
+                    edge_index = FALSE, FUN, ...) {
              standardGeneric("seidr_apply")
            }
 )
 setGeneric("seidr_chunked_apply",
            function(X, scores = TRUE, ranks = FALSE, flags = FALSE,
                     supp_str = FALSE, supp_int = FALSE, supp_flt = FALSE,
-                    indices = FALSE, chunksize = 10000, FUN, ...) {
+                    edge_index = FALSE, chunksize = 10000, FUN, ...) {
              standardGeneric("seidr_chunked_apply")
            }
 )
 setGeneric("seidr_iapply",
-           function(X, scores = TRUE, ranks = FALSE, indices = FALSE,
-                    index, FUN, ...) {
+           function(X, scores = TRUE, ranks = FALSE, edge_index = FALSE,
+                    score_index, FUN, ...) {
              standardGeneric("seidr_iapply")
            }
 )
 setGeneric("seidr_chunked_iapply",
-           function(X, scores = TRUE, ranks = FALSE, indices = FALSE,
-                    index, chunksize = 10000, FUN, ...) {
+           function(X, scores = TRUE, ranks = FALSE, edge_index = FALSE,
+                    score_index, chunksize = 10000, FUN, ...) {
              standardGeneric("seidr_chunked_iapply")
            }
 )
@@ -197,7 +197,7 @@ setMethod("algorithms", signature="SeidrFile", function(object) {
 #'
 #' @param object A \code{\link{SeidrFile-class}} object
 #' @return A numeric vector of node centrality values
-#' @name centr_dummy
+#' @name centrality_accessors
 #' @examples
 #' path <- system.file("extdata", "aggregated.sf", package = "SeidRFile")
 #' sf <- SeidrFileFromPath(path)
@@ -205,37 +205,37 @@ setMethod("algorithms", signature="SeidrFile", function(object) {
 #'
 NULL
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("betweenness", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getBetweenness(object@sf_h_ptr))
 })
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("closeness", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getCloseness(object@sf_h_ptr))
 })
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("eigenvector", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getEigenvector(object@sf_h_ptr))
 })
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("katz", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getKatz(object@sf_h_ptr))
 })
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("strength", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getStrength(object@sf_h_ptr))
 })
 
-#' @rdname centr_dummy
+#' @rdname centrality_accessors
 #' @export
 setMethod("pagerank", signature="SeidrFile", function(object) {
   return(SeidrFileHeader__ptr__getPageRank(object@sf_h_ptr))
@@ -260,10 +260,10 @@ setMethod("pagerank", signature="SeidrFile", function(object) {
 #'   be vectorized
 #' @param supp_flt A \code{logical} indicating if supplementary floats should be
 #'   vectorized
-#' @param indices A \code{logical} indicating if edge indices should be
+#' @param edge_index A \code{logical} indicating if edge indices should be
 #'   vectorized
 #' @param chunksize The size of a single chunk
-#' @param index Which score and/or rank to apply \code{FUN()}
+#' @param score_index Which score and/or rank to apply \code{FUN()}
 #' @return For \code{seidr_apply} and \code{seidr_iapply} the return type is
 #'   whatever \code{FUN()} returns.
 #'
@@ -286,22 +286,22 @@ setMethod("pagerank", signature="SeidrFile", function(object) {
 #' # Create a data.frame from a SeidrFile
 #'
 #' to_df <- function(x, nodes) {
-#'   data.frame("From"=nodes[x$i], "To"=nodes[x$j],
+#'   data.frame("From"=nodes[x$node_i], "To"=nodes[x$node_j],
 #'              "Weight"=x$score, "Rank"=x$rank)
 #' }
 #'
-#' df <- seidr_iapply(sf, scores = TRUE, ranks = TRUE, indices = TRUE,
-#'                    index = 10, FUN = to_df, nodes = nodes(sf))
+#' df <- seidr_iapply(sf, scores = TRUE, ranks = TRUE, edge_index = TRUE,
+#'                    score_index = 10, FUN = to_df, nodes = nodes(sf))
 #'
-#' @name apply_dummy
+#' @name apply_functions
 NULL
 
-#' @rdname apply_dummy
+#' @rdname apply_functions
 #' @export
 setMethod("seidr_apply", "SeidrFile",
           function(X, scores = TRUE, ranks = FALSE, flags = FALSE, supp_str = FALSE,
                    supp_int = FALSE, supp_flt = FALSE,
-                   indices = FALSE,  FUN, ...) {
+                   edge_index = FALSE,  FUN, ...) {
 
             if (! as.logical(SeidrFile__ptr__isopen(X@sf_ptr))) {
               stop("Connection is invalid")
@@ -317,20 +317,20 @@ setMethod("seidr_apply", "SeidrFile",
             }
 
             vs <- SeidrFile__ptr__vectorizeSF(X@sf_ptr, X@sf_h_ptr, scores, ranks, flags,
-                                              supp_str, supp_int, supp_flt, indices,
+                                              supp_str, supp_int, supp_flt, edge_index,
                                               chunksize = 0)
-            names(vs) <- c("score", "rank", "i", "j", "flag", "supp_str", "supp_int", "supp_flt")
+            names(vs) <- c("score", "rank", "node_i", "node_j", "flag", "supp_str", "supp_int", "supp_flt")
             FUN(vs, ...)
 
           }
 )
 
-#' @rdname apply_dummy
+#' @rdname apply_functions
 #' @export
 setMethod("seidr_chunked_apply", "SeidrFile",
           function(X, scores = TRUE, ranks = FALSE, flags = FALSE, supp_str = FALSE,
                    supp_int = FALSE, supp_flt = FALSE,
-                   indices = FALSE, chunksize = 10000, FUN, ...) {
+                   edge_index = FALSE, chunksize = 10000, FUN, ...) {
 
             if (! as.logical(SeidrFile__ptr__isopen(X@sf_ptr))) {
               stop("Connection is invalid")
@@ -353,9 +353,9 @@ setMethod("seidr_chunked_apply", "SeidrFile",
                                  width = NA, title, label, style = 3, file = "")
             for(i in 1:chunks) {
               vs <- SeidrFile__ptr__vectorizeSF(X@sf_ptr, X@sf_h_ptr, scores, ranks, flags,
-                                                supp_str, supp_int, supp_flt, indices,
+                                                supp_str, supp_int, supp_flt, edge_index,
                                                 chunksize)
-              names(vs) <- c("score", "rank", "i", "j", "flag", "supp_str", "supp_int", "supp_flt")
+              names(vs) <- c("score", "rank", "node_i", "node_j", "flag", "supp_str", "supp_int", "supp_flt")
               retl[[i]] <- FUN(vs, ...)
               setTxtProgressBar(pb, i)
             }
@@ -364,11 +364,11 @@ setMethod("seidr_chunked_apply", "SeidrFile",
           }
 )
 
-#' @rdname apply_dummy
+#' @rdname apply_functions
 #' @export
 setMethod("seidr_iapply", "SeidrFile",
-          function(X, scores = TRUE, ranks = FALSE, indices = FALSE,
-                   index, FUN, ...) {
+          function(X, scores = TRUE, ranks = FALSE, edge_index = FALSE,
+                   score_index, FUN, ...) {
 
             if (! as.logical(SeidrFile__ptr__isopen(X@sf_ptr))) {
               stop("Connection is invalid")
@@ -382,18 +382,18 @@ setMethod("seidr_iapply", "SeidrFile",
                       "seidr_iapply and will not be included in the ",
                       "output")
             }
-            vs <- SeidrFile__ptr__vectorizeSingle(X@sf_ptr, X@sf_h_ptr, scores, ranks, indices,
-                                                  index, chunksize = 0)
-            names(vs) <- c("score", "rank", "i", "j")
+            vs <- SeidrFile__ptr__vectorizeSingle(X@sf_ptr, X@sf_h_ptr, scores, ranks, edge_index,
+                                                  score_index, chunksize = 0)
+            names(vs) <- c("score", "rank", "node_i", "node_j")
             FUN(vs, ...)
           }
 )
 
-#' @rdname apply_dummy
+#' @rdname apply_functions
 #' @export
 setMethod("seidr_chunked_iapply", "SeidrFile",
-          function(X, scores = TRUE, ranks = FALSE, indices = FALSE,
-                   index, chunksize = 10000, FUN, ...) {
+          function(X, scores = TRUE, ranks = FALSE, edge_index = FALSE,
+                   score_index, chunksize = 10000, FUN, ...) {
 
             if (! as.logical(SeidrFile__ptr__isopen(X@sf_ptr))) {
               stop("Connection is invalid")
@@ -416,9 +416,9 @@ setMethod("seidr_chunked_iapply", "SeidrFile",
                                  width = NA, title, label, style = 3, file = "")
             for(i in 1:chunks) {
 
-              vs <- SeidrFile__ptr__vectorizeSingle(X@sf_ptr, X@sf_h_ptr, scores, ranks, indices,
-                                                    index, chunksize)
-              names(vs) <- c("score", "rank", "i", "j")
+              vs <- SeidrFile__ptr__vectorizeSingle(X@sf_ptr, X@sf_h_ptr, scores, ranks, edge_index,
+                                                    score_index, chunksize)
+              names(vs) <- c("score", "rank", "node_i", "node_j")
               retl[[i]] <- FUN(vs, ...)
               setTxtProgressBar(pb, i)
             }
@@ -454,7 +454,7 @@ setMethod("reset", "SeidrFile", function(object) {
 #' contents.
 #'
 #' @param object A \code{\link{SeidrFile-class}} object
-#' @param index The index of the score/rank to retrieve
+#' @param score_index The index of the score/rank to retrieve
 #' @param chunksize The size of the chunk to retrieve
 #' @return A list of length \code{chunksize} containing edge data
 #' @examples
@@ -462,24 +462,24 @@ setMethod("reset", "SeidrFile", function(object) {
 #' sf <- SeidrFileFromPath(path)
 #'
 #' get_chunk(sf, chunksize = 10)
-#' @name chunk_dummy
+#' @name get_chunk
 NULL
 
-#' @rdname chunk_dummy
+#' @rdname get_chunk
 #' @export
 setMethod("get_chunk", "SeidrFile", function(object, chunksize = 10000) {
   r <- SeidrFile__ptr__vectorizeSF(object@sf_ptr, object@sf_h_ptr, TRUE, TRUE, TRUE, TRUE,
                                    TRUE, TRUE, TRUE, chunksize)
-  names(r) <- c("score", "rank", "i", "j", "flag", "supp_str", "supp_int", "supp_flt")
+  names(r) <- c("score", "rank", "node_i", "node_j", "flag", "supp_str", "supp_int", "supp_flt")
   return(r)
 })
 
-#' @rdname chunk_dummy
+#' @rdname get_chunk
 #' @export
-setMethod("get_ichunk", "SeidrFile", function(object, index, chunksize = 10000) {
+setMethod("get_ichunk", "SeidrFile", function(object, score_index, chunksize = 10000) {
   r <- SeidrFile__ptr__vectorizeSingle(object@sf_ptr, object@sf_h_ptr, TRUE, TRUE, TRUE,
-                                       index, chunksize)
-  names(r) <- c("score", "rank", "i", "j")
+                                       score_index, chunksize)
+  names(r) <- c("score", "rank", "node_i", "node_j")
   return(r)
 })
 
