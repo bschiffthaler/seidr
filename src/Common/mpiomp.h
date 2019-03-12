@@ -63,7 +63,7 @@ protected:
   const std::string& _tempdir;
   //misc
   double _init_time;
-  const std::string _queue_file;
+  std::string _queue_file; // can't be const as it needs to sync 
   MPI_File _queue_fh;
 };
 

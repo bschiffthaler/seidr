@@ -18,6 +18,8 @@
 // along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
 //
 #include <BSlogger.h>
+#include <common.h>
+#include <fs.h>
 #include <mpiomp.h>
 #include <mpi.h>
 
@@ -44,11 +46,17 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
   _outfile(outfile),
   _tempdir(tempdir),
   _init_time( MPI_Wtime() ),
-  _queue_file(tempdir + "/queue"),
   _queue_fh(nullptr)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &_id); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
   MPI_Comm_size(MPI_COMM_WORLD, &_procn); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+
+  // Make sure everyoneuses the same queue file
+  std::string queue_file = tempfile(tempdir) + ".q";
+  mpi_sync_tempdir(&queue_file);
+  _queue_file = queue_file;
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+
 
   if (_id == 0)
   {
