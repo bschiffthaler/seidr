@@ -94,7 +94,9 @@ void seidr_mpi_mi::finalize()
     std::unordered_map<std::string, arma::uword> gene_map;
     arma::uword ctr = 0;
     for (auto g : _genes)
+    {
       gene_map[g] = ctr++;
+    }
 
     if (_use_existing_mi_mat)
     {
@@ -360,7 +362,7 @@ void seidr_mpi_mi::finalize()
     }
     log << "Finished\n";
     log.log(LOG_INFO);
-    fs::remove_all(_tempdir);
+    //fs::remove_all(_tempdir);
   }
 }
 
@@ -630,9 +632,6 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
 
   std::sort(targets.begin(), targets.end());
 
-  std::string tmpfile = tempfile(tmpdir);
-  std::ofstream ofs(tmpfile.c_str(), std::ios::out);
-
   #pragma omp parallel for
   for (size_t i = 0; i < gm.n_cols; i++)
   {
@@ -640,7 +639,10 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
     entropies(i) = entropy1d(gm, knots, weights, spline_order, num_bins, i);
   }
 
+  std::string tmpfile = tempfile(tmpdir);
+  std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
+  #pragma omp parallel for
   for (size_t i = 0; i < targets.size(); i++)
   {
     size_t row = targets[i];
@@ -648,29 +650,26 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
     {
       // Parallelize inner loop which works a bit better with pragma critical
       // and won't make much of a difference in practice as row == col
-      #pragma omp parallel for
+      std::vector<double> tmp_results;
       for (size_t col = 0; col < row; col++)
       {
         double e2d = entropy2d(gm, knots, weights, spline_order, num_bins,
                                col, row);
-        #pragma omp critical
-        {
-          if (col == 0)
-          {
-            ofs << row << '\n';
-          }
-          ofs <<  entropies(col) + entropies(row) - e2d;
-          ofs << (col == row - 1 ? '\n' : '\t');
-        }
+        tmp_results.push_back(entropies(col) + entropies(row) - e2d);
       }
       #pragma omp critical
       {
+        ofs << row << '\n';
+        for (uint64_t col = 0; col < row; col++)
+        {
+          ofs << tmp_results[col] << (col == row - 1 ? '\n' : '\t');
+        }
         log << "Finished gene " << row << '\n';
         log.send(LOG_INFO);
       }
     }
-    ofs.close();
   }
+  ofs.close();
 }
 
 
