@@ -72,7 +72,7 @@ int main(int argc, char ** argv) {
 
   po::options_description mpiopt("MPI Options");
   mpiopt.add_options()
-  ("batch-size,b", po::value<uint64_t>(&param.bs)->default_value(20),
+  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
    "Number of genes in MPI batch")
   ("tempdir,T",
    po::value<std::string>(&param.tempdir),
