@@ -31,19 +31,23 @@ if (params.clr) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.clr_settings.preamble}
       srun \
       mi -m CLR -o clr_network.tsv -B ${params.clr_settings.batchsize} \
          -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.clr_settings.cores} ${targets}
+      ${params.clr_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.clr_settings.preamble}
       mpirun -np ${params.clr_settings.tasks} \
       mi -m CLR -o clr_network.tsv -B ${params.clr_settings.batchsize} \
          -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.clr_settings.cores} ${targets}
+      ${params.clr_settings.epilog}
       """
     }
   }
@@ -68,17 +72,21 @@ if (params.clr) {
     if (targets == '')
     {
       """
+      ${params.clr_settings.preamble}
       seidr import -F lm -u -r -z -n ${params.clr_settings.importname} \
                    -i ${clr_net} -g ${genes} -o clr_network.sf \
                    -O ${params.clr_settings.importcores}
+      ${params.clr_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.clr_settings.preamble}
       seidr import -F el -u -r -z -n ${params.clr_settings.importname} \
                    -i ${clr_net} -g ${genes} -o clr_network.sf \
                    -O ${params.clr_settings.importcores}
+      ${params.clr_settings.epilog}
       """
     }
   }
@@ -107,19 +115,23 @@ if (params.aracne) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.aracne_settings.preamble}
       srun \
       mi -m ARACNE -o aracne_network.tsv -B ${params.aracne_settings.batchsize} \
          -b ${params.aracne_settings.bins} -s ${params.aracne_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.aracne_settings.cores} ${targets}
+      ${params.aracne_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.aracne_settings.preamble}
       mpirun -n ${params.aracne_settings.tasks} \
       mi -m ARACNE -o aracne_network.tsv -B ${params.aracne_settings.batchsize} \
          -b ${params.aracne_settings.bins} -s ${params.aracne_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.aracne_settings.cores} ${targets}
+      ${params.aracne_settings.epilog}
       """
    }
   }
@@ -145,17 +157,21 @@ if (params.aracne) {
     if (targets == '')
     {
       """
+      ${params.aracne_settings.preamble}
       seidr import -F lm -u -r -z -n ${params.aracne_settings.importname} \
                    -i ${aracne_net} -g ${genes} -o aracne_network.sf \
                    -O ${params.aracne_settings.importcores}
+      ${params.aracne_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.aracne_settings.preamble}
       seidr import -F el -u -r -z -n ${params.aracne_settings.importname} \
                    -i ${aracne_net} -g ${genes} -o aracne_network.sf \
                    -O ${params.aracne_settings.importcores}
+      ${params.aracne_settings.epilog}
       """
     }
   }
@@ -182,9 +198,11 @@ if (params.anova) {
     file 'anova_network.tsv' into anova_network_raw
 
     """
+    ${params.anova_settings.preamble}
     export OMP_NUM_THREADS=1
     anoverence -i ${expr} -g ${genes} -e ${params.anova_settings.meta_file} \
                -w ${params.anova_settings.weight} ${targets}
+    ${params.anova_settings.epilog}
     """
   }
 
@@ -209,17 +227,21 @@ if (params.anova) {
     if (targets == '')
     {
       """
+      ${params.anova_settings.preamble}
       seidr import -F lm -u -r -z -n ${params.anova_settings.importname} \
                    -i ${aracne_net} -g ${genes} -o anova_network.sf \
                    -O ${params.anova_settings.importcores}
+      ${params.anova_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.anova_settings.preamble}
       seidr import -F el -u -r -z -n ${params.anova_settings.importname} \
                    -i ${aracne_net} -g ${genes} -o anova_network.sf \
                    -O ${params.anova_settings.importcores}
+      ${params.anova_settings.epilog}
       """
     }
   }
@@ -245,10 +267,12 @@ if (params.pearson) {
     file 'pearson_network.tsv' into pearson_network_raw
 
     """
+    ${params.pearson_settings.preamble}
     export OMP_NUM_THREADS=1
     correlation -m pearson -i ${expr} -g ${genes} -o pearson_network.tsv \
                 ${params.pearson_settings.scale} \
                 ${params.pearson_settings.absolute} ${targets}
+    ${params.pearson_settings.epilog}
     """
   }
 
@@ -273,17 +297,21 @@ if (params.pearson) {
     if (targets == '')
     {
       """
+      ${params.pearson_settings.preamble}
       seidr import -F lm -A -u -r -z -n ${params.pearson_settings.importname} \
                    -i ${pearson_net} -g ${genes} -o pearson_network.sf \
                    -O ${params.pearson_settings.importcores}
+      ${params.pearson_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.pearson_settings.preamble}
       seidr import -F el -A -u -r -z -n ${params.pearson_settings.importname} \
                    -i ${pearson_net} -g ${genes} -o pearson_network.sf \
                    -O ${params.pearson_settings.importcores}
+      ${params.pearson_settings.epilog}
       """
     }
   }
@@ -309,10 +337,12 @@ if (params.spearman) {
     file 'spearman_network.tsv' into spearman_network_raw
 
     """
+    ${params.spearman_settings.preamble}
     export OMP_NUM_THREADS=1
     correlation -m spearman -i ${expr} -g ${genes} -o spearman_network.tsv \
                 ${params.spearman_settings.scale} \
                 ${params.spearman_settings.absolute} ${targets}
+    ${params.spearman_settings.epilog}
     """
   }
 
@@ -337,17 +367,21 @@ if (params.spearman) {
     if (targets == '')
     {
       """
+      ${params.spearman_settings.preamble}
       seidr import -F lm -A -u -r -z -n ${params.spearman_settings.importname} \
                    -i ${spearman_net} -g ${genes} -o spearman_network.sf \
                    -O ${params.spearman_settings.importcores}
+      ${params.spearman_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.spearman_settings.preamble}
       seidr import -F el -A -u -r -z -n ${params.spearman_settings.importname} \
                    -i ${spearman_net} -g ${genes} -o spearman_network.sf \
                    -O ${params.spearman_settings.importcores}
+      ${params.spearman_settings.epilog}
       """
     }
   }
@@ -377,6 +411,7 @@ if (params.elnet) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.elnet_settings.preamble}
       srun  \
       el-ensemble -o elnet_network.tsv -B ${params.elnet_settings.batchsize} \
          -l ${params.elnet_settings.min_lambda} -a ${params.elnet_settings.alpha} \
@@ -388,11 +423,13 @@ if (params.elnet) {
          -e ${params.elnet_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.elnet_settings.cores} ${targets}
+      ${params.elnet_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.elnet_settings.preamble}
       mpirun -np ${params.elnet_settings.tasks}  \
       el-ensemble -o elnet_network.tsv -B ${params.elnet_settings.batchsize} \
          -l ${params.elnet_settings.min_lambda} -a ${params.elnet_settings.alpha} \
@@ -404,6 +441,7 @@ if (params.elnet) {
          -e ${params.elnet_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.elnet_settings.cores} ${targets}
+      ${params.elnet_settings.epilog}
       """
    }
   }
@@ -428,17 +466,21 @@ if (params.elnet) {
     if (targets == '')
     {
       """
+      ${params.elnet_settings.preamble}
       seidr import -F m -r -z -n ${params.elnet_settings.importname} \
                    -i ${elnet_net} -g ${genes} -o elnet_network.sf \
                    -O ${params.elnet_settings.importcores}
+      ${params.elnet_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.elnet_settings.preamble}
       seidr import -F el -r -z -n ${params.elnet_settings.importname} \
                    -i ${elnet_net} -g ${genes} -o elnet_network.sf \
                    -O ${params.elnet_settings.importcores}
+      ${params.elnet_settings.epilog}
       """
     }
   }
@@ -467,6 +509,7 @@ if (params.svm) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.svm_settings.preamble}
       srun \
       svm-ensemble -o svm_network.tsv -B ${params.svm_settings.batchsize} \
          -X ${params.svm_settings.max_experiment_size} \
@@ -476,11 +519,13 @@ if (params.svm) {
          -e ${params.svm_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.svm_settings.cores} ${targets}
+      ${params.svm_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.svm_settings.preamble}
       mpirun -np ${params.svm_settings.tasks} \
       svm-ensemble -o svm_network.tsv -B ${params.svm_settings.batchsize} \
          -X ${params.svm_settings.max_experiment_size} \
@@ -490,6 +535,7 @@ if (params.svm) {
          -e ${params.svm_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.svm_settings.cores} ${targets}
+      ${params.svm_settings.epilog}
       """
     }
   }
@@ -515,17 +561,21 @@ if (params.svm) {
     if (targets == '')
     {
       """
+      ${params.svm_settings.preamble}
       seidr import -F m -r -z -n ${params.svm_settings.importname} \
                    -i ${svm_net} -g ${genes} -o svm_network.sf \
                    -O ${params.svm_settings.importcores}
+      ${params.svm_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.svm_settings.preamble}
       seidr import -F el -r -z -n ${params.svm_settings.importname} \
                    -i ${svm_net} -g ${genes} -o svm_network.sf \
                    -O ${params.svm_settings.importcores}
+      ${params.svm_settings.epilog}
       """
     }
   }
@@ -554,6 +604,7 @@ if (params.llr) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.llr_settings.preamble}
       srun \
       llr-ensemble -o llr_network.tsv -B ${params.llr_settings.batchsize} \
          -X ${params.llr_settings.max_experiment_size} \
@@ -563,11 +614,13 @@ if (params.llr) {
          -e ${params.llr_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.llr_settings.cores} ${targets}
+      ${params.llr_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.llr_settings.preamble}
       mpirun -np ${params.llr_settings.tasks} \
       llr-ensemble -o llr_network.tsv -B ${params.llr_settings.batchsize} \
          -X ${params.llr_settings.max_experiment_size} \
@@ -577,6 +630,7 @@ if (params.llr) {
          -e ${params.llr_settings.ensemble} \
          -i ${expr} -g ${genes} \
          -O ${params.llr_settings.cores} ${targets}
+      ${params.llr_settings.epilog}
       """
     }
   }
@@ -602,17 +656,21 @@ if (params.llr) {
     if (targets == '')
     {
       """
+      ${params.llr_settings.preamble}
       seidr import -F m -r -z -n ${params.llr_settings.importname} \
                    -i ${llr_net} -g ${genes} -o llr_network.sf \
                    -O ${params.llr_settings.importcores}
+      ${params.llr_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.llr_settings.preamble}
       seidr import -F el -r -z -n ${params.llr_settings.importname} \
                    -i ${llr_net} -g ${genes} -o llr_network.sf \
                    -O ${params.llr_settings.importcores}
+      ${params.llr_settings.epilog}
       """
     }
   }
@@ -664,17 +722,21 @@ if (params.pcor) {
     if (targets == '')
     {
       """
+      ${params.pcor_settings.preamble}
       seidr import -F lm -A -u -r -z -n ${params.pcor_settings.importname} \
                    -i ${pcor_net} -g ${genes} -o pcor_network.sf \
                    -O ${params.pcor_settings.importcores}
+      ${params.pcor_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.pcor_settings.preamble}
       seidr import -F el -A -u -r -z -n ${params.pcor_settings.importname} \
                    -i ${pcor_net} -g ${genes} -o pcor_network.sf \
                    -O ${params.pcor_settings.importcores}
+      ${params.pcor_settings.epilog}
       """
     }
   }
@@ -703,23 +765,27 @@ if (params.narromi) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.narromi_settings.preamble}
       srun \
       narromi -o narromi_network.tsv -B ${params.narromi_settings.batchsize} \
          -a ${params.narromi_settings.alpha} \
          -m ${params.narromi_settings.method} \
          -i ${expr} -g ${genes} \
          -O ${params.narromi_settings.tasks} ${targets}
+      ${params.narromi_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.narromi_settings.preamble}
       mpirun -np ${params.narromi_settings.tasks} \
       narromi -o narromi_network.tsv -B ${params.narromi_settings.batchsize} \
          -a ${params.narromi_settings.alpha} \
          -m ${params.narromi_settings.method} \
          -i ${expr} -g ${genes} \
          -O ${params.narromi_settings.tasks} ${targets}
+      ${params.narromi_settings.epilog}
       """
     }
   }
@@ -745,17 +811,21 @@ if (params.narromi) {
     if (targets == '')
     {
       """
+      ${params.narromi_settings.preamble}
       seidr import -F m -r -z -n ${params.narromi_settings.importname} \
                    -i ${narromi_net} -g ${genes} -o narromi_network.sf \
                    -O ${params.narromi_settings.importcores}
+      ${params.narromi_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.narromi_settings.preamble}
       seidr import -F el -r -z -n ${params.narromi_settings.importname} \
                    -i ${narromi_net} -g ${genes} -o narromi_network.sf \
                    -O ${params.narromi_settings.importcores}
+      ${params.narromi_settings.epilog}
       """
     }
   }
@@ -784,6 +854,7 @@ if (params.tigress) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.tigress_settings.preamble}
       srun \
       tigress -o tigress_network.tsv -B ${params.tigress_settings.batchsize} \
          -n ${params.tigress_settings.nlambda} \
@@ -791,11 +862,13 @@ if (params.tigress) {
          ${params.tigress_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.tigress_settings.cores} ${targets}
+      ${params.tigress_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.tigress_settings.preamble}
       mpirun -np ${params.tigress_settings.tasks} \
       tigress -o tigress_network.tsv -B ${params.tigress_settings.batchsize} \
          -n ${params.tigress_settings.nlambda} \
@@ -803,6 +876,7 @@ if (params.tigress) {
          ${params.tigress_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.tigress_settings.cores} ${targets}
+      ${params.tigress_settings.epilog}
       """ 
     }
   }
@@ -828,17 +902,21 @@ if (params.tigress) {
     if (targets == '')
     {
       """
+      ${params.tigress_settings.preamble}
       seidr import -F m -r -z -n ${params.tigress_settings.importname} \
                    -i ${tigress_net} -g ${genes} -o tigress_network.sf \
                    -O ${params.tigress_settings.importcores}
+      ${params.tigress_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.tigress_settings.preamble}
       seidr import -F el -r -z -n ${params.tigress_settings.importname} \
                    -i ${tigress_net} -g ${genes} -o tigress_network.sf \
                    -O ${params.tigress_settings.importcores}
+      ${params.tigress_settings.epilog}
       """
     }
   }
@@ -867,6 +945,7 @@ if (params.genie3) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.genie3_settings.preamble}
       srun \
       genie3 -o genie3_network.tsv -B ${params.genie3_settings.batchsize} \
          -p ${params.genie3_settings.min_prop} \
@@ -877,11 +956,13 @@ if (params.genie3) {
          ${params.genie3_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.genie3_settings.cores} ${targets}
+      ${params.genie3_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.genie3_settings.preamble}
       mpirun -np ${params.genie3_settings.tasks} \
       genie3 -o genie3_network.tsv -B ${params.genie3_settings.batchsize} \
          -p ${params.genie3_settings.min_prop} \
@@ -892,6 +973,7 @@ if (params.genie3) {
          ${params.genie3_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.genie3_settings.cores} ${targets}
+      ${params.genie3_settings.epilog}
       """
     }
   }
@@ -917,17 +999,21 @@ if (params.genie3) {
     if (targets == '')
     {
       """
+      ${params.genie3_settings.preamble}
       seidr import -F m -r -z -n ${params.genie3_settings.importname} \
                    -i ${genie3_net} -g ${genes} -o genie3_network.sf \
                    -O ${params.genie3_settings.importcores}
+      ${params.genie3_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.genie3_settings.preamble}
       seidr import -F el -r -z -n ${params.genie3_settings.importname} \
                    -i ${genie3_net} -g ${genes} -o genie3_network.sf \
                    -O ${params.genie3_settings.importcores}
+      ${params.genie3_settings.epilog}
       """
     }
   }
@@ -956,6 +1042,7 @@ if (params.plsnet) {
     if (params.executor == 'slurm')
     {
       """
+      ${params.plsnet_settings.preamble}
       srun \
       plsnet -o plsnet_network.tsv -B ${params.plsnet_settings.batchsize} \
          -c ${params.plsnet_settings.components} \
@@ -964,11 +1051,13 @@ if (params.plsnet) {
          ${params.plsnet_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.plsnet_settings.cores} ${targets}
+      ${params.plsnet_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.plsnet_settings.preamble}
       mpirun -np ${params.plsnet_settings.tasks} \
       plsnet -o plsnet_network.tsv -B ${params.plsnet_settings.batchsize} \
          -c ${params.plsnet_settings.components} \
@@ -977,6 +1066,7 @@ if (params.plsnet) {
          ${params.plsnet_settings.scale} \
          -i ${expr} -g ${genes} \
          -O ${params.plsnet_settings.cores} ${targets}
+      ${params.plsnet_settings.epilog}
       """
     }
   }
@@ -1002,17 +1092,21 @@ if (params.plsnet) {
     if (targets == '')
     {
       """
+      ${params.plsnet_settings.preamble}
       seidr import -F m -r -z -n ${params.plsnet_settings.importname} \
                    -i ${plsnet_net} -g ${genes} -o plsnet_network.sf \
                    -O ${params.plsnet_settings.importcores}
+      ${params.plsnet_settings.epilog}
       """
     }
     else
     {
       """
+      ${params.plsnet_settings.preamble}
       seidr import -F el -r -z -n ${params.plsnet_settings.importname} \
                    -i ${plsnet_net} -g ${genes} -o plsnet_network.sf \
                    -O ${params.plsnet_settings.importcores}
+      ${params.plsnet_settings.epilog}
       """
     }
   }
