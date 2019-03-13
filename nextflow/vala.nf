@@ -16,7 +16,7 @@ if (params.clr) {
     memory params.clr_settings.memory
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.clr_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.clr_settings.tasks + ' -A ' + params.slurm_account
     time params.clr_settings.ptime
 
     input:
@@ -92,7 +92,7 @@ if (params.aracne) {
     memory params.aracne_settings.memory
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.aracne_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.aracne_settings.tasks + ' -A ' + params.slurm_account
     time params.aracne_settings.ptime
 
     input:
@@ -169,7 +169,7 @@ if (params.anova) {
     memory params.anova_settings.memory
     publishDir params.out + '/networks/anova'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.anova_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.anova_settings.tasks + ' -A ' + params.slurm_account
     time params.anova_settings.ptime
 
     input:
@@ -233,7 +233,7 @@ if (params.pearson) {
     memory params.pearson_settings.memory
     publishDir params.out + '/networks/pearson'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.pearson_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.pearson_settings.tasks + ' -A ' + params.slurm_account
     time params.pearson_settings.ptime
 
     input:
@@ -297,7 +297,7 @@ if (params.spearman) {
     memory params.spearman_settings.memory
     publishDir params.out + '/networks/spearman'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.spearman_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.spearman_settings.tasks + ' -A ' + params.slurm_account
     time params.spearman_settings.ptime
 
     input:
@@ -361,7 +361,7 @@ if (params.elnet) {
     memory params.elnet_settings.memory
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.elnet_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.elnet_settings.tasks + ' -A ' + params.slurm_account
     time params.elnet_settings.ptime
 
     input:
@@ -452,7 +452,7 @@ if (params.svm) {
     memory params.svm_settings.memory
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.svm_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.svm_settings.tasks + ' -A ' + params.slurm_account
     time params.svm_settings.ptime
 
     input:
@@ -539,7 +539,7 @@ if (params.llr) {
     memory params.llr_settings.memory
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.llr_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.llr_settings.tasks + ' -A ' + params.slurm_account
     time params.llr_settings.ptime
 
     input:
@@ -626,7 +626,7 @@ if (params.pcor) {
     memory params.pcor_settings.memory
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.pcor_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.pcor_settings.tasks + ' -A ' + params.slurm_account
     time params.pcor_settings.ptime
 
     input:
@@ -688,7 +688,7 @@ if (params.narromi) {
     memory params.narromi_settings.memory
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.narromi_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.narromi_settings.tasks + ' -A ' + params.slurm_account
     time params.narromi_settings.ptime
 
     input:
@@ -769,7 +769,7 @@ if (params.tigress) {
     memory params.tigress_settings.memory
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.tigress_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.tigress_settings.tasks + ' -A ' + params.slurm_account
     time params.tigress_settings.ptime
 
     input:
@@ -852,7 +852,7 @@ if (params.genie3) {
     memory params.genie3_settings.memory
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.genie3_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.genie3_settings.tasks + ' -A ' + params.slurm_account
     time params.genie3_settings.ptime
 
     input:
@@ -941,7 +941,7 @@ if (params.plsnet) {
     memory params.plsnet_settings.memory
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
-    clusterOptions '-n ' + params.plsnet_settings.tasks + '-A ' + params.slurm_account
+    clusterOptions '-n ' + params.plsnet_settings.tasks + ' -A ' + params.slurm_account
     time params.plsnet_settings.ptime
 
     input:
