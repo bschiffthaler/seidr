@@ -250,64 +250,128 @@ class scriptGenerator(object):
     print('########## MAIN IMPORT CMD ###################################')
     print('##############################################################\n')
     
-    if re.search('aracne', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, aracne)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('clr', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, clr)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('elnet', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, elnet)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('genie3', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, genie3)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('llr', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, llr)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('mi_', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, mi)
-      for arg in gen.get():
-        self.cmd.append(arg)    
-    if re.search('narromi', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, narromi)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('svm', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, svm)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('pearson', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, pearson)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('spearman', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, spearman)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('pcor', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, pcor)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('plsnet', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, plsnet)
-      for arg in gen.get():
-        self.cmd.append(arg)
-    if re.search('tigress', args.input, flags=re.IGNORECASE):
-      gen = cmdGenerator(args, tigress)
-      for arg in gen.get():
-        self.cmd.append(arg)
+    if args.algorithm == 'auto':
+      if re.search('aracne', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, aracne)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('clr', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, clr)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('elnet', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, elnet)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('genie3', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, genie3)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('llr', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, llr)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('mi_', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, mi)
+        for arg in gen.get():
+          self.cmd.append(arg)    
+      elif re.search('narromi', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, narromi)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('svm', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, svm)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('pearson', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, pearson)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('spearman', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, spearman)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('pcor', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, pcor)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('plsnet', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, plsnet)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      elif re.search('tigress', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, tigress)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      else:
+        raise ValueError("Couldn't autodetect algorithm. Rerun with --algorithm.")
+    else:
+      ct = ['aracne', 'clr', 'elnet', 'genie3', 'llr', 'mi', 'narromi', 'svm',
+            'pearson', 'spearman', 'pcor', 'plsnet', 'tigress']
+      if not args.algorithm in ct:
+        raise ValueError("Only the following arguments are supported with --algorithm: " +
+                         ",".join(ct))
+      if args.algorithm == 'aracne':
+        gen = cmdGenerator(args, aracne)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'clr':
+        gen = cmdGenerator(args, clr)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'elnet':
+        gen = cmdGenerator(args, elnet)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'genie3':
+        gen = cmdGenerator(args, genie3)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'llr':
+        gen = cmdGenerator(args, llr)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'mi':
+        gen = cmdGenerator(args, mi)
+        for arg in gen.get():
+          self.cmd.append(arg)    
+      if args.algorithm == 'narromi':
+        gen = cmdGenerator(args, narromi)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'svm':
+        gen = cmdGenerator(args, svm)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'pearson':
+        gen = cmdGenerator(args, pearson)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'spearman':
+        gen = cmdGenerator(args, spearman)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'pcor':
+        gen = cmdGenerator(args, pcor)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'plsnet':
+        gen = cmdGenerator(args, plsnet)
+        for arg in gen.get():
+          self.cmd.append(arg)
+      if args.algorithm == 'tigress':
+        gen = cmdGenerator(args, tigress)
+        for arg in gen.get():
+          self.cmd.append(arg)
 
     self.cmd.append('-i')
     self.cmd.append(args.input)
 
     self.cmd.append('-g')
     self.cmd.append(args.genes)
+
+    self.cmd.append('-O')
+    self.cmd.append(str(args.ncpus))
 
     print(' '.join(self.cmd))    
 
@@ -342,8 +406,11 @@ if __name__ == "__main__":
   parser.add_argument("-f", "--format", type=str, 
                       help="Override format argument")
 
-  parser.add_argument('-e', '--exec', type=str, help='Seidr executable', 
+  parser.add_argument('-t', '--exec', type=str, help='Seidr executable', 
                       default=shutil.which('seidr'))
+
+  parser.add_argument('-m', '--algorithm', type=str, help='Algorithm set to use', 
+                      default='auto')
 
   parser.add_argument('-c', '--ncpus', type=int, help='Number of sorting threads', 
                       default=1)
