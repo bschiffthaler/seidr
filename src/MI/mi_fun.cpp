@@ -97,6 +97,8 @@ void seidr_mpi_mi::finalize()
 
   if (_use_existing_mi_mat)
   {
+    log << "Using MI from " << _mi_file << '\n';
+    log.log(LOG_INFO);
     std::ifstream mifs(_mi_file.c_str());
     std::string l;
     arma::uword i = 1;

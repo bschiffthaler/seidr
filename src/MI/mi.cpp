@@ -75,7 +75,7 @@ int main(int argc, char ** argv) {
   ("bins,b", po::value<unsigned long>(&param.num_bins)->default_value(0, "auto"),
    "Number of bins")
   ("mi-file,M",
-   po::value<std::string>(&param.mi_file)->default_value(""),
+   po::value<std::string>(&param.mi_file),
    "Save/load raw MI to/from this file")
   ("mode,m",
    po::value<std::string>(&param.mode)->default_value("RAW"),
@@ -132,7 +132,7 @@ int main(int argc, char ** argv) {
   param.outfile = to_absolute(param.outfile);
   param.infile = to_absolute(param.infile);
   param.gene_file = to_absolute(param.gene_file);
-  if (exists(param.mi_file))
+  if (vm.count("mi-file") && exists(param.mi_file))
   {
     param.use_existing = true;
     param.mi_file = to_absolute(param.mi_file);
@@ -162,23 +162,29 @@ int main(int argc, char ** argv) {
         assert_can_read(param.targets_file);
       }
 
-      if (exists(param.mi_file))
+      if (vm.count("mi-file") && exists(param.mi_file))
       {
         assert_can_read(param.mi_file);
       }
-      else if (vm.count("mi-out"))
+      else if (vm.count("mi-file"))
       {
         assert_dir_is_writeable(dirname(param.mi_file));
       }
 
 
       if (! param.force)
+      {
         assert_no_overwrite(param.outfile);
+      }
 
       if (! vm.count("tempdir"))
+      {
         param.tempdir = tempfile(dirname(param.outfile));
+      }
       else
+      {
         param.tempdir = tempfile(to_absolute(param.tempdir));
+      }
       if (dir_exists(param.tempdir))
       {
         if (param.force)
@@ -255,17 +261,25 @@ int main(int argc, char ** argv) {
     }
 
     if (param.mode == "CLR")
+    {
       param.m = 0;
+    }
     else if (param.mode == "ARACNE")
+    {
       param.m = 1;
+    }
     else if (param.mode == "RAW")
+    {
       param.m = 2;
+    }
 
     std::vector<std::string> genes;
     genes = read_genes(param.gene_file);
     std::vector<std::string> targets;
     if (vm.count("targets"))
+    {
       targets = read_genes(param.targets_file);
+    }
     mi_full(gene_matrix, genes, targets, param);
   }
   catch (const std::runtime_error& e)

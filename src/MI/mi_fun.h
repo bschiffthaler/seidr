@@ -47,7 +47,7 @@ struct seidr_mi_param_t
   bool force = false;
   std::string targets_file;
   std::string gene_file;
-  bool use_existing;
+  bool use_existing = false;
   unsigned verbosity;
   char m = 0;
   std::string tempdir;
