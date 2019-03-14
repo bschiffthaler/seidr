@@ -229,6 +229,8 @@ void merge_files(const std::string& outfile,
         ofs << l << '\n';
       }
     }
+    ofs.close();
+    ifs.close();
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
