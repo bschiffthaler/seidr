@@ -145,9 +145,9 @@ void merge_files(const std::string& outfile,
                  std::string tempdir, bool targeted,
                  int id, const std::vector<std::string>& genes)
 {
-  result_file_map_t rmap;
   if (id == 0)
   {
+    result_file_map_t rmap;
     seidr_mpi_logger log("merge_files@" + mpi_get_host());
     log << "Looking for files to merge...\n";
     log.send(LOG_INFO);
@@ -228,6 +228,11 @@ void merge_files(const std::string& outfile,
       {
         ofs << l << '\n';
       }
+    }
+    for (auto it = fs::directory_iterator(p_tmp);
+         it != fs::directory_iterator(); it++)
+    {
+      remove(it->path().string());
     }
     remove(tempdir, true);
   }
