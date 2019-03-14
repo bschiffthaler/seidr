@@ -195,7 +195,12 @@ int main(int argc, char ** argv) {
   {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
                          "--threads");
-    omp_set_num_threads(param.nthreads);
+
+    omp_set_num_threads(1);
+    log << "GLPK is not thread safe. Until it is replaced in seidr, -O is "
+        << "forced to be 1. Consider setting your desired number of worker "
+        << "threads to be MPI tasks (at the expense of memory usage).\n";
+    log.log(LOG_WARN);
     gene_matrix.load(param.infile);
     genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
     verify_matrix(gene_matrix, genes);

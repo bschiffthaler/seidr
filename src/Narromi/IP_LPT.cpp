@@ -25,6 +25,7 @@
 // External
 #include <armadillo>
 #include <glpk.h>
+#include <omp.h>
 
 // Solve linear programming optimisation
 arma::mat lp_ipt(const arma::mat& X, 
