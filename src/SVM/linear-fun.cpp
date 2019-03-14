@@ -105,15 +105,13 @@ void svm(const arma::mat& geneMatrix,
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
   std::string tmpfile = tempfile(tmpdir);
-  
+
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
   set_print_string_function(print_null);
   if (! ofs)
   {
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
-
-  arma::vec ret(geneMatrix.n_cols);
 
   std::uniform_int_distribution<>
   sample_gen(min_sample_size, max_sample_size);
@@ -123,14 +121,7 @@ void svm(const arma::mat& geneMatrix,
 
   seidr_score_t fensemble_size = 0;
 
-  try
-  {
-    fensemble_size = boost::numeric_cast<seidr_score_t>(ensemble_size);
-  }
-  catch (boost::numeric::bad_numeric_cast& e)
-  {
-    throw std::runtime_error(e.what());
-  }
+  fensemble_size = boost::numeric_cast<seidr_score_t>(ensemble_size);
 
   arma::uvec samples(geneMatrix.n_rows);
   for (arma::uword i = 0; i < geneMatrix.n_rows; i++)
@@ -141,6 +132,7 @@ void svm(const arma::mat& geneMatrix,
   #pragma omp parallel for
   for (uint64_t i = 0; i < uvec.size(); i++)
   {
+    arma::vec ret(geneMatrix.n_cols);
     auto& target = uvec[i];
     #pragma omp critical
     {
@@ -328,12 +320,11 @@ void svm(const arma::mat& geneMatrix,
       }
     }
   }
-  destroy_param(&param);
   ofs.close();
 }
 
 void svm_full(const arma::mat& GM,
-              const std::vector<std::string>& genes, 
+              const std::vector<std::string>& genes,
               seidr_llr_param_t& param) {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
@@ -349,7 +340,7 @@ void svm_full(const arma::mat& GM,
   }
 
   seidr_mpi_svm mpi(param.bs, GM, uvec, genes, param.tempdir,
-                       param.outfile);
+                    param.outfile);
   mpi.set_param(param.svparam);
   mpi.set_min_sample_size(param.min_sample_size);
   mpi.set_max_sample_size(param.max_sample_size);
@@ -360,6 +351,7 @@ void svm_full(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -390,7 +382,7 @@ void svm_partial(const arma::mat& GM,
   std::vector<uint64_t> positions;
   for (uint64_t i = 0; i < targets.size(); i++) {
     uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
-    if (pos >= genes.size()) 
+    if (pos >= genes.size())
     {
       log << "Gene " << targets[i]
           << " was not found in the expression set "
@@ -399,15 +391,15 @@ void svm_partial(const arma::mat& GM,
           << "its column names (gene file) contain an entry for "
           << targets[i] << ".\n";
       log.log(LOG_WARN);
-    } 
-    else 
+    }
+    else
     {
       positions.push_back(pos);
     }
   }
 
   seidr_mpi_svm mpi(param.bs, GM, positions, genes, param.tempdir,
-                       param.outfile);
+                    param.outfile);
   mpi.set_param(param.svparam);
   mpi.set_min_sample_size(param.min_sample_size);
   mpi.set_max_sample_size(param.max_sample_size);
@@ -418,6 +410,7 @@ void svm_partial(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
   {

@@ -112,8 +112,6 @@ void svm(const arma::mat& geneMatrix,
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 
-  arma::vec ret(geneMatrix.n_cols);
-
   std::uniform_int_distribution<>
   sample_gen(min_sample_size, max_sample_size);
   std::uniform_int_distribution<>
@@ -132,6 +130,7 @@ void svm(const arma::mat& geneMatrix,
   #pragma omp parallel for
   for (uint64_t i = 0; i < uvec.size(); i++)
   {
+    arma::vec ret(geneMatrix.n_cols);
     auto& target = uvec[i];
     #pragma omp critical
     {
@@ -316,7 +315,6 @@ void svm(const arma::mat& geneMatrix,
       }
     }
   }
-  svm_destroy_param(&param);
   ofs.close();
 }
 
@@ -348,6 +346,7 @@ void svm_full(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  svm_destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -406,6 +405,7 @@ void svm_partial(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  svm_destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
   {

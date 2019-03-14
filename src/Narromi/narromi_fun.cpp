@@ -299,7 +299,8 @@ void narromi_thread(const arma::mat& gene_matrix,
   }
 
   #pragma omp parallel for
-  for (size_t x = 0; x < ind.size(); x++) {
+  for (size_t x = 0; x < ind.size(); x++) 
+  {
     start = std::clock();
     arma::uword i = ind[x];
     #pragma omp critical

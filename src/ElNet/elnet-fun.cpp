@@ -117,8 +117,6 @@ void el_ensemble(const arma::mat& geneMatrix,
   std::random_device rd;
   std::mt19937 gen(rd());
 
-  arma::vec ret(geneMatrix.n_cols);
-
   std::uniform_int_distribution<> sample_gen(min_sample_size,
       max_sample_size);
   std::uniform_int_distribution<> predictor_gen(predictor_sample_size_min,
@@ -130,15 +128,8 @@ void el_ensemble(const arma::mat& geneMatrix,
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
-  try
-  {
-    fensemble_size = boost::numeric_cast<seidr_score_t>(ensemble_size);
-  }
-  catch (boost::numeric::bad_numeric_cast& e)
-  {
-    throw std::runtime_error(e.what());
-  }
 
+  fensemble_size = boost::numeric_cast<seidr_score_t>(ensemble_size);
 
   arma::uvec samples(geneMatrix.n_rows);
   for (arma::uword i = 0; i < geneMatrix.n_rows; i++)
@@ -149,6 +140,7 @@ void el_ensemble(const arma::mat& geneMatrix,
   #pragma omp parallel for
   for (uint64_t i = 0; i < uvec.size(); i++)  // NOLINT 
   {
+    arma::vec ret(geneMatrix.n_cols);
     seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
     const arma::uword& target = uvec[i];
     #pragma omp critical

@@ -122,7 +122,6 @@ std::vector<arma::uvec> shuffle(unsigned int n)
 
 }
 
-
 void tiglm(const arma::mat& geneMatrix,
            const std::vector<std::string>& genes,
            const std::vector<arma::uword>& pred,
@@ -148,7 +147,8 @@ void tiglm(const arma::mat& geneMatrix,
   }
 
   #pragma omp parallel for
-  for (uint64_t i = 0; i < pred.size(); i++) {
+  for (uint64_t i = 0; i < pred.size(); i++) 
+  {
     #pragma omp critical
     {
       log << "Gene: " << pred[i] << '\n';
