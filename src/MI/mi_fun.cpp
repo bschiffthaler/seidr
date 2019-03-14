@@ -87,283 +87,280 @@ void seidr_mpi_mi::entrypoint()
 void seidr_mpi_mi::finalize()
 {
   remove(_queue_file);
-  if (_id == 0)
+  arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
+  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  std::unordered_map<std::string, arma::uword> gene_map;
+  arma::uword ctr = 0;
+  for (auto g : _genes)
   {
-    arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
-    seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
-    std::unordered_map<std::string, arma::uword> gene_map;
-    arma::uword ctr = 0;
-    for (auto g : _genes)
+    gene_map[g] = ctr++;
+  }
+
+  if (_use_existing_mi_mat)
+  {
+    std::ifstream mifs(_mi_file.c_str());
+    std::string l;
+    arma::uword i = 1;
+    while (std::getline(mifs, l))
     {
-      gene_map[g] = ctr++;
+      arma::uword j = 0;
+      std::string f;
+      std::stringstream ss(l);
+      while (std::getline(ss, f, '\t'))
+      {
+        double val = std::stod(f);
+        mi_mat(i, j) = val;
+        mi_mat(j, i) = val;
+        j++;
+      }
+      i++;
+    }
+  }
+  else
+  {
+    log << "Merging tmp files from " << _tempdir << '\n';
+    log.log(LOG_INFO);
+
+    std::vector<fs::path> files;
+    fs::path p_tmp(_tempdir);
+    for (auto it = fs::directory_iterator(p_tmp);
+         it != fs::directory_iterator(); it++)
+    {
+      if ( fs::is_regular_file( it->path() ) )
+        files.push_back( (*it).path() );
     }
 
-    if (_use_existing_mi_mat)
+    for (fs::path& p : files)
     {
-      std::ifstream mifs(_mi_file.c_str());
+      std::ifstream ifs(p.string().c_str());
       std::string l;
-      arma::uword i = 1;
-      while (std::getline(mifs, l))
+      while (std::getline(ifs, l))
       {
-        arma::uword j = 0;
-        std::string f;
+        size_t row = std::stoul(l);
+        std::getline(ifs, l);
         std::stringstream ss(l);
-        while (std::getline(ss, f, '\t'))
+        std::string field;
+        size_t col = 0;
+        while (std::getline(ss, field, '\t'))
         {
-          double val = std::stod(f);
-          mi_mat(i, j) = val;
-          mi_mat(j, i) = val;
-          j++;
+          mi_mat(row, col) = std::stod(field);
+          mi_mat(col, row) = mi_mat(row, col);
+          col++;
         }
-        i++;
+      }
+      log << "Merged " << p.string() << '\n';
+      log.log(LOG_INFO);
+    }
+
+    log << "Merged all files.\n";
+    log.send(LOG_INFO);
+  }
+
+  std::ofstream ofs(_outfile);
+
+  if (_mi_file != "" && (! _use_existing_mi_mat))
+  {
+    std::ofstream mofs;
+    mofs.open(_mi_file.c_str());
+    log << "Outputting raw MI\n";
+    log.send(LOG_INFO);
+    for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+    {
+      for (arma::uword j = 0; j < i; j++)
+      {
+        mofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
+      }
+    }
+    mofs.close();
+  }
+
+  if (_mode == 2)
+  {
+    if (_targets.size() != 0)
+    {
+      for (auto g : _targets)
+      {
+        arma::uword i;
+        try
+        {
+          i = gene_map.at(g);
+        }
+        catch (std::exception& e)
+        {
+          log << e.what() << '\n';
+          log << "Target gene " << g << " is not in expression table\n";
+          log.send(LOG_ERR);
+        }
+        for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+        {
+          if (i == j) continue;
+          ofs << _genes[i] << '\t'
+              << _genes[j] << '\t'
+              << mi_mat(i, j) << '\n';
+        }
       }
     }
     else
     {
-      log << "Merging tmp files from " << _tempdir << '\n';
-      log.log(LOG_INFO);
-
-      std::vector<fs::path> files;
-      fs::path p_tmp(_tempdir);
-      for (auto it = fs::directory_iterator(p_tmp);
-           it != fs::directory_iterator(); it++)
-      {
-        if ( fs::is_regular_file( it->path() ) )
-          files.push_back( (*it).path() );
-      }
-
-      for (fs::path& p : files)
-      {
-        std::ifstream ifs(p.string().c_str());
-        std::string l;
-        while (std::getline(ifs, l))
-        {
-          size_t row = std::stoul(l);
-          std::getline(ifs, l);
-          std::stringstream ss(l);
-          std::string field;
-          size_t col = 0;
-          while (std::getline(ss, field, '\t'))
-          {
-            mi_mat(row, col) = std::stod(field);
-            mi_mat(col, row) = mi_mat(row, col);
-            col++;
-          }
-        }
-        log << "Merged " << p.string() << '\n';
-        log.log(LOG_INFO);
-      }
-
-      log << "Merged all files.\n";
-      log.send(LOG_INFO);
-    }
-
-    std::ofstream ofs(_outfile);
-
-    if (_mi_file != "" && (! _use_existing_mi_mat))
-    {
-      std::ofstream mofs;
-      mofs.open(_mi_file.c_str());
-      log << "Outputting raw MI\n";
-      log.send(LOG_INFO);
       for (arma::uword i = 1; i < mi_mat.n_cols; i++)
       {
         for (arma::uword j = 0; j < i; j++)
         {
-          mofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
-        }
-      }
-      mofs.close();
-    }
-
-    if (_mode == 2)
-    {
-      if (_targets.size() != 0)
-      {
-        for (auto g : _targets)
-        {
-          arma::uword i;
-          try
-          {
-            i = gene_map.at(g);
-          }
-          catch (std::exception& e)
-          {
-            log << e.what() << '\n';
-            log << "Target gene " << g << " is not in expression table\n";
-            log.send(LOG_ERR);
-          }
-          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
-          {
-            if (i == j) continue;
-            ofs << _genes[i] << '\t'
-                << _genes[j] << '\t'
-                << mi_mat(i, j) << '\n';
-          }
-        }
-      }
-      else
-      {
-        for (arma::uword i = 1; i < mi_mat.n_cols; i++)
-        {
-          for (arma::uword j = 0; j < i; j++)
-          {
-            ofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
-          }
+          ofs << mi_mat(i, j) << (j == i - 1 ? '\n' : '\t');
         }
       }
     }
-    if (_mode == 0)
+  }
+  if (_mode == 0)
+  {
+    log << "Computing CLR\n";
+    log.log(LOG_INFO);
+
+    arma::vec m(mi_mat.n_cols, arma::fill::zeros);
+    arma::vec s(mi_mat.n_cols, arma::fill::zeros);
+
+    for (size_t i = 0; i < mi_mat.n_cols; i++)
     {
-      log << "Computing CLR\n";
-      log.log(LOG_INFO);
-
-      arma::vec m(mi_mat.n_cols, arma::fill::zeros);
-      arma::vec s(mi_mat.n_cols, arma::fill::zeros);
-
-      for (size_t i = 0; i < mi_mat.n_cols; i++)
-      {
-        arma::vec x = mi_mat.col(i);
-        x = arma::abs(x);
-        m(i) = arma::mean(x);
-        s(i) = arma::stddev(x);
-      }
-
-      if (_targets.size() != 0)
-      {
-        for (auto g : _targets)
-        {
-          arma::uword i;
-          try
-          {
-            i = gene_map.at(g);
-          }
-          catch (std::exception& e)
-          {
-            log << e.what() << '\n';
-            log << "Target gene " << g << " is not in expression table\n";
-            log.send(LOG_ERR);
-          }
-          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
-          {
-            if (i == j) continue;
-            double mi = mi_mat(i, j);
-            mi = mi < 0 ? mi * -1 : mi;
-            double a = (mi - m(i)) / s(i);
-            double b = (mi - m(j)) / s(j);
-            a = a < 0 ? 0 : a;
-            b = b < 0 ? 0 : b;
-            double c = sqrt(a * a + b * b);
-            c = c < 0 ? 0 : c;
-            ofs
-                << _genes[i] << '\t'
-                << _genes[j] << '\t'
-                << c << '\n';
-          }
-        }
-      }
-      else
-      {
-        for (size_t i = 1; i < mi_mat.n_cols; i++)
-        {
-          for (size_t j = 0; j < i; j++)
-          {
-            double mi = mi_mat(i, j);
-            mi = mi < 0 ? mi * -1 : mi;
-            double a = (mi - m(i)) / s(i);
-            double b = (mi - m(j)) / s(j);
-            a = a < 0 ? 0 : a;
-            b = b < 0 ? 0 : b;
-            double c = sqrt(a * a + b * b);
-            c = c < 0 ? 0 : c;
-            ofs << c;
-            ofs << (j == i - 1 ? '\n' : '\t');
-          }
-        }
-      }
+      arma::vec x = mi_mat.col(i);
+      x = arma::abs(x);
+      m(i) = arma::mean(x);
+      s(i) = arma::stddev(x);
     }
-    else if (_mode == 1)
+
+    if (_targets.size() != 0)
     {
-      log << "Applying DPI to data\n";
-      log.send(LOG_INFO);
-      arma::imat torm(mi_mat.n_cols, mi_mat.n_cols, arma::fill::zeros);
-      for (arma::uword i = 0; i < mi_mat.n_rows; i++)
+      for (auto g : _targets)
       {
-        std::vector<aranode> dc;
+        arma::uword i;
+        try
+        {
+          i = gene_map.at(g);
+        }
+        catch (std::exception& e)
+        {
+          log << e.what() << '\n';
+          log << "Target gene " << g << " is not in expression table\n";
+          log.send(LOG_ERR);
+        }
         for (arma::uword j = 0; j < mi_mat.n_cols; j++)
         {
-          if (i != j)
-            dc.push_back(aranode(j, mi_mat(i, j)));
-        }
-        std::sort(dc.begin(), dc.end(), sortDesc);
-        for (arma::uword j = 0; j < dc.size(); j++)
-        {
-          double ab = dc[j].v;
-          arma::uword bi = dc[j].i;
-          for (arma::uword k = 0; k < j; k++)
-          {
-            double ac = dc[k].v;
-            if (ab >= ac)
-              break;
-            arma::uword ci = dc[k].i;
-            double bc = mi_mat(bi, ci);
-            if (ab < bc)
-            {
-              torm(i, bi) = 1;
-              torm(bi, i) = 1;
-              break;
-            }
-          }
-        }
-        if (i > 0 && i % 100 == 0)
-        {
-          log << "Processed " << i << '/' << mi_mat.n_rows << '\n';
-          log.send(LOG_INFO);
-        }
-      }
-      if (_targets.size() != 0)
-      {
-        for (auto g : _targets)
-        {
-          arma::uword i;
-          try
-          {
-            i = gene_map.at(g);
-          }
-          catch (std::exception& e)
-          {
-            log << e.what() << '\n';
-            log << "Target gene " << g << " is not in expression table\n";
-            log.send(LOG_ERR);
-          }
-          for (arma::uword j = 0; j < mi_mat.n_cols; j++)
-          {
-            if (i == j) continue;
-            double r = (torm(i, j) ? 0 : mi_mat(i, j));
-            ofs
-                << _genes[i] << '\t'
-                << _genes[j] << '\t'
-                << r << '\n';
-          }
-        }
-      }
-      else
-      {
-        for (arma::uword i = 1; i < mi_mat.n_cols; i++)
-        {
-          for (arma::uword j = 0; j < i; j++)
-          {
-            double r = (torm(i, j) ? 0 : mi_mat(i, j));
-            ofs << r
-                << (j == i - 1 ? '\n' : '\t');
-          }
+          if (i == j) continue;
+          double mi = mi_mat(i, j);
+          mi = mi < 0 ? mi * -1 : mi;
+          double a = (mi - m(i)) / s(i);
+          double b = (mi - m(j)) / s(j);
+          a = a < 0 ? 0 : a;
+          b = b < 0 ? 0 : b;
+          double c = sqrt(a * a + b * b);
+          c = c < 0 ? 0 : c;
+          ofs
+              << _genes[i] << '\t'
+              << _genes[j] << '\t'
+              << c << '\n';
         }
       }
     }
-    log << "Finished\n";
-    log.log(LOG_INFO);
-    //fs::remove_all(_tempdir);
+    else
+    {
+      for (size_t i = 1; i < mi_mat.n_cols; i++)
+      {
+        for (size_t j = 0; j < i; j++)
+        {
+          double mi = mi_mat(i, j);
+          mi = mi < 0 ? mi * -1 : mi;
+          double a = (mi - m(i)) / s(i);
+          double b = (mi - m(j)) / s(j);
+          a = a < 0 ? 0 : a;
+          b = b < 0 ? 0 : b;
+          double c = sqrt(a * a + b * b);
+          c = c < 0 ? 0 : c;
+          ofs << c;
+          ofs << (j == i - 1 ? '\n' : '\t');
+        }
+      }
+    }
   }
+  else if (_mode == 1)
+  {
+    log << "Applying DPI to data\n";
+    log.send(LOG_INFO);
+    arma::imat torm(mi_mat.n_cols, mi_mat.n_cols, arma::fill::zeros);
+    for (arma::uword i = 0; i < mi_mat.n_rows; i++)
+    {
+      std::vector<aranode> dc;
+      for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+      {
+        if (i != j)
+          dc.push_back(aranode(j, mi_mat(i, j)));
+      }
+      std::sort(dc.begin(), dc.end(), sortDesc);
+      for (arma::uword j = 0; j < dc.size(); j++)
+      {
+        double ab = dc[j].v;
+        arma::uword bi = dc[j].i;
+        for (arma::uword k = 0; k < j; k++)
+        {
+          double ac = dc[k].v;
+          if (ab >= ac)
+            break;
+          arma::uword ci = dc[k].i;
+          double bc = mi_mat(bi, ci);
+          if (ab < bc)
+          {
+            torm(i, bi) = 1;
+            torm(bi, i) = 1;
+            break;
+          }
+        }
+      }
+      if (i > 0 && i % 100 == 0)
+      {
+        log << "Processed " << i << '/' << mi_mat.n_rows << '\n';
+        log.send(LOG_INFO);
+      }
+    }
+    if (_targets.size() != 0)
+    {
+      for (auto g : _targets)
+      {
+        arma::uword i;
+        try
+        {
+          i = gene_map.at(g);
+        }
+        catch (std::exception& e)
+        {
+          log << e.what() << '\n';
+          log << "Target gene " << g << " is not in expression table\n";
+          log.send(LOG_ERR);
+        }
+        for (arma::uword j = 0; j < mi_mat.n_cols; j++)
+        {
+          if (i == j) continue;
+          double r = (torm(i, j) ? 0 : mi_mat(i, j));
+          ofs
+              << _genes[i] << '\t'
+              << _genes[j] << '\t'
+              << r << '\n';
+        }
+      }
+    }
+    else
+    {
+      for (arma::uword i = 1; i < mi_mat.n_cols; i++)
+      {
+        for (arma::uword j = 0; j < i; j++)
+        {
+          double r = (torm(i, j) ? 0 : mi_mat(i, j));
+          ofs << r
+              << (j == i - 1 ? '\n' : '\t');
+        }
+      }
+    }
+  }
+  log << "Finished\n";
+  log.log(LOG_INFO);
+  fs::remove_all(_tempdir);
 }
 
 
@@ -732,6 +729,7 @@ void mi_full(const arma::mat & gm,
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host()));
     }
   }
 
