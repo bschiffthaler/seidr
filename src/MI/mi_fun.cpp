@@ -86,7 +86,6 @@ void seidr_mpi_mi::entrypoint()
 
 void seidr_mpi_mi::finalize()
 {
-  remove(_queue_file);
   arma::mat mi_mat(_data.n_cols, _data.n_cols, arma::fill::zeros);
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   std::unordered_map<std::string, arma::uword> gene_map;
@@ -123,11 +122,22 @@ void seidr_mpi_mi::finalize()
 
     std::vector<fs::path> files;
     fs::path p_tmp(_tempdir);
+
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
-      if ( fs::is_regular_file( it->path() ) )
+      std::string pstring = it->path().string();
+      if (pstring.find(".") != std::string::npos)
+      {
+        log << "Ignoring unexpected file: "
+            << pstring << '\n';
+        log.log(LOG_WARN);
+        while (check_logs(LOG_NAME"@" + mpi_get_host()));
+      }
+      else if ( fs::is_regular_file( it->path() ) )
+      {
         files.push_back( (*it).path() );
+      }
     }
 
     for (fs::path& p : files)
@@ -136,7 +146,15 @@ void seidr_mpi_mi::finalize()
       std::string l;
       while (std::getline(ifs, l))
       {
-        size_t row = std::stoul(l);
+        size_t row;
+        try
+        {
+          row = std::stoul(l);
+        }
+        catch (std::exception& e)
+        {
+          throw e;
+        }
         std::getline(ifs, l);
         std::stringstream ss(l);
         std::string field;
@@ -720,7 +738,7 @@ void mi_full(const arma::mat & gm,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)

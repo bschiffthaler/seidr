@@ -79,6 +79,18 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
   get_more_work();
 }
 
+void seidr_mpi_omp::remove_queue_file()
+{
+  // Absolutely all MPI tasks need to finish before this point
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  MPI_File_close(&_queue_fh);
+  MPI_Barrier(MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  if (_id == 0)
+  {
+    remove(_queue_file.c_str());
+  }
+}
+
 void seidr_mpi_omp::get_more_work()
 {
   _my_indices.resize(_bsize);

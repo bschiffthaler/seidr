@@ -48,6 +48,7 @@ public:
   int rank() {return _id;}
   bool check_logs(const std::string& bn);
   void get_more_work();
+  void remove_queue_file();
 protected:
   //MPI constants
   int _id;
