@@ -76,7 +76,6 @@ void seidr_mpi_plsnet::entrypoint()
 
 void seidr_mpi_plsnet::finalize()
 {
-  remove(_queue_file);
   merge_files(_outfile, _tempdir,
               _targeted, _id, _genes);
 }
@@ -190,7 +189,7 @@ void plsnet_full(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)
@@ -247,7 +246,7 @@ void plsnet_partial(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)

@@ -86,7 +86,6 @@ void seidr_mpi_svm::entrypoint()
 
 void seidr_mpi_svm::finalize()
 {
-  remove(_queue_file);
   merge_files(_outfile, _tempdir,
               _targeted, _id, _genes);
 }
@@ -361,7 +360,7 @@ void svm_full(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)
@@ -419,7 +418,7 @@ void svm_partial(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)

@@ -81,7 +81,6 @@ void seidr_mpi_genie3::entrypoint()
 
 void seidr_mpi_genie3::finalize()
 {
-  remove(_queue_file);
   merge_files(_outfile, _tempdir, _targeted, _id, _genes);
 }
 
@@ -276,7 +275,7 @@ void genie3_full(const arma::mat& gm,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)
@@ -334,7 +333,7 @@ void genie3_partial(const arma::mat& gm,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)

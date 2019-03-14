@@ -156,7 +156,14 @@ void merge_files(const std::string& outfile,
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
-      if ( fs::is_regular_file( it->path() ) )
+      std::string pstring = it->path().string();
+      if (pstring.find(".") != std::string::npos)
+      {
+        log << "Ignoring unexpected file: "
+            << pstring << '\n';
+        log.log(LOG_WARN);
+      }
+      else if ( fs::is_regular_file( it->path() ) )
       {
         files.push_back( (*it).path() );
       }

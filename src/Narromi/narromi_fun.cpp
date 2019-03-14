@@ -86,7 +86,6 @@ void seidr_mpi_narromi::entrypoint()
 
 void seidr_mpi_narromi::finalize()
 {
-  remove(_queue_file);
   merge_files(_outfile, _tempdir,
               _targeted, _id, _genes);
 }
@@ -206,7 +205,7 @@ void full_narromi(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)
@@ -265,7 +264,7 @@ void partial_narromi(const arma::mat& GM,
   mpi.entrypoint();
 
   MPI_Barrier(MPI_COMM_WORLD); // NOLINT
-
+  mpi.remove_queue_file();
   #pragma omp critical
   {
     if (mpi.rank() == 0)
