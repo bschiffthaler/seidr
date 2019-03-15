@@ -147,7 +147,7 @@ void tiglm(const arma::mat& geneMatrix,
   }
 
   #pragma omp parallel for
-  for (uint64_t i = 0; i < pred.size(); i++) 
+  for (uint64_t i = 0; i < pred.size(); i++)
   {
     #pragma omp critical
     {
@@ -233,12 +233,11 @@ void tiglm(const arma::mat& geneMatrix,
 
     cum = arma::cumsum(cum.t()) / (boot * 2) / d_nsteps;
 
-    arma::uword xi = pred[i];
-    ofs << xi << '\n';
-    arma::rowvec fin = cum.row(nsteps - 1);
-
     #pragma omp critical
     {
+      arma::uword xi = pred[i];
+      ofs << xi << '\n';
+      arma::rowvec fin = cum.row(nsteps - 1);
       for (arma::uword s = 0; s < indices.n_elem; s++) {
         if (s == xi && s < (indices.n_elem - 1))
         {
