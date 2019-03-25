@@ -182,6 +182,7 @@ int resolve(int argc, char * argv[])
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
+    assert_arg_constraint<std::string>({"infomap"}, param.format);
   }
   catch (std::runtime_error& except)
   {

@@ -539,7 +539,8 @@ int aggregate(int argc, char * argv[])
       assert_can_read(param.infs[i]);
       log(LOG_INFO) << "Have file " << param.infs[i] << '\n';
     }
-
+    assert_arg_constraint<std::string>({"top1", "top2", "borda", "irp"},
+                                       param.method);
   }
   catch (std::runtime_error& except)
   {

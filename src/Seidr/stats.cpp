@@ -134,6 +134,11 @@ int stats(int argc, char ** argv)
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
+    for (auto metric : tokenize_delim(param.metrics, ","))
+    {
+      assert_arg_constraint<std::string>({"PR", "CLO", "BTW", "STR", "EV",
+                                         "KTZ", "SEC", "EBC"}, param.metrics);
+    }
   }
   catch (std::runtime_error& except)
   {

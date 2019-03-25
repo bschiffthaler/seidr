@@ -306,7 +306,7 @@ int import(int argc, char * argv[]) {
   ("infile,i", po::value<std::string>(&param.el_file)->required(),
    "Input file name ['-' for stdin]")
   ("format,F", po::value<std::string>(&param.format)->required(),
-   "The input file format [el, lm, m ,ara]")
+   "The input file format [el, lm, m, ara]")
   ("genes,g", po::value<std::string>(&param.gene_file)->required(),
    "Gene file for input")
   ("outfile,o", po::value<std::string>(&param.out_file)->required(),
@@ -369,7 +369,7 @@ int import(int argc, char * argv[]) {
       assert_no_overwrite(param.out_file);
     }
     assert_dir_is_writeable(dirname(param.out_file));
-
+    assert_arg_constraint<std::string>({"el", "lm", "m", "ara"}, param.format);
   }
   catch (std::exception& except)
   {

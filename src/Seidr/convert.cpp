@@ -378,6 +378,12 @@ int convert(int argc, char ** argv)
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
+    assert_arg_constraint<std::string>({"edge-list", "sym-mat", "low-tri",
+                                       "up-tri", "low-tri-diag", "up-tri-diag",
+                                       "aracne"}, param.in_format);
+    assert_arg_constraint<std::string>({"edge-list", "sym-mat", "low-tri",
+                                       "up-tri", "low-tri-diag", "up-tri-diag",
+                                       "aracne"}, param.out_format);
   }
   catch (std::exception& e)
   {
