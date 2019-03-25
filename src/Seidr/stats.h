@@ -24,7 +24,7 @@ struct seidr_stats_param_t
   std::string infile;
   uint32_t tpos;
   bool trank;
-  bool exact;
+  bool exact = false;
   uint32_t nsamples;
   std::string metrics;
   std::string tempdir;

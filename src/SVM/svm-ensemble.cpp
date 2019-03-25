@@ -122,7 +122,7 @@ int main(int argc, char ** argv) {
    "SVM type [NU_SVR, EPSILON_SVR]")
   ("kernel,k",
    po::value<std::string>(&param.kernel)->default_value("LINEAR"),
-   "SVM kernel [LINEAR, POLY, RBF SIGMOID]")
+   "SVM kernel [LINEAR, POLY, RBF, SIGMOID]")
   ("degree,d",
    po::value<int>(&param.svparam.degree)->default_value(3),
    "Polynomial degree (for POLY kernel)")
@@ -233,7 +233,10 @@ int main(int argc, char ** argv) {
       {
         create_directory(param.tempdir);
       }
-
+      assert_arg_constraint<std::string>({"NU_SVR", "EPSILON_SVR"},
+                                         param.svm_type);
+      assert_arg_constraint<std::string>({"LINEAR", "POLY", "RBF", "SIGMOID"},
+                                         param.kernel);
       assert_dir_is_writeable(param.tempdir);
       mpi_sync_tempdir(&param.tempdir);
     }

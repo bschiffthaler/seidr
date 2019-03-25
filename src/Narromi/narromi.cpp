@@ -175,7 +175,7 @@ int main(int argc, char ** argv) {
       {
         create_directory(param.tempdir);
       }
-
+      assert_arg_constraint<std::string>({"simplex", "interior-point"}, param.al);
       assert_dir_is_writeable(param.tempdir);
       mpi_sync_tempdir(&param.tempdir);
     }

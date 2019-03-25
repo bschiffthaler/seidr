@@ -26,6 +26,8 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <algorithm>
+#include <sstream>
 
 #include <boost/tokenizer.hpp>
 #include <boost/program_options.hpp>
@@ -135,3 +137,25 @@ std::string str_join(const std::vector<std::string>& source,
                      const std::string& delim);
 
 void make_tpos(uint32_t& tpos, const SeidrFileHeader& h);
+
+template<typename T>
+void assert_arg_constraint(std::vector<T> allowed, T arg)
+{
+  auto hit = std::find(allowed.begin(), allowed.end(), arg);
+  if (hit == allowed.end())
+  {
+    std::stringstream ss;
+    ss << "Argument '" << arg << "' is not allowed. Allowed values are ";
+    ss << '[';
+    for (uint64_t i = 0; i < allowed.size(); i++)
+    {
+      ss << "'" << allowed[i] << "'";
+      if (i < (allowed.size() - 1))
+      {
+        ss << ',';
+      }
+    }
+    ss << ']';
+    throw std::runtime_error(ss.str());
+  }
+}

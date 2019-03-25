@@ -215,7 +215,9 @@ int main(int argc, char ** argv) {
       {
         create_directory(param.tempdir);
       }
-
+      assert_arg_constraint<std::string>({"L2R_L2LOSS_SVR",
+                                         "L2R_L2LOSS_SVR_DUAL",
+                                         "L2R_L1LOSS_SVR_DUAL"}, param.solver);
       assert_dir_is_writeable(param.tempdir);
       mpi_sync_tempdir(&param.tempdir);
     }

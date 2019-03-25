@@ -127,7 +127,7 @@ int main(int argc, char ** argv)
     {
       assert_no_overwrite(param.outfile);
     }
-
+    assert_arg_constraint<std::string>({"pearson", "spearman"}, param.method);
   }
   catch (std::runtime_error& e)
   {
