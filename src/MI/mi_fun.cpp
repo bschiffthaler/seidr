@@ -67,20 +67,23 @@ private:
 void seidr_mpi_mi::entrypoint()
 {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
-  while (! _my_indices.empty())
+  if (! _use_existing_mi_mat)
   {
-    std::vector<arma::uword> uvec;
-    for (auto i : _my_indices)
+    while (! _my_indices.empty())
     {
-      uvec.push_back(i);
+      std::vector<arma::uword> uvec;
+      for (auto i : _my_indices)
+      {
+        uvec.push_back(i);
+      }
+      mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir);
+      get_more_work();
     }
-    mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir);
-    get_more_work();
-  }
-  #pragma omp critical
-  {
-    log << "No more work. Waiting for other tasks to finish...\n";
-    log.send(LOG_INFO);
+    #pragma omp critical
+    {
+      log << "No more work. Waiting for other tasks to finish...\n";
+      log.send(LOG_INFO);
+    }
   }
 }
 
