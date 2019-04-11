@@ -206,7 +206,7 @@ target_link_libraries(narromi ${BLAS_LIBRARIES})
 target_link_libraries(llr-ensemble ${BLAS_LIBRARIES})
 
 # Boost
-find_package( Boost COMPONENTS system filesystem program_options REQUIRED )
+find_package( Boost COMPONENTS system filesystem program_options serialization REQUIRED )
 include_directories( ${BOOST_INCLUDE_DIR} )
 target_link_libraries( seidr ${Boost_LIBRARIES})
 target_link_libraries( tigress ${Boost_LIBRARIES})

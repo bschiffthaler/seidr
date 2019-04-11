@@ -90,19 +90,19 @@ int main(int argc, char ** argv) {
    po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
    "The ensemble size")
   ("min-predictor-size,p",
-   po::value<seidr_uword_t>(&param.min_sample_size)->
+   po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
    default_value(0, "20% of predictors"),
    "The minimum number of predictors to be sampled.")
   ("max-predictor-size,P",
-   po::value<seidr_uword_t>(&param.max_sample_size)->
+   po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
    default_value(0, "80% of predictors"),
    "The maximum number of predictors to be sampled")
   ("min-experiment-size,x",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
+   po::value<seidr_uword_t>(&param.min_sample_size)->
    default_value(0, "20% of experiments"),
    "The minimum number of experiments to be sampled")
   ("max-experiment-size,X",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
+   po::value<seidr_uword_t>(&param.max_sample_size)->
    default_value(0, "80% of experiments"),
    "The maximum number of experiments to be sampled");
 

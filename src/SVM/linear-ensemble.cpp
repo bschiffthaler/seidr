@@ -66,9 +66,16 @@ int main(int argc, char ** argv) {
   ("outfile,o",
    po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
    "Output file path")
+  ("save-resume",
+   po::value<std::string>(&param.cmd_file),
+   "Path to a file that stores job resume info.")
+  ("resume-from",
+   po::value<std::string>(&param.cmd_file),
+   "Try to resume job from this file.")
   ("verbosity,v",
    po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)");
+   "Verbosity level (lower is less verbose)")
+  ;
 
   po::options_description mpiopt("MPI Options");
   mpiopt.add_options()
@@ -79,10 +86,10 @@ int main(int argc, char ** argv) {
    "Temporary directory path");
 
   po::options_description ompopt("OpenMP Options");
-    ompopt.add_options()
-    ("threads,O", po::value<int>(&param.nthreads)->
-     default_value(omp_get_max_threads()),
-     "Number of OpenMP threads per MPI task");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(omp_get_max_threads()),
+   "Number of OpenMP threads per MPI task");
 
   po::options_description bootopt("Bootstrap Options");
   bootopt.add_options()
@@ -90,19 +97,19 @@ int main(int argc, char ** argv) {
    po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
    "The ensemble size")
   ("min-predictor-size,p",
-   po::value<seidr_uword_t>(&param.min_sample_size)->
+   po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
    default_value(0, "20% of predictors"),
    "The minimum number of predictors to be sampled.")
   ("max-predictor-size,P",
-   po::value<seidr_uword_t>(&param.max_sample_size)->
+   po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
    default_value(0, "80% of predictors"),
    "The maximum number of predictors to be sampled")
   ("min-experiment-size,x",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
+   po::value<seidr_uword_t>(&param.min_sample_size)->
    default_value(0, "20% of experiments"),
    "The minimum number of experiments to be sampled")
   ("max-experiment-size,X",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
+   po::value<seidr_uword_t>(&param.max_sample_size)->
    default_value(0, "80% of experiments"),
    "The maximum number of experiments to be sampled");
 
@@ -150,6 +157,7 @@ int main(int argc, char ** argv) {
   try
   {
     po::notify(vm);
+    assert_mutually_exclusive(vm, {"resume-from", "save-resume"});
   }
   catch (std::exception& e)
   {
@@ -161,7 +169,9 @@ int main(int argc, char ** argv) {
   log.set_log_level(param.verbosity);
 
   if (vm.count("targets"))
+  {
     param.mode = SVM_PARTIAL;
+  }
 
   // Normalize paths
   param.outfile = to_absolute(param.outfile);
@@ -178,48 +188,76 @@ int main(int argc, char ** argv) {
   {
     try
     {
-      assert_exists(dirname(param.outfile));
-      assert_exists(param.infile);
-      assert_is_regular_file(param.infile);
-      assert_exists(param.gene_file);
-      assert_can_read(param.gene_file);
-      assert_can_read(param.infile);
-
-      if (param.mode == SVM_PARTIAL)
+      if (vm.count("resume-from") > 0 && file_exists(param.cmd_file))
       {
-        assert_exists(param.targets_file);
-        assert_can_read(param.targets_file);
+        log << "Trying to resume from " << param.cmd_file << '\n';
+        log.log(LOG_INFO);
+        param.resuming = true;
+        std::ifstream ifs(param.cmd_file.c_str());
+        boost::archive::xml_iarchive ia(ifs);
+        ia >> BOOST_SERIALIZATION_NVP(param);
+        ifs.close();
       }
-
-      if (! param.force)
-        assert_no_overwrite(param.outfile);
-
-      if (! vm.count("tempdir"))
-        param.tempdir = tempfile(dirname(param.outfile));
       else
-        param.tempdir = tempfile(to_absolute(param.tempdir));
-      if (dir_exists(param.tempdir))
       {
-        if (param.force)
+        assert_exists(dirname(param.outfile));
+        assert_exists(param.infile);
+        assert_is_regular_file(param.infile);
+        assert_exists(param.gene_file);
+        assert_can_read(param.gene_file);
+        assert_can_read(param.infile);
+
+        if (param.mode == SVM_PARTIAL)
         {
-          log << "Removing previous temp files.\n";
-          log.log(LOG_WARN);
-          fs::remove_all(param.tempdir);
+          assert_exists(param.targets_file);
+          assert_can_read(param.targets_file);
+        }
+
+        if (! param.force)
+        {
+          assert_no_overwrite(param.outfile);
+        }
+
+        if (! vm.count("tempdir"))
+        {
+          param.tempdir = tempfile(dirname(param.outfile));
         }
         else
         {
-          throw std::runtime_error("Dir exists: " + param.tempdir);
+          param.tempdir = tempfile(to_absolute(param.tempdir));
+        }
+        if (dir_exists(param.tempdir))
+        {
+          if (param.force)
+          {
+            log << "Removing previous temp files.\n";
+            log.log(LOG_WARN);
+            fs::remove_all(param.tempdir);
+          }
+          else
+          {
+            throw std::runtime_error("Dir exists: " + param.tempdir);
+          }
+        }
+        else
+        {
+          create_directory(param.tempdir);
+        }
+        assert_arg_constraint<std::string>({"L2R_L2LOSS_SVR",
+                                            "L2R_L2LOSS_SVR_DUAL",
+                                            "L2R_L1LOSS_SVR_DUAL"
+                                           },
+                                           param.solver);
+        assert_dir_is_writeable(param.tempdir);
+        mpi_sync_tempdir(&param.tempdir);
+        if (vm.count("save-resume") > 0)
+        {
+          std::ofstream ofs(param.cmd_file.c_str());
+          boost::archive::xml_oarchive oa(ofs);
+          oa << BOOST_SERIALIZATION_NVP(param);
+          ofs.close();
         }
       }
-      else
-      {
-        create_directory(param.tempdir);
-      }
-      assert_arg_constraint<std::string>({"L2R_L2LOSS_SVR",
-                                         "L2R_L2LOSS_SVR_DUAL",
-                                         "L2R_L1LOSS_SVR_DUAL"}, param.solver);
-      assert_dir_is_writeable(param.tempdir);
-      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -247,43 +285,67 @@ int main(int argc, char ** argv) {
     verify_matrix(gene_matrix);
 
     if (param.do_scale)
+    {
       scale(gene_matrix);
+    }
 
     if (param.mode == SVM_PARTIAL)
+    {
       targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
+    }
 
     if (param.min_sample_size == 0)
+    {
       param.min_sample_size = gene_matrix.n_rows / 5;
+    }
     if (param.max_sample_size == 0)
+    {
       param.max_sample_size = 4 * (gene_matrix.n_rows / 5);
+    }
     if (param.predictor_sample_size_min == 0)
+    {
       param.predictor_sample_size_min = (gene_matrix.n_cols - 1) / 5;
+    }
     if (param.predictor_sample_size_max == 0)
+    {
       param.predictor_sample_size_max = 4 * ((gene_matrix.n_cols - 1) / 5);
+    }
 
     // Check if sampling settings are sane
     if (param.min_sample_size > param.max_sample_size)
+    {
       throw std::runtime_error("Minimum experiment sample size can't be "
                                "larger than maximum");
+    }
     if (param.max_sample_size > gene_matrix.n_rows)
+    {
       throw std::runtime_error("Maximum experiment sample size can't be "
                                "larger than number of experiments");
+    }
     if (param.predictor_sample_size_min > param.predictor_sample_size_max)
+    {
       throw std::runtime_error("Minimum predictor sample size can't be "
                                "larger than maximum");
+    }
     if (param.predictor_sample_size_max > gene_matrix.n_cols - 1)
+    {
       throw std::runtime_error("Maximum predictor sample size can't be "
                                "larger than the number of genes - 1");
+    }
 
     if (param.min_sample_size == 0 ||
         param.max_sample_size == 0 ||
         param.predictor_sample_size_min == 0 ||
         param.predictor_sample_size_max == 0)
+    {
       throw std::runtime_error("None of the sampling settings should be 0");
+    }
 
     if (param.predictor_sample_size_max >= gene_matrix.n_cols)
+    {
       throw std::runtime_error("Maximum predictor sample size must be "
                                "smaller than the number of predictors (genes)");
+    }
 
 
     if (param.solver == "L2R_L2LOSS_SVR")

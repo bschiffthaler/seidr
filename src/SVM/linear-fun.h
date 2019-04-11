@@ -24,6 +24,9 @@
 #include <string>
 #include <linear.h>
 
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/archive/xml_iarchive.hpp>
+
 #define SVM_FULL 0
 #define SVM_PARTIAL 1
 
@@ -33,11 +36,37 @@ class seidr_mpi_svm;
 
 struct seidr_llr_param_t
 {
+  friend class boost::serialization::access;
+  template<typename Archive>
+  void serialize(Archive & ar, const unsigned int version)
+  {
+    ar & BOOST_SERIALIZATION_NVP(infile);
+    ar & BOOST_SERIALIZATION_NVP(gene_file);
+    ar & BOOST_SERIALIZATION_NVP(targets_file);
+    ar & BOOST_SERIALIZATION_NVP(do_scale);
+    ar & BOOST_SERIALIZATION_NVP(force);
+    ar & BOOST_SERIALIZATION_NVP(row_delim);
+    ar & BOOST_SERIALIZATION_NVP(field_delim);
+    ar & BOOST_SERIALIZATION_NVP(bs);
+    ar & BOOST_SERIALIZATION_NVP(mode);
+    ar & BOOST_SERIALIZATION_NVP(outfile);
+    ar & BOOST_SERIALIZATION_NVP(tempdir);
+    ar & BOOST_SERIALIZATION_NVP(min_sample_size);
+    ar & BOOST_SERIALIZATION_NVP(max_sample_size);
+    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_min);
+    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_max);
+    ar & BOOST_SERIALIZATION_NVP(ensemble_size);
+    ar & BOOST_SERIALIZATION_NVP(verbosity);
+    ar & BOOST_SERIALIZATION_NVP(solver);
+    ar & BOOST_SERIALIZATION_NVP(nthreads);
+  }
   std::string infile;
   std::string gene_file;
   std::string targets_file;
+  std::string cmd_file;
   bool do_scale = false;
   bool force = false;
+  bool resuming = false;
   char row_delim = '\n';
   char field_delim = '\t';
   uint64_t bs;
@@ -67,7 +96,7 @@ void svm(const arma::mat& geneMatrix,
          const arma::uword& ensemble_size,
          seidr_mpi_svm * self);
 void svm_full(const arma::mat& GM,
-              const std::vector<std::string>& genes, 
+              const std::vector<std::string>& genes,
               seidr_llr_param_t& param);
 void svm_partial(const arma::mat& GM,
                  const std::vector<std::string>& genes,
