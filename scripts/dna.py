@@ -9,7 +9,7 @@ from tempfile import NamedTemporaryFile
 from sklearn.preprocessing import scale
 
 class FileInput(object):
-  """Class to store and validate files"""
+  """Simple data object. Class to store and validate files"""
   def __init__(self, first, second, first_headers, second_headers, pw_map):
     super(FileInput, self).__init__()
     self.first = first
@@ -31,12 +31,12 @@ class FileInput(object):
       raise FileNotFoundError('File {} does not exist'.format(self.pw_map))
 
 class ExprMatrix(object):
-  """Set up and store expression matrices"""
+  """Simple data object. Set up and store expression matrices"""
   def __init__(self, in_file, in_headers):
     super(ExprMatrix, self).__init__()
     self.data = np.genfromtxt(in_file, delimiter='\t')
-    self.data = scale(self.data)
-    self.data = scale(self.data, axis=1)
+    self.data = scale(self.data, axis=0, with_std=False)
+    self.data = scale(self.data, axis=1, with_std=False)
     self.headers = []
     with open(in_headers, 'r') as inh:
       for line in inh:
@@ -44,7 +44,7 @@ class ExprMatrix(object):
           self.headers.append(field)
 
 class PathwayMap(object):
-  """Class for Pathway->Gene mappings"""
+  """Simple data object. Class for Pathway->Gene mappings"""
   def __init__(self, in_file, min_membership, max_membership):
     super(PathwayMap, self).__init__()
     self.map = {}
@@ -64,7 +64,7 @@ class PathwayMap(object):
       self.map[k] = list(set(self.map[k]))
     
 class JoinedMatrix(object):
-  """docstring for JoinedMatrix"""
+  """Class to operate on a joined matrix of count data"""
   def __init__(self, X1, X2, H1, H2):
     super(JoinedMatrix, self).__init__()
     logging.debug('Joining matrices...')
@@ -133,7 +133,7 @@ def dE(mat1, mat2, p):
   X = np.power(X, p)
   s = np.sum(X)
   ng = mat1.shape[0]
-  e = (ng * (ng - 1)) / 2
+  e = (ng * (ng - 1))  / 2
   return np.power(s/e, 1/p)
 
 def main(args):
@@ -160,12 +160,25 @@ def main(args):
 
   X = JoinedMatrix(X1.data, X2.data, X1.headers, X2.headers)
 
-  for pw in [args.pathway]:
+  pathways = []
+  if not args.pathway:
+    pathways = [p for p in pw_map.map]
+  else:
+    pathways = args.pathway.split(',')
+
+  print('Pathway', 'P', 'RefMean', 'RefVar', 'PermMean', 'PermVar', 'Diff', sep = '\t')
+
+  for pw in pathways:
 
     logging.info('Starting pathway {}'.format(pw))
     logging.info('{} genes in this pathway'.format(len(pw_map.map[pw])))
     X1_, X2_, header = X.get_subset(pw_map.map[pw])
     logging.info('{} genes with expression data'.format(len(header)))
+
+    if len(header) < args.min_pathway_membership:
+      logging.warning("Only {} genes with expression data in pathway {}. Skipping..."
+                      .format(len(header), pw))
+      continue
 
     handle_g = NamedTemporaryFile(mode='w', delete=False)
     for g in header:
@@ -173,18 +186,23 @@ def main(args):
     handle_g.close()
 
     nboot = args.permutations
+    nref = args.reference_runs
     p = 2
+    outcomes_ref = []
     outcomes = []
 
-    for i in range(nboot):
-      logging.info('Permutation {}/{}'.format(i, nboot))
-      if i > 0:
+    for i in range(nboot + nref):
+      if i < nref:
+        logging.info('Reference run {}/{}'.format(i, nref))
+      else:
+        logging.info('Permutation run {}/{}'.format(i - nref, nboot))
+      if i >= nref:
         X.permute()
         X1_, X2_, header = X.get_subset(pw_map.map[pw])
       logging.debug('Shapes after subset: {} || {}'.format(X1_.shape, X2_.shape))
       handle_1 = NamedTemporaryFile(mode='w', delete=False)
       handle_2 = NamedTemporaryFile(mode='w', delete=False)
-      
+
       np.savetxt(handle_1, X1_, delimiter='\t')
       np.savetxt(handle_2, X2_, delimiter='\t')
       
@@ -224,8 +242,11 @@ def main(args):
       dX2 = np.genfromtxt(wrapper_2.adj, delimiter='\t')
 
       d = dE(dX1, dX2, p)
-      outcomes.append(d)
-      print(d)
+
+      if i < nref:
+        outcomes_ref.append(d)
+      else:
+        outcomes.append(d)
 
       os.remove(handle_1.name)
       os.remove(handle_2.name)
@@ -233,13 +254,17 @@ def main(args):
       wrapper_2.clean()
 
     os.remove(handle_g.name)
-    d0 = outcomes[0]
-    I = 0
-    for i in outcomes[1:]:
-      if d0 <= i:
-        I += 1
-    p = (I + 1) / (nboot)
-    print(pw, p)
+    # d0 = outcomes[0]
+    # I = 0
+    # for i in outcomes[1:]:
+    #   if d0 <= i:
+    #     I += 1
+    # p = (I + 1) / (nboot)
+    desc1 = scipy.stats.describe(outcomes_ref)
+    desc2 = scipy.stats.describe(outcomes)
+    pc = scipy.stats.mannwhitneyu(outcomes_ref, outcomes, alternative='greater')
+    print(pw, pc.pvalue, desc1.mean, desc1.variance, desc2.mean, desc2.variance,
+          desc1.mean - desc2.mean, sep = '\t')
 
 
 class SeidrWrapper(object):
@@ -516,13 +541,15 @@ if __name__ == '__main__':
                       help='Second network column headers')
   parser.add_argument('-m', '--map', required=True,
                       help='Gene-pathway map file')
-  parser.add_argument('-p', '--pathway', required=True,
+  parser.add_argument('-p', '--pathway',
                       help='Pathway to analyze')
   parser.add_argument('-P', '--permutations', default=100, type=int,
                       help='Number of permutation samples')
-  parser.add_argument('--min-pathway-membership',
+  parser.add_argument('-r', '--reference-runs', default=25, type=int,
+                      help='Number of runs for the reference networks')
+  parser.add_argument('--min-pathway-membership', type=int,
                       help='Minimum number of genes in a pathway', default=10)
-  parser.add_argument('--max-pathway-membership',
+  parser.add_argument('--max-pathway-membership', type=int,
                       help='Maximum number of genes in a pathway', default=0)
   parser.add_argument('-q','--quiet', action='count',
                       help='Be more quiet with logging', default=0)
