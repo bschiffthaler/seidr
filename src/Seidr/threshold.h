@@ -28,7 +28,7 @@ struct seidr_threshold_param_t
   uint32_t nsteps;
   uint32_t tpos;
   std::string infile;
-  bool trank;
+  bool trank = false;
   uint16_t precision;
   bool force;
   std::string outfile;

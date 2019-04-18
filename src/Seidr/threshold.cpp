@@ -270,10 +270,10 @@ int threshold(int argc, char ** argv)
   po::options_description topt("Threshold Options");
   topt.add_options()
   ("min,m",
-   po::value<double>(&param.min)->default_value(1.0, "1"),
+   po::value<double>(&param.min)->default_value(0.0, "0"),
    "Lowest threshold value to check")
   ("max,M",
-   po::value<double>(&param.min)->default_value(0.0, "0"),
+   po::value<double>(&param.max)->default_value(1.0, "0"),
    "Highest threshold value to check")
   ("index,i",
    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
