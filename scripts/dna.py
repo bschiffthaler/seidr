@@ -5,18 +5,21 @@ import argparse
 import os
 import logging
 import subprocess
+import json
 from tempfile import NamedTemporaryFile
 from sklearn.preprocessing import scale
 
 class FileInput(object):
   """Simple data object. Class to store and validate files"""
-  def __init__(self, first, second, first_headers, second_headers, pw_map):
+  def __init__(self, first, second, first_headers, second_headers, pw_map,
+               ortho = None):
     super(FileInput, self).__init__()
     self.first = first
     self.second = second
     self.first_headers = first_headers
     self.second_headers = second_headers
     self.pw_map = pw_map
+    self.ortho = ortho
 
   def validate(self):
     if not os.path.exists(self.first):
@@ -29,6 +32,8 @@ class FileInput(object):
       raise FileNotFoundError('File {} does not exist'.format(self.second_headers))
     if not os.path.exists(self.pw_map):
       raise FileNotFoundError('File {} does not exist'.format(self.pw_map))
+    if self.ortho and not os.path.exists(self.ortho):
+      raise FileNotFoundError('File {} does not exist'.format(self.ortho))
 
 class ExprMatrix(object):
   """Simple data object. Set up and store expression matrices"""
@@ -63,6 +68,85 @@ class PathwayMap(object):
     for k in self.map:
       self.map[k] = list(set(self.map[k]))
     
+class JoinedOrthoMatrix(object):
+  """docstring for JoinedOrthoMatrix"""
+  def __init__(self, X1, X2, H1, H2, ortho):
+    super(JoinedOrthoMatrix, self).__init__()
+    self.X1 = X1
+    self.X2 = X2
+    self.H1 = H1
+    self.H2 = H2
+    self.H1M = {}
+    self.H2M = {}
+    self.ortho_file = ortho
+    self.ortho = {}
+    self.row_index = np.arange(self.X1.shape[0] + self.X2.shape[0])
+
+    with open(self.ortho_file, 'r') as of_handle:
+      for line in of_handle:
+        fields = line.strip().split()
+        if not fields[0] in self.ortho:
+          self.ortho[fields[0]] = set()
+        if not fields[1] in self.ortho:
+          self.ortho[fields[1]] = set()
+
+        self.ortho[fields[0]].add(fields[1])
+        self.ortho[fields[1]].add(fields[0])
+
+    for i,g in enumerate(H1):
+      self.H1M[g] = i
+    for i,g in enumerate(H2):
+      self.H2M[g] = i
+
+  def permute(self):
+    self.row_index = np.random.permutation(self.row_index)
+
+  def get_subset(self, genes):
+    no_ortho = 0
+    no_expr = 0
+    index_1 = []
+    index_2 = []
+    # Here we get all genes in a pathway, check which species they belong to
+    # and also check that they have at least one ortholog and that they are
+    # expressed. If that is satisfied, we add the column indices of the ortholog
+    # and as many copies of the gene into the column indices which we then use 
+    # to subset
+    for gene in genes:
+      # Sanity checks
+      if gene not in self.ortho:
+        no_ortho += 1
+        continue
+      if gene not in self.H1M and gene not in self.H2M:
+        no_expr += 1
+        continue
+      # Set up sets that explain the orthology
+      first = gene in self.H1M
+      second = gene in self.H2M
+      if first:
+        for orth in self.ortho[gene]:
+          index_1.append(self.H1M[gene])
+          index_2.append(self.H2M[orth])
+      elif second:
+        for orth in self.ortho[gene]:
+          index_2.append(self.H2M[gene])
+          index_1.append(self.H1M[orth])
+      else:
+        raise ValueError('Gene {} was neither in first nor second set. ' +
+                         'This probably shouldn\'t have happened.'.format(gene))
+    X1_ = self.X1[:, index_1]
+    X2_ = self.X2[:, index_2]
+    X12 = np.concatenate([X1_, X2_])
+    # Apply current permutation
+    X12 = X12[self.row_index, :]
+    # Set up a mostly useless header file to submit to Seidr. If we need to
+    # compare networks at the gene level, we need to come up with something more
+    # sophisticated than that
+    header = ['G{}'.format(x) for x in range(X12.shape[1])]
+    s1 = X1_.shape[0]
+    s2 = X2_.shape[1]
+
+    return (X12[0:s1, :], X12[s1:(s1 + s2), :], header)
+
 class JoinedMatrix(object):
   """Class to operate on a joined matrix of count data"""
   def __init__(self, X1, X2, H1, H2):
@@ -158,7 +242,10 @@ def main(args):
                 .format(files.second, files.second_headers))
   X2 = ExprMatrix(files.second, files.second_headers)
 
-  X = JoinedMatrix(X1.data, X2.data, X1.headers, X2.headers)
+  if args.ortho:
+    X = JoinedOrthoMatrix(X1.data, X2.data, X1.headers, X2.headers, args.ortho)
+  else:
+    X = JoinedMatrix(X1.data, X2.data, X1.headers, X2.headers)
 
   pathways = []
   if not args.pathway:
@@ -167,6 +254,8 @@ def main(args):
     pathways = args.pathway.split(',')
 
   print('Pathway', 'P', 'RefMean', 'RefVar', 'PermMean', 'PermVar', 'Diff', sep = '\t')
+
+  out_data = {}
 
   for pw in pathways:
 
@@ -187,7 +276,7 @@ def main(args):
 
     nboot = args.permutations
     nref = args.reference_runs
-    p = 2
+    p = args.p_norm
     outcomes_ref = []
     outcomes = []
 
@@ -209,32 +298,38 @@ def main(args):
       handle_1.close()
       handle_2.close()
 
-      wrapper_1 = SeidrWrapper(handle_1.name, handle_g.name, '8', X1_.shape)
-      wrapper_2 = SeidrWrapper(handle_2.name, handle_g.name, '8', X2_.shape)
+      wrapper_1 = SeidrWrapper(handle_1.name, handle_g.name, str(args.threads),
+                               X1_.shape, args.fast)
+      wrapper_2 = SeidrWrapper(handle_2.name, handle_g.name, str(args.threads),
+                               X2_.shape, args.fast)
 
       wrapper_1.pearson()
       wrapper_1.spearman()
-      wrapper_1.mi()
-      wrapper_1.plsnet()
       wrapper_1.pcor()
-      wrapper_1.narromi()
-      wrapper_1.llr()
-      wrapper_1.tigress()
-      wrapper_1.genie3()
-      wrapper_1.elnet()
+      if not args.fastest:
+        wrapper_1.mi()
+        wrapper_1.narromi()
+        if not args.faster:
+          wrapper_1.plsnet()
+          wrapper_1.llr()
+          wrapper_1.tigress()
+          wrapper_1.genie3()
+          wrapper_1.elnet()
       wrapper_1.aggregate()
       wrapper_1.adjacency()
 
       wrapper_2.pearson()
       wrapper_2.spearman()
-      wrapper_2.mi()
-      wrapper_2.plsnet()
       wrapper_2.pcor()
-      wrapper_2.narromi()
-      wrapper_2.llr()
-      wrapper_2.tigress()
-      wrapper_2.genie3()
-      wrapper_2.elnet()
+      if not args.fastest:
+        wrapper_2.mi()
+        wrapper_2.narromi()
+        if not args.fastest:
+          wrapper_2.plsnet()
+          wrapper_2.llr()
+          wrapper_2.tigress()
+          wrapper_2.genie3()
+          wrapper_2.elnet()
       wrapper_2.aggregate()
       wrapper_2.adjacency()
 
@@ -254,6 +349,7 @@ def main(args):
       wrapper_2.clean()
 
     os.remove(handle_g.name)
+    # # Calculate P values as in the paper 
     # d0 = outcomes[0]
     # I = 0
     # for i in outcomes[1:]:
@@ -265,11 +361,14 @@ def main(args):
     pc = scipy.stats.mannwhitneyu(outcomes_ref, outcomes, alternative='greater')
     print(pw, pc.pvalue, desc1.mean, desc1.variance, desc2.mean, desc2.variance,
           desc1.mean - desc2.mean, sep = '\t')
+    out_data[pw] = {'ref': outcomes_ref, 'perm': outcomes}
+  with open('out_data.json', 'w') as od:
+    json.dump(out_data, od)  
 
 
 class SeidrWrapper(object):
   """docstring for SeidrWrapper"""
-  def __init__(self, expr, genes, threads, shape):
+  def __init__(self, expr, genes, threads, shape, fast):
     super(SeidrWrapper, self).__init__()
     self.genes = genes
     self.expr = expr
@@ -277,6 +376,7 @@ class SeidrWrapper(object):
     self.results = []
     self.shape = shape
     self.adj = ''
+    self.ensemble = '100' if fast else '1000'
 
   def pearson(self):
     handle = NamedTemporaryFile(mode='w', delete=False)
@@ -388,7 +488,7 @@ class SeidrWrapper(object):
   def plsnet(self):
     handle = NamedTemporaryFile(mode='w', delete=False)
     handle.close()
-    cmd = ['plsnet', '-i', self.expr, '-g', self.genes, '-e', '100',
+    cmd = ['plsnet', '-i', self.expr, '-g', self.genes, '-e', self.ensemble,
            '-f', '-s', '-O', self.threads, '-B', str(self.shape[1]),
            '-o', handle.name, '-p', str(self.shape[1] - 1)]
     logging.debug('Inferring PLSNet')
@@ -429,7 +529,7 @@ class SeidrWrapper(object):
     cmd = ['llr-ensemble', '-i', self.expr, '-g', self.genes, '-s',
            '-f', '-O', self.threads, '-B', str(self.shape[1]),
            '-o', handle.name, '-p', str(self.shape[1] - 3), '-P', 
-           str(self.shape[1] - 2), '-e', '100',
+           str(self.shape[1] - 2), '-e', self.ensemble,
            '-x', str(self.shape[0]), '-X', str(self.shape[0])]
     logging.debug('Inferring LLR')
     logging.debug('Running cmd: {}'.format(cmd))
@@ -450,7 +550,7 @@ class SeidrWrapper(object):
     cmd = ['el-ensemble', '-i', self.expr, '-g', self.genes, '-s',
            '-f', '-O', self.threads, '-B', str(self.shape[1]),
            '-o', handle.name, '-p', str(self.shape[1] - 3), '-P', 
-           str(self.shape[1] - 2), '-e', '100',
+           str(self.shape[1] - 2), '-e', self.ensemble,
            '-x', str(self.shape[0]), '-X', str(self.shape[0])]
     logging.debug('Inferring ElNet')
     logging.debug('Running cmd: {}'.format(cmd))
@@ -470,7 +570,7 @@ class SeidrWrapper(object):
     handle.close()
     cmd = ['tigress', '-i', self.expr, '-g', self.genes, '-s',
            '-f', '-O', self.threads, '-B', str(self.shape[1]),
-           '-o', handle.name, '-e', '100']
+           '-o', handle.name, '-e', self.ensemble]
     logging.debug('Inferring Tigress')
     logging.debug('Running cmd: {}'.format(cmd))
     subprocess.run(cmd, capture_output=True)
@@ -489,7 +589,7 @@ class SeidrWrapper(object):
     handle.close()
     cmd = ['genie3', '-i', self.expr, '-g', self.genes, '-s',
            '-f', '-O', self.threads, '-B', str(self.shape[1]),
-           '-o', handle.name, '-m', str(self.shape[1] - 1), '-n', '100']
+           '-o', handle.name, '-m', str(self.shape[1] - 1), '-n', self.ensemble]
     logging.debug('Inferring GENIE3')
     logging.debug('Running cmd: {}'.format(cmd))
     subprocess.run(cmd, capture_output=True)
@@ -541,18 +641,29 @@ if __name__ == '__main__':
                       help='Second network column headers')
   parser.add_argument('-m', '--map', required=True,
                       help='Gene-pathway map file')
+  parser.add_argument('-O', '--ortho', help='Cross species orthology file')
   parser.add_argument('-p', '--pathway',
                       help='Pathway to analyze')
   parser.add_argument('-P', '--permutations', default=100, type=int,
                       help='Number of permutation samples')
   parser.add_argument('-r', '--reference-runs', default=25, type=int,
                       help='Number of runs for the reference networks')
+  parser.add_argument('-t', '--threads', default=1, type=int,
+                      help='Number of threads for Seidr GRN inference')
+  parser.add_argument('-n', '--p-norm', default=2, type=int,
+                      help='Value of p for matrix p-norm')
   parser.add_argument('--min-pathway-membership', type=int,
                       help='Minimum number of genes in a pathway', default=10)
   parser.add_argument('--max-pathway-membership', type=int,
                       help='Maximum number of genes in a pathway', default=0)
   parser.add_argument('-q','--quiet', action='count',
                       help='Be more quiet with logging', default=0)
+  parser.add_argument('--fast', action='store_true',
+                      help='Use faster, but less accurate setting in Seidr')
+  parser.add_argument('--faster', action='store_true',
+                      help='Only run fast and intermediate Seidr algorithms')
+  parser.add_argument('--fastest', action='store_true',
+                      help='Only run fastest Seidr algorithms')
 
   args = parser.parse_args()
 
