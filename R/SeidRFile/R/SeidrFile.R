@@ -337,6 +337,11 @@ setMethod("seidr_chunked_apply", "SeidrFile",
             }
 
             if(! is.function(FUN)) stop("Not a function: ", deparse(substitute(FUN)))
+            
+            if(chunksize >= X@sf_attr$edges) {
+              stop("Chunk size is >= number of edges. Use seidr_apply or a smaller chunksize")
+            }
+            
             pos <- SeidrFileHeader__ptr__Position(X@sf_h_ptr)
             k <- pos[[3]]
             if (k != 0) {
@@ -400,6 +405,11 @@ setMethod("seidr_chunked_iapply", "SeidrFile",
             }
 
             if(! is.function(FUN)) stop("Not a function: ", deparse(substitute(FUN)))
+            
+            if(chunksize >= X@sf_attr$edges) {
+              stop("Chunk size is >= number of edges. Use seidr_apply or a smaller chunksize")
+            }
+            
             pos <- SeidrFileHeader__ptr__Position(X@sf_h_ptr)
             k <- pos[[3]]
             if (k != 0) {
