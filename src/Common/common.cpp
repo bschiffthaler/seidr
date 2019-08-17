@@ -153,6 +153,7 @@ void merge_files(const std::string& outfile,
     log.send(LOG_INFO);
     std::vector<fs::path> files;
     fs::path p_tmp(tempdir);
+    // Collect all files in temp directory that lloosely follow naming convention
     for (auto it = fs::directory_iterator(p_tmp);
          it != fs::directory_iterator(); it++)
     {
@@ -170,6 +171,7 @@ void merge_files(const std::string& outfile,
     }
     std::ofstream ofs(outfile);
 
+    // Collect file offset and gene ID of all targets in temp file
     for (fs::path& p : files)
     {
       std::ifstream ifs(p.string().c_str());

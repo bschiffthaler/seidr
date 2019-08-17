@@ -131,6 +131,7 @@ int main(int argc, char ** argv) {
   if (vm.count("targets"))
   {
     param.targets_file = to_absolute(param.targets_file);
+    param.mode = NARROMI_PARTIAL;
   }
 
   // Check all kinds of FS problems that may arise
@@ -205,8 +206,10 @@ int main(int argc, char ** argv) {
     genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
     verify_matrix(gene_matrix, genes);
     if (param.mode == NARROMI_PARTIAL)
+    {
       targets = read_genes(param.targets_file, param.row_delim,
                            param.field_delim);
+    }
   }
   catch (std::runtime_error& e)
   {
@@ -227,7 +230,7 @@ int main(int argc, char ** argv) {
       break;
 
     default:
-      return EINVAL;
+      return 1;
     }
   }
   catch (std::runtime_error& e)

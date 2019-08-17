@@ -61,7 +61,7 @@ private:
   std::string _algorithm = "simplex";
   double _alpha = 0;
   double _t = 0;
-  bool _targeted = 0;
+  bool _targeted = false;
 };
 
 void seidr_mpi_narromi::entrypoint()
