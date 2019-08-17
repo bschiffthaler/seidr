@@ -159,7 +159,16 @@ bool starts_with(const std::string& fname, const std::string& pattern)
 
 void rename(const std::string& lhs, const std::string& rhs)
 {
-  fs::rename(lhs, rhs);
+  try
+  {
+    fs::rename(lhs, rhs);
+  }
+  // Fall back to copying in case relinking doesn't work
+  catch(const fs::filesystem_error& e)
+  {
+    fs::copy(lhs, rhs);
+    fs::remove(lhs);
+  }
 }
 
 void remove(const std::string& fname, bool recursive)
