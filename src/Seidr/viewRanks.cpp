@@ -374,7 +374,14 @@ void print_titles(const seidr_param_view_t& param,
     if (h.attr.katz_calc)
       ost << "Katz_Source\tKatz_target\t";
     std::string ox = ost.str();
-    ox.back() = '\n';
+    if (ox.size() > 0)
+    {
+      ox.back() = '\n';
+    } 
+    else
+    {
+      ox += '\n';
+    }
     out << ox;
   }
 }
