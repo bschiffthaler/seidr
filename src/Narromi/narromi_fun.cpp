@@ -21,7 +21,7 @@
 // Seidr
 #include <narromi_fun.h>
 #include <common.h>
-#include <IP_LPT.h>
+#include <IP_LPT2.h>
 #include <stats_fun.h>
 #include <mpiomp.h>
 #include <fs.h>

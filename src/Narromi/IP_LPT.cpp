@@ -19,7 +19,11 @@
 //
 
 //Seidr
-#include <IP_LPT.h>
+#ifdef NARROMI_USE_CLP
+  #include <IP_LPT2.h>
+#else
+  #include <IP_LPT.h>
+#endif
 #include <common.h>
 #include <BSlogger.h>
 // External

@@ -86,10 +86,10 @@ int main(int argc, char ** argv) {
    "Temporary directory path");
 
   po::options_description ompopt("OpenMP Options");
-    ompopt.add_options()
-    ("threads,O", po::value<int>(&param.nthreads)->
-     default_value(omp_get_max_threads()),
-     "Number of OpenMP threads per MPI task");
+  ompopt.add_options()
+  ("threads,O", po::value<int>(&param.nthreads)->
+   default_value(omp_get_max_threads()),
+   "Number of OpenMP threads per MPI task");
 
   po::options_description req("Required");
   req.add_options()
@@ -197,11 +197,22 @@ int main(int argc, char ** argv) {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
                          "--threads");
 
+#ifndef NARROMI_USE_CLP
     omp_set_num_threads(1);
-    log << "GLPK is not thread safe. Until it is replaced in seidr, -O is "
-        << "forced to be 1. Consider setting your desired number of worker "
-        << "threads to be MPI tasks (at the expense of memory usage).\n";
-    log.log(LOG_WARN);
+    if (param.nthreads > 1)
+    {
+      log << "Using GLPK backend\n";
+      log.log(LOG_INFO);
+      log << "GLPK is not thread safe. Either compile seidr with CLP "
+          << "as a backend for Narromi or set you desired number of worker "
+          << "threads to be MPI tasks (at the expense of memory usage).\n";
+      log.log(LOG_WARN);
+    }
+#else
+    omp_set_num_threads(param.nthreads);
+    log << "Using CLP backend\n";
+    log.log(LOG_INFO);
+#endif
     gene_matrix.load(param.infile);
     genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
     verify_matrix(gene_matrix, genes);

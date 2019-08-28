@@ -12,7 +12,7 @@ include_directories(src/Common src/Narromi src/Tigress src/SVM
 
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
-set(SEIDR_MINOR_VERSION 11)
+set(SEIDR_MINOR_VERSION 12)
 set(SEIDR_PATCH_VERSION 0)
 set(SEIDR_VERSION
   ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
@@ -28,37 +28,38 @@ set(CMAKE_CXX_STANDARD 11)
 # Can we use parallel sorting algorithms?
 if (SEIDR_PSTL) # No free compiler support except intel and msvc
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PSTL")
-else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 # Default flags
 if (CMAKE_OFAST)
-  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
-  set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Ofast")
 else()
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-  set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3")
 endif()
 
 # Make sure FORTRAN has the same width in relevant datatypes to interface with 
 # C++
 if(${CMAKE_Fortran_COMPILER_ID} MATCHES "Intel")
-  set(CMAKE_Fortran_FLAGS "-m64 -autodouble -fixed")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -m64 -autodouble -fixed")
 else()
-  set(CMAKE_Fortran_FLAGS "-m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
 endif()
 
-# Make sure we can use ASAN and undefined sanitizers in debug builds
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+# Enable extra debugging or inspection options
 if(CMAKE_CLANG_ANALYZE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --analyze")
+endif()
+
+if(CMAKE_ASAN)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 endif()
 
 # Enable Processor tuning in command line
 if(CMAKE_BUILD_NATIVE)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
-  set(CMAKE_FORTRAN_FLAGS_RELEASE "${CMAKE_FORTRAN_FLAGS_RELEASE} -march=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -march=native")
 endif()
 
 # Enable building seidr with float as a default floating point datatype 
@@ -116,7 +117,13 @@ add_executable(llr-ensemble src/SVM/linear-ensemble.cpp src/SVM/linear-fun.cpp
   external/liblinear/linear.cpp external/liblinear/tron.cpp)
 target_include_directories(llr-ensemble PRIVATE external/liblinear)
 ## Narromi
-add_executable(narromi src/Narromi/stats_fun.cpp src/Narromi/IP_LPT.cpp 
+if (NARROMI_USE_CLP)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNARROMI_USE_CLP")
+  set(IP_SRC "src/Narromi/IP_LPT2.cpp")
+else()
+  set(IP_SRC "src/Narromi/IP_LPT.cpp")
+endif()
+add_executable(narromi src/Narromi/stats_fun.cpp ${IP_SRC}
   src/Narromi/narromi_fun.cpp src/Narromi/narromi.cpp)
 ## Correlation
 add_executable(correlation src/Correlation/correlation.cpp 
@@ -266,7 +273,49 @@ find_package(GSL REQUIRED)
 include_directories(${GSL_INCLUDE_PATH})
 target_link_libraries(seidr ${GSL_LIBRARIES})
 
-# GLPK
-find_package(GLPK REQUIRED)
-include_directories(${GLPK_INCLUDE_PATH})
-target_link_libraries(narromi ${GLPK_LIBRARIES})
+if (NARROMI_USE_CLP)
+  find_package(CLP REQUIRED)
+  include_directories(${CLP_INCLUDE_PATH})
+  target_link_libraries(narromi ${CLP_LIBRARIES})
+else()
+  # GLPK
+  find_package(GLPK REQUIRED)
+  include_directories(${GLPK_INCLUDE_PATH})
+  target_link_libraries(narromi ${GLPK_LIBRARIES})
+endif()
+
+message(STATUS "Summary:")
+message(STATUS "  Seidr version: ${SEIDR_VERSION}")
+message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
+if (SEIDR_PSTL)
+  message(STATUS "  PSTL: Yes")
+else()
+  message(STATUS "  PSTL: No")
+endif()
+if (CMAKE_ASAN)
+  message(STATUS "  ASAN: Yes")
+else()
+  message(STATUS "  ASAN: No")
+endif()
+if (CMAKE_CLANG_ANALYZE)
+  message(STATUS "  Clang Analyze: Yes")
+else()
+  message(STATUS "  Clang Analyze: No")
+endif()
+if (CMAKE_OFAST)
+  message(STATUS "  Optimization: -Ofast")
+elseif (CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RELWITHDEBINFO")
+  message(STATUS "  Optimization: -O3")
+else ()
+  message(STATUS "  Optimization: None")
+endif()
+if (CMAKE_BUILD_NATIVE)
+  message(STATUS "  Native build: Yes")
+else()
+  message(STATUS "  Native build: No")
+endif()
+if (NARROMI_USE_CLP)
+  message(STATUS "  LP Engine: CLP")
+else()
+  message(STATUS "  LP Engine: GLPK")
+endif()
