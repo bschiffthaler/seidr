@@ -92,7 +92,7 @@ int stats(int argc, char ** argv)
    po::value<uint32_t>(&param.nsamples)->default_value(0),
    "Use N samples for approximations")
   ("metrics,m",
-   po::value<std::string>(&param.metrics)->default_value("[PR,CLO,BTW,STR,EV,KTZ,SEC,EBC]"),
+   po::value<std::string>(&param.metrics)->default_value("PR,CLO,BTW,STR,EV,KTZ,SEC,EBC"),
    "String describing metrics to calculate")
   ("exact,e", po::bool_switch(&param.exact)->default_value(false),
    "Calculate exact stats.")
@@ -102,12 +102,12 @@ int stats(int argc, char ** argv)
   po::options_description req("Required");
   req.add_options()
   ("in-file", po::value<std::string>(&param.infile)->required(),
-   "Input SeidrFile");
+   "Input SeidrFile [can be positional]");
 
   umbrella.add(req).add(sopt).add(opt);
 
   po::positional_options_description p;
-  p.add("network", 1);
+  p.add("in-file", 1);
 
   po::variables_map vm;
   po::store(po::command_line_parser(argc, args).
@@ -137,7 +137,7 @@ int stats(int argc, char ** argv)
     for (auto metric : tokenize_delim(param.metrics, ","))
     {
       assert_arg_constraint<std::string>({"PR", "CLO", "BTW", "STR", "EV",
-                                         "KTZ", "SEC", "EBC"}, param.metrics);
+                                         "KTZ", "SEC", "EBC"}, metric);
     }
   }
   catch (std::runtime_error& except)
@@ -193,6 +193,12 @@ int stats(int argc, char ** argv)
   {
     param.nsamples = boost::numeric_cast<uint64_t>(boost::numeric_cast<double>(h.attr.nodes) * 0.1);
     log(LOG_INFO) << "Using " << param.nsamples << " as the number of samples\n";
+  }
+  // Workaround for GitHub issue #9 (crash because approximate data structure
+  // is initialized even though we are not using it)
+  else if (param.exact && param.nsamples == 0)
+  {
+    param.nsamples = h.attr.nodes;
   }
 
   make_tpos(param.tpos, h);
@@ -252,7 +258,7 @@ int stats(int argc, char ** argv)
     }
     h.attr.closeness_calc = 1;
   }
-  else
+  else if (in_string("CLO", param.metrics))
   {
     log(LOG_WARN) << "Graph is disconnected. Closeness is not defined\n";
     for (uint32_t i = 0; i < h.attr.nodes; i++)
@@ -265,11 +271,19 @@ int stats(int argc, char ** argv)
   std::vector<double> ebv;
   if (in_string("BTW", param.metrics))
   {
-    log(LOG_INFO) << "Calculating " << (param.exact ? "exact" : "approximate")
-                  << " Betweenness\n";
+    if (! param.exact && in_string("EBC", param.metrics))
+    {
+      log(LOG_WARN) << "Edge betweenness requires exact statistics. Forcing "
+                       "exact betweenness\n";
+    }
+    else
+    {
+      log(LOG_INFO) << "Calculating " << (param.exact ? "exact" : "approximate")
+                    << " Betweenness\n";
+    }
     NetworKit::EstimateBetweenness btv(g, param.nsamples, false, param.exact);
     NetworKit::Betweenness btve(g, false, true);
-    if (param.exact)
+    if (param.exact || in_string("EBC", param.metrics))
     {
       btve.run();
       if (in_string("EBC", param.metrics))
@@ -277,13 +291,14 @@ int stats(int argc, char ** argv)
         ebv = btve.edgeScores();
       }
     }
-    else
+    else 
     {
       btv.run();
     }
     for (uint32_t i = 0; i < h.attr.nodes; i++)
     {
-      h.betweenness.push_back(param.exact ? btve.score(i) : btv.score(i));
+      h.betweenness.push_back((param.exact || in_string("EBC", param.metrics)) ? 
+        btve.score(i) : btv.score(i));
     }
     h.attr.betweenness_calc = 1;
   }
