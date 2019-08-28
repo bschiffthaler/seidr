@@ -740,7 +740,14 @@ void SeidrFileEdge::print(std::ostream& out, const SeidrFileHeader& header,
     if (header.attr.katz_calc)
       ost << header.katz[xi] << '\t' << header.katz[xj] << '\t';
     std::string ox = ost.str();
-    ox.back() = end;
+    if (ox.size() > 0)
+    {
+      ox.back() = '\n';
+    } 
+    else
+    {
+      ox += '\n';
+    }
     out << ox;
   }
 }
