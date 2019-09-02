@@ -271,7 +271,7 @@ class scriptGenerator(object):
         gen = cmdGenerator(args, llr)
         for arg in gen.get():
           self.cmd.append(arg)
-      elif re.search('mi_', args.input, flags=re.IGNORECASE):
+      elif re.search('^mi_', args.input, flags=re.IGNORECASE):
         gen = cmdGenerator(args, mi)
         for arg in gen.get():
           self.cmd.append(arg)    
