@@ -99,11 +99,11 @@ extern "C" {
     c         jerr = -10000-k => number of non zero coefficients along path
     c            exceeds nx (see above) at kth lamda value.
   */
-  void elnet_(int* ka, double* parm, int* no, int* ni, double* x, double* y,
-              double* w, int* jd, double* vp, double* cl, int* ne, int* nx,
-              int* nlam, double* flmin, double* ulam, double* thr, int* isd,
-              int* intr, int* maxit, int* lmu, double* a0, double* ca, int* ia,
-              int* nin, double* rsq, double* alm, int* nlp, int* jerr);
+  void elnet_(int64_t* ka, double* parm, int64_t* no, int64_t* ni, double* x, double* y,
+              double* w, int64_t* jd, double* vp, double* cl, int64_t* ne, int64_t* nx,
+              int64_t* nlam, double* flmin, double* ulam, double* thr, int64_t* isd,
+              int64_t* intr, int64_t* maxit, int64_t* lmu, double* a0, double* ca, int64_t* ia,
+              int64_t* nin, double* rsq, double* alm, int64_t* nlp, int64_t* jerr);
 }
 
 struct lambda_interp_t {
@@ -125,18 +125,18 @@ class glm {
   arma::mat X;
   arma::vec Y;
   // Input to FORTRAN code
-  int nlam; 
-  int nobs;
-  int nvars;
-  int ne;
-  int nx;
-  int jd;
+  int64_t nlam; 
+  int64_t nobs;
+  int64_t nvars;
+  int64_t ne;
+  int64_t nx;
+  int64_t jd;
   double thresh;
-  int isd;
-  int intr;
-  int ka;
-  int lmu;
-  int maxit;
+  int64_t isd;
+  int64_t intr;
+  int64_t ka;
+  int64_t lmu;
+  int64_t maxit;
   double flmin;
   double alpha;
   arma::vec w;
@@ -148,16 +148,16 @@ class glm {
   arma::vec ca;
   arma::vec rsq;
   arma::vec alm;
-  arma::ivec ia;
-  arma::ivec nin;
-  int nlp = 0;
-  int jerr = 0;
+  arma::uvec ia;
+  arma::uvec nin;
+  int64_t nlp = 0;
+  int64_t jerr = 0;
   // Beta data
   arma::mat beta;
   arma::uvec sort_order;
   bool beta_success;
   // Ctor
-  glm(arma::mat X, arma::vec Y, int _nlam = 6, double _flmin = 0.3,
+  glm(arma::mat X, arma::vec Y, int64_t _nlam = 6, double _flmin = 0.3,
       double _alpha = 1, arma::vec _ulam = arma::vec(1, arma::fill::zeros));
   // Calculate and return beta
   void calculate_beta();
@@ -169,6 +169,6 @@ class glm {
   glm_cv_t k_fold_cv(arma::uword k);
 };
 
-glm glmnet(arma::mat&, arma::vec&, int nsteps, double fmin);
+glm glmnet(arma::mat&, arma::vec&, int64_t nsteps, double fmin);
 
 lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s);

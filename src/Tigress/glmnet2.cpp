@@ -102,60 +102,60 @@ extern "C" {
     c         jerr = -10000-k => number of non zero coefficients along path
     c            exceeds nx (see above) at kth lamda value.
   */
-  void elnet_(int* ka, double* parm, int* no, int* ni, double* x, double* y,
-              double* w, int* jd, double* vp, double* cl, int* ne, int* nx,
-              int* nlam, double* flmin, double* ulam, double* thr, int* isd,
-              int* intr, int* maxit, int* lmu, double* a0, double* ca, int* ia,
-              int* nin, double* rsq, double* alm, int* nlp, int* jerr);
+  void elnet_(int64_t* ka, double* parm, int64_t* no, int64_t* ni, double* x, double* y,
+              double* w, int64_t* jd, double* vp, double* cl, int64_t* ne, int64_t* nx,
+              int64_t* nlam, double* flmin, double* ulam, double* thr, int64_t* isd,
+              int64_t* intr, int64_t* maxit, int64_t* lmu, double* a0, double* ca, int64_t* ia,
+              int64_t* nin, double* rsq, double* alm, int64_t* nlp, int64_t* jerr);
 }
 
 
-glm glmnet(arma::mat X, arma::vec Y, int nsteps, double fmin){
+glm glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin){
   
   // Setup one more lambda malue than requested
-  int nlam = nsteps + 1;
+  int64_t nlam = nsteps + 1;
   // Setup all variables passed to FORTRAN
-  int nobs = X.n_rows;
-  int nvars = X.n_cols;
-  int ne = nvars + 1;
-  int nx = nvars;
-  int jd = 0;
+  int64_t nobs = X.n_rows;
+  int64_t nvars = X.n_cols;
+  int64_t ne = nvars + 1;
+  int64_t nx = nvars;
+  int64_t jd = 0;
   double thresh = 1e-7;
-  int isd = 1;
-  int intr = 1;
-  int ka = 1;
-  int maxit = 1e5;
+  int64_t isd = 1;
+  int64_t intr = 1;
+  int64_t ka = 1;
+  int64_t maxit = 1e5;
   double flmin = 0.5;
   double alpha = 1;
   double * yp = Y.memptr();
   double * xp = X.memptr();
 
   double * wp = new double[nobs]();
-  for(int i = 0; i < nobs; i++)
+  for(int64_t i = 0; i < nobs; i++)
     wp[i] = 1.0;
   
   double * vpp = new double[nvars]();
-  for(int i = 0; i < nvars; i++)
+  for(int64_t i = 0; i < nvars; i++)
     vpp[i] = 1.0;
   
   double * clp = new double[2 * nvars]();
-  for(int i = 0; i < 2 * nvars; i++)
+  for(int64_t i = 0; i < 2 * nvars; i++)
     clp[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
   
   double * ulamp = new double[1](); //ignored
   
   // Allocate memory to fill (by FORTRAN code)
-  int lmu = 0;
+  int64_t lmu = 0;
 
   double * a0 = new double[nlam]();
   double * ca = new double[nx * nlam]();
-  int * ia = new int[nx]();
-  int * nin = new int[nlam]();
+  int64_t * ia = new int64_t[nx]();
+  int64_t * nin = new int64_t[nlam]();
   double * rsq = new double[nlam]();
   double * alm = new double[nlam]();
   
-  int nlp = 0;
-  int jerr = 0;
+  int64_t nlp = 0;
+  int64_t jerr = 0;
 
   // Run ElNet optimization
   elnet_(&ka, &alpha, &nobs, &nvars, xp, yp, wp,
@@ -163,22 +163,19 @@ glm glmnet(arma::mat X, arma::vec Y, int nsteps, double fmin){
          &intr, &maxit, &lmu, a0, ca, ia,
          nin, rsq, alm, &nlp, &jerr);
   
-  // Setup return struct
-  arma::mat b(nvars, nlam);
-  b.zeros();
-  glm ret{b, arma::uvec(1), false}; //returned in case of error
 
   // Create safe unsigned variables to compare to
-  arma::uword u_lmu = 0, u_nx = 0, u_ninmax = 0, u_nlam = 0; 
+  arma::uword u_lmu = 0, u_nx = 0, u_ninmax = 0, u_nlam = 0, u_nvars = 0; 
 
   try
     {
       u_lmu = boost::numeric_cast<arma::uword>(lmu);
       u_nx = boost::numeric_cast<arma::uword>(nx);
       u_nlam = boost::numeric_cast<arma::uword>(nlam);
+      u_nvars = boost::numeric_cast<arma::uword>(nvars);
       // Maximum coefficients that will enter the model at
       // any lambda
-      int ninmax = 0;
+      int64_t ninmax = 0;
       for(arma::uword i = 0; i < u_lmu; i++)
         {
           if(nin[i] > ninmax)
@@ -192,6 +189,11 @@ glm glmnet(arma::mat X, arma::vec Y, int nsteps, double fmin){
     {
       throw std::runtime_error(e.what());
     }
+
+  // Setup return struct
+  arma::mat b(u_nvars, u_nlam);
+  b.zeros();
+  glm ret{b, arma::uvec(1), false}; //returned in case of error
 
   if(u_ninmax > 0 && u_lmu > 0)
     {

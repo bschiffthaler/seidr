@@ -29,13 +29,13 @@
 
 using boost::numeric_cast;
 
-glm glmnet(arma::mat& X, arma::vec& Y, int nsteps, double fmin)
+glm glmnet(arma::mat& X, arma::vec& Y, int64_t nsteps, double fmin)
 {
   glm ret(X, Y, nsteps, fmin);
   return ret;
 }
 
-glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
+glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
          double _alpha, arma::vec _ulam) :
   lmu(0),
   beta_success(false)
@@ -66,19 +66,19 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
   double * yptr = y.memptr();
 
   auto wptr = new double[nobs]();
-  for (int i = 0; i < nobs; i++)
+  for (int64_t i = 0; i < nobs; i++)
   {
     wptr[i] = 1.0;
   }
 
   auto vpptr = new double[nvars]();
-  for (int i = 0; i < nvars; i++)
+  for (int64_t i = 0; i < nvars; i++)
   {
     vpptr[i] = 1.0;
   }
 
   auto clptr = new double[2 * nvars]();
-  for (int i = 0; i < 2 * nvars; i++)
+  for (int64_t i = 0; i < 2 * nvars; i++)
   {
     clptr[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
   }
@@ -92,13 +92,13 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
     {
       ulamptr[i] = _ulam(i);
     }
-    nlam = numeric_cast<int>(_ulam.n_elem);
+    nlam = numeric_cast<int64_t>(_ulam.n_elem);
   }
 
   auto a0ptr = new double[nlam]();
   auto captr = new double[nx * nlam]();
-  auto iaptr = new int[nx]();
-  auto ninptr = new int[nlam]();
+  auto iaptr = new int64_t[nx]();
+  auto ninptr = new int64_t[nlam]();
   auto rsqptr = new double[nlam]();
   auto almptr = new double[nlam]();
 
@@ -110,12 +110,22 @@ glm::glm(arma::mat _X, arma::vec _Y, int _nlam, double _flmin,
 
   // Create arma vectors from aux memory while at the same time
   // truncating data to reflect actual number of lambdas (solutions)
-  a0 = arma::vec(a0ptr, lmu);
-  ca = arma::vec(captr, nx * lmu);
-  ia = arma::ivec(iaptr, nx);
-  nin = arma::ivec(ninptr, lmu);
-  rsq = arma::vec(rsqptr, lmu);
-  alm = arma::vec(almptr, lmu);
+  arma::uword u_lmu = numeric_cast<arma::uword>(lmu);
+  arma::uword u_nx = numeric_cast<arma::uword>(nx);
+  a0 = arma::vec(a0ptr, u_lmu);
+  ca = arma::vec(captr, u_nx * u_lmu);
+  ia = arma::uvec(u_nx);
+  for (arma::uword i = 0; i < u_nx; i++)
+  {
+    ia[i] = numeric_cast<arma::uword>(iaptr[i]);
+  }
+  nin = arma::uvec(u_lmu);
+  for (arma::uword i = 0; i < u_lmu; i++)
+  {
+    nin[i] = numeric_cast<arma::uword>(ninptr[i]);
+  }
+  rsq = arma::vec(rsqptr, u_lmu);
+  alm = arma::vec(almptr, u_lmu);
 
   // Fix lambda return
   if (nlam > 1 && flmin < 1)

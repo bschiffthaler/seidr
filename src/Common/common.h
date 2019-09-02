@@ -56,11 +56,7 @@ namespace po = boost::program_options;
   #define GET_MAX_PSTL_THREADS() 1
 #endif
 
-#ifndef SEIDR_SCORE_DOUBLE
-typedef float seidr_score_t;
-#else
 typedef double seidr_score_t;
-#endif
 
 #ifndef SEIDR_SCORE_DOUBLE
 typedef arma::mat seidr_mat_t;
