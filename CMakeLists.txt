@@ -10,6 +10,10 @@ include_directories(src/Common src/Narromi src/Tigress src/SVM
   src/ElNet src/Seidr src/Correlation src/MI src/PLSNET src/PCor 
   src/GENIE3 src/Anoverence external/bgzf)
 
+#######################################
+## Version, C++ Standard, build type ##
+#######################################
+
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
 set(SEIDR_MINOR_VERSION 12)
@@ -17,55 +21,71 @@ set(SEIDR_PATCH_VERSION 0)
 set(SEIDR_VERSION
   ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
 
-# Add common CXX flags 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_32BIT_WORD -DARMA_DONT_PRINT_ERRORS")
-
-# Standard
+# C++ Standard
 set(CMAKE_CXX_STANDARD 11)
 
-# Can we use parallel sorting algorithms?
-if (SEIDR_PSTL) # No free compiler support except intel and msvc
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PSTL")
+# Explicitly set build type if user hasn't chosen one
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-# Default flags
-if (CMAKE_OFAST)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Ofast")
-else()
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3")
-endif()
+# Add common CXX flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_PRINT_ERRORS")
+
+###################################################
+## Compatibility with FORTRAN compiled libraries ##
+###################################################
 
 # Make sure FORTRAN has the same width in relevant datatypes to interface with 
 # C++
 if(${CMAKE_Fortran_COMPILER_ID} MATCHES "Intel")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -m64 -autodouble -fixed")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -m64 -integer-size 64 -autodouble -fixed")
 else()
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-integer-8 -m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
 endif()
+
+##########################
+## General Optimization ##
+##########################
+
+# Enable Processor tuning in command line
+if(CMAKE_BUILD_NATIVE)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -mtune=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -march=native -mtune=native")
+endif()
+
+# Allow user to select dangerous optimizations
+if (CMAKE_OFAST)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Ofast")
+endif()
+
+# Can we use parallel sorting algorithms?
+if (SEIDR_PSTL)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_PSTL")
+endif()
+
+###################
+## Debug options ##
+###################
 
 # Enable extra debugging or inspection options
 if(CMAKE_CLANG_ANALYZE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --analyze")
 endif()
 
+# Enable sanitizers
 if(CMAKE_ASAN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 endif()
 
-# Enable Processor tuning in command line
-if(CMAKE_BUILD_NATIVE)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
-  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -march=native")
-endif()
-
 # Enable building seidr with float as a default floating point datatype 
 # in case memory is sparse
-if(NOT SEIDR_SCORE_FLOAT)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_SCORE_DOUBLE")
+if(SEIDR_SCORE_FLOAT)
+  ## Not supported anymore
+  message(WARNING "SEIDR_SCORE_FLOAT is deprecated and was ignored")
 endif()
 
 # Enable OpenMP
@@ -166,14 +186,7 @@ target_link_libraries(genie3 ranger pthread)
 
 # Make libraries position independent
 set_target_properties(seidr-common PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC")
-set_target_properties(seidr-glmnet PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC") 
-
-# Link TBB for intel parallel
-if (CMAKE_PARALLEL_SORT)
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    target_link_libraries(seidr tbb)
-  endif()
-endif()                                         
+set_target_properties(seidr-glmnet PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -fPIC")                                        
 
 # Packages:
 
@@ -206,11 +219,6 @@ target_link_libraries( mi ${ARMADILLO_LIBRARIES})
 target_link_libraries( plsnet ${ARMADILLO_LIBRARIES})
 target_link_libraries( pcor ${ARMADILLO_LIBRARIES})
 target_link_libraries( genie3 ${ARMADILLO_LIBRARIES})
-
-find_package(BLAS REQUIRED)
-include_directories(${BLAS_INCLUDE_PATH})
-target_link_libraries(narromi ${BLAS_LIBRARIES})
-target_link_libraries(llr-ensemble ${BLAS_LIBRARIES})
 
 # Boost
 find_package( Boost COMPONENTS system filesystem program_options serialization REQUIRED )
@@ -273,6 +281,13 @@ find_package(GSL REQUIRED)
 include_directories(${GSL_INCLUDE_PATH})
 target_link_libraries(seidr ${GSL_LIBRARIES})
 
+# Need to link BLAS because of liblinear/libsvm
+find_package(BLAS REQUIRED)
+include_directories(${BLAS_INCLUDE_PATH})
+target_link_libraries(llr-ensemble ${BLAS_LIBRARIES})
+target_link_libraries(svm-ensemble ${BLAS_LIBRARIES})
+
+
 if (NARROMI_USE_CLP)
   find_package(CLP REQUIRED)
   include_directories(${CLP_INCLUDE_PATH})
@@ -304,7 +319,7 @@ else()
 endif()
 if (CMAKE_OFAST)
   message(STATUS "  Optimization: -Ofast")
-elseif (CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RELWITHDEBINFO")
+elseif (CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
   message(STATUS "  Optimization: -O3")
 else ()
   message(STATUS "  Optimization: None")
