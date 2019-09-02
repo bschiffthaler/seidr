@@ -914,7 +914,7 @@ extern "C" {
   std::vector<offset_t> SeidrFileIndex::get_offset_node(std::string& node)
   {
     std::vector<offset_t> ret;
-    uint32_t n = find(node, lax);
+    uint32_t n = find(node);
     for (uint32_t i = 0; i < nodes; i++)
     {
       if (i != n)
