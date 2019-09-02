@@ -12,31 +12,34 @@ class SeidrFile(object):
     self.algorithms = self.sf_ptr.algorithms()
 
   def algorithms(self):
-    return self.algorithms()
+    return self.algorithms
+
+  def attr(self):
+    return self.attr
 
   def supplementary(self):
-    return self.supplementary()
+    return self.supplementary
 
   def nodes(self):
-    return self.nodes()
+    return self.nodes
 
   def betweenness(self):
-    return self.betweenness()
+    return self.sf_ptr.betweenness()
 
   def closeness(self):
-    return self.closeness()
+    return self.sf_ptr.closeness()
 
   def pagerank(self):
-    return self.pagerank()
+    return self.sf_ptr.pagerank()
 
   def eigenvector(self):
-    return self.eigenvector()
+    return self.sf_ptr.eigenvector()
 
   def strength(self):
-    return self.strength()
+    return self.sf_ptr.strength()
 
   def katz(self):
-    return self.katz()
+    return self.sf_ptr.katz()
 
   def edge_scores(self):
     return self.sf_ptr.edge_scores()
