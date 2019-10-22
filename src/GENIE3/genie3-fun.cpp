@@ -38,6 +38,7 @@
 #include <ranger/globals.h>
 #include <map>
 #include <sstream>
+#include <memory>
 
 namespace fs = boost::filesystem;
 
@@ -84,48 +85,92 @@ void seidr_mpi_genie3::finalize()
   merge_files(_outfile, _tempdir, _targeted, _id, _genes);
 }
 
-class SeidrForestData : public ranger::DataDouble {
+class SeidrForestData : public ranger::Data {
 public:
-  SeidrForestData();
-  void load(arma::mat& gm, std::vector<std::string>& genes);
-};
+  SeidrForestData() = default;
 
-void SeidrForestData::load(arma::mat& gm, std::vector<std::string>& genes)
-{
-  num_rows = gm.n_rows;
-  externalData = false;
-  variable_names = genes;
-  num_cols = variable_names.size();
-  num_cols_no_snp = num_cols;
-  reserveMemory();
-  bool error = false;
-  for (arma::uword i = 0; i < gm.n_rows; i++)
-    for (arma::uword j = 0; j < gm.n_cols; j++)
-      set(j, i, gm(i, j), error);
-}
+  SeidrForestData(const SeidrForestData&) = delete;
+  SeidrForestData& operator=(const SeidrForestData&) = delete;
+
+  virtual ~SeidrForestData() override = default;
+
+  double get_x(size_t row, size_t col) const override {
+    // Use permuted data for corrected impurity importance
+    size_t col_permuted = col;
+    if (col >= num_cols) {
+      col = getUnpermutedVarID(col);
+      row = getPermutedSampleID(row);
+    }
+
+    if (col < num_cols_no_snp) {
+      return x[col * num_rows + row];
+    } else {
+      return getSnp(row, col, col_permuted);
+    }
+  }
+
+  double get_y(size_t row, size_t col) const override {
+    return y[col * num_rows + row];
+  }
+
+  void reserveMemory(size_t y_cols) override {
+    x.resize(num_cols * num_rows);
+    y.resize(y_cols * num_rows);
+  }
+
+  void set_x(size_t col, size_t row, double value, bool& error) override {
+    x[col * num_rows + row] = value;
+  }
+
+  void set_y(size_t col, size_t row, double value, bool& error) override {
+    y[col * num_rows + row] = value;
+  }
+
+
+private:
+  std::vector<double> x;
+  std::vector<double> y;
+};
 
 class SeidrForest : public ranger::ForestRegression {
 public:
-  SeidrForest(std::string dependent_variable_name,
-              const arma::mat& gm,
-              const std::vector<std::string>& genes,
+  SeidrForest(const std::vector<std::string>& dependent_variable_name,
+              const arma::mat& gm_x,
+              const arma::mat& gm_y,
+              const std::vector<std::string>& var,
               const size_t ntree,
               const size_t mtry,
               const size_t min_node_size,
               const double alpha,
               const double minprop,
               std::ostream& ostream);
+  std::unique_ptr<ranger::Data> load(const std::vector<std::string>& dependent_variable_name,
+                                     const arma::mat& gm_x,
+                                     const arma::mat& gm_y,
+                                     const std::vector<std::string>& var);
 };
 
-SeidrForest::SeidrForest(std::string dependent_variable_name,
-                         const arma::mat& gm,
-                         const std::vector<std::string>& genes,
+std::unique_ptr<ranger::Data> SeidrForest::load(const std::vector<std::string>& dependent_variable_name,
+    const arma::mat& gm_x,
+    const arma::mat& gm_y,
+    const std::vector<std::string>& var)
+{
+  std::unique_ptr<ranger::Data> internal_data_ptr(new SeidrForestData());
+  internal_data_ptr->load_seidr(dependent_variable_name, gm_x, gm_y, var);
+  return internal_data_ptr;
+}
+
+SeidrForest::SeidrForest(const std::vector<std::string>& dependent_variable_name,
+                         const arma::mat& gm_x,
+                         const arma::mat& gm_y,
+                         const std::vector<std::string>& var,
                          const size_t ntree,
                          const size_t mtry,
                          const size_t min_node_size,
                          const double alpha,
                          const double minprop,
                          std::ostream& ostream) {
+
   std::vector<std::string> catvars;
 
   ranger::MemoryMode M = ranger::MEM_DOUBLE;
@@ -135,25 +180,25 @@ SeidrForest::SeidrForest(std::string dependent_variable_name,
 
   std::vector<double> sample_fraction_vector = { 1 };
 
-  std::vector<double> internal_data;
-  for (size_t i = 0; i < gm.n_cols; i++)
-  {
-    for (size_t j = 0; j < gm.n_rows; j++)
-    {
-      internal_data.push_back(gm(j, i));
-    }
-  }
+  // std::vector<double> internal_data;
+  // for (size_t i = 0; i < gm.n_cols; i++)
+  // {
+  //   for (size_t j = 0; j < gm.n_rows; j++)
+  //   {
+  //     internal_data.push_back(gm(j, i));
+  //   }
+  // }
 
-  init(dependent_variable_name, M,
-       std::unique_ptr<ranger::Data>(new ranger::DataDouble(internal_data,
-                                     genes, gm.n_rows,
-                                     gm.n_cols)),
-       mtry,
+  // std::unique_ptr<ranger::Data> internal_data_ptr { };
+  // internal_data_ptr = ranger::make_unique<SeidrForestData>();
+  // internal_data_ptr->load_seidr(dependent_variable_name, gm_x, gm_y, var);
+
+  init(M, load(dependent_variable_name, gm_x, gm_y, var), mtry,
        //output_prefix, num_tree, seed, threads, importance mode
        "ranger_out_s", ntree, 314159265, 1, I,
        //min node size (0=auto), status variable, prediction mode,
        // sample with replacement
-       min_node_size, "", false, true,
+       min_node_size, false, true,
        //categorical vars, save memory, split rule (1 = default/variance)
        catvars, false, S,
        //predict all, sample fraction, alpha, min prop, holdout
@@ -194,13 +239,32 @@ void genie3(const arma::mat& gm,
       log.send(LOG_INFO);
     }
 
+    std::vector<std::string> dep_var;
+    std::vector<std::string> var;
 
-    //Forest* forest = new ForestRegression;
-    //forest->verbose_out=&std::cout;
+    arma::uvec ranger_ix(gm.n_cols - 1);
+    arma::uvec ranger_iy(1);
+
+    ranger_iy(0) = pred[i];
+    dep_var.push_back(genes[pred[i]]);
+
+    arma::uword j_ = 0;
+    for (arma::uword j = 0; j < gm.n_cols; j++)
+    {
+      if (j != pred[i])
+      {
+        ranger_ix(j_) = j;
+        var.push_back(genes[j]);
+        j_++;
+      }
+    }
+    const arma::mat& ranger_mx = gm.cols(ranger_ix);
+    const arma::mat& ranger_my = gm.cols(ranger_iy);
+
     std::vector<std::string> catvars;
     std::ostream nullstream(0);
-    SeidrForest forest(genes[pred[i]], gm, genes, ntree, mtry, min_node_size,
-                       alpha, minprop, nullstream);
+    SeidrForest forest(dep_var, ranger_mx, ranger_my, var, ntree, mtry,
+                       min_node_size, alpha, minprop, nullstream);
 
     // forest->init(genes[pred[i]], MEM_DOUBLE, data, mtry, "ranger_out_s",
     //              ntree, 314159265, 1, IMP_GINI, min_node_size, "", false,
