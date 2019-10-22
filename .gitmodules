@@ -13,3 +13,6 @@
 [submodule "external/glmnet"]
 	path = external/glmnet
 	url = https://github.com/cran/glmnet
+[submodule "external/ranger"]
+	path = external/ranger
+	url = https://github.com/imbs-hl/ranger
