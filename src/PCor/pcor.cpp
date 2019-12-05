@@ -34,49 +34,58 @@ namespace po = boost::program_options;
 int main(int argc, char ** argv)
 {
 
-  LOG_INIT_CLOG();
+  logger log(std::cerr, "pcor");
 
   seidr_pcor_param_t param;
 
   po::options_description umbrella("Partial correlation for Seidr");
-
-  po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("pcor_scores.tsv"),
-   "Output file path")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists");
-
-  po::options_description algopt("PCor Options");
-  algopt.add_options()
-  ("absolute,a", po::bool_switch(&param.abs)->default_value(false),
-   "Report absolute values")
-  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-   "Transform data to z-scores");
-
-  po::options_description req("Required Options");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
-
-  umbrella.add(req).add(algopt).add(opt);
-
-  po::positional_options_description p;
-
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
+
+  try
+  {
+    po::options_description opt("Common Options");
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("pcor_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists");
+
+    po::options_description algopt("PCor Options");
+    algopt.add_options()
+    ("absolute,a", po::bool_switch(&param.abs)->default_value(false),
+     "Report absolute values")
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores");
+
+    po::options_description req("Required Options");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
+
+    umbrella.add(req).add(algopt).add(opt);
+
+    po::positional_options_description p;
+
+
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
+    return 22;
+  }
 
   if (vm.count("help") || argc == 1)
   {
@@ -91,6 +100,7 @@ int main(int argc, char ** argv)
   catch (std::exception& e)
   {
     log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
+    return 22;
   }
 
   log.set_log_level(param.verbosity);

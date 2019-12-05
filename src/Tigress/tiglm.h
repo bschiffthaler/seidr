@@ -39,15 +39,16 @@ struct seidr_tigress_param_t
   bool force = false;
   char row_delim = '\n';
   char field_delim = '\t';
-  uint64_t bs;
+  uint64_t bs = 20;
   size_t mode = TIGLM_FULL;
-  std::string outfile;
-  seidr_uword_t boot;
-  double fmin;
-  seidr_uword_t nsteps;
-  std::string tempdir;
-  unsigned verbosity;
-  int nthreads;
+  std::string outfile = "";
+  seidr_uword_t boot = 1000;
+  double fmin = 0.3;
+  seidr_uword_t nsteps = 7;
+  std::string tempdir = "";
+  unsigned verbosity = 3;
+  int nthreads = 1;
+  bool allow_low_var = false;
 };
 
 std::vector<arma::uvec> shuffle(unsigned int);
@@ -58,6 +59,7 @@ void tiglm(const arma::mat& geneMatrix,
            const seidr_uword_t& boot,
            const double& fmin,
            const seidr_uword_t& nsteps,
+           const bool& allow_low_var,
            seidr_mpi_tigress * self);
 void tiglm_full(const arma::mat& gene_matrix,
                 const std::vector<std::string>& genes,

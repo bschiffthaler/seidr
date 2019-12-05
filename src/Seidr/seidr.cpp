@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
   catch (std::exception& e)
   {
     log(LOG_ERR) << e.what() << '\n';
-    return errno;
+    return 1;
   }
   return ret;
 }

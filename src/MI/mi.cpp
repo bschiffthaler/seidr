@@ -53,60 +53,71 @@ int main(int argc, char ** argv) {
                                    "or DPI (==ARACNE).");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("mi_scores.tsv"),
-   "Output file path")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)");
+  po::variables_map vm;
 
-  po::options_description algopt("MI Options");
-  algopt.add_options()
-  ("spline,s", po::value<unsigned long>(&param.spline_order)->default_value(3),
-   "Spline order")
-  ("bins,b", po::value<unsigned long>(&param.num_bins)->default_value(0, "auto"),
-   "Number of bins")
-  ("mi-file,M",
-   po::value<std::string>(&param.mi_file),
-   "Save/load raw MI to/from this file")
-  ("mode,m",
-   po::value<std::string>(&param.mode)->default_value("RAW"),
-   "Post processing [RAW, CLR, ARACNE]");
+  try
+  {
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("mi_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)");
 
-  po::options_description mpiopt("MPI Options");
-  mpiopt.add_options()
-  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
-   "Number of genes in MPI batch")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir),
-   "Temporary directory path");
+    po::options_description algopt("MI Options");
+    algopt.add_options()
+    ("spline,s", po::value<unsigned long>(&param.spline_order)->default_value(3),
+     "Spline order")
+    ("bins,b", po::value<unsigned long>(&param.num_bins)->default_value(0, "auto"),
+     "Number of bins")
+    ("mi-file,M",
+     po::value<std::string>(&param.mi_file),
+     "Save/load raw MI to/from this file")
+    ("mode,m",
+     po::value<std::string>(&param.mode)->default_value("RAW"),
+     "Post processing [RAW, CLR, ARACNE]");
 
-  po::options_description ompopt("OpenMP Options");
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
+
+    po::options_description ompopt("OpenMP Options");
     ompopt.add_options()
     ("threads,O", po::value<int>(&param.nthreads)->
      default_value(omp_get_max_threads()),
      "Number of OpenMP threads per MPI task");
 
-  po::options_description req("Required");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
+    po::options_description req("Required");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
 
-  umbrella.add(req).add(algopt).add(mpiopt).add(ompopt).add(opt);
+    umbrella.add(req).add(algopt).add(mpiopt).add(ompopt).add(opt);
 
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
+
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
 
   if (vm.count("help") || argc == 1)
   {
@@ -276,10 +287,25 @@ int main(int argc, char ** argv) {
     std::vector<std::string> genes;
     genes = read_genes(param.gene_file);
     std::vector<std::string> targets;
-    if (vm.count("targets"))
+    if (vm.count("targets") > 0)
     {
       targets = read_genes(param.targets_file);
     }
+
+    if (param.bs == 0)
+    {
+      if (vm.count("targets") > 0)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
+    }
+
     mi_full(gene_matrix, genes, targets, param);
   }
   catch (const std::runtime_error& e)

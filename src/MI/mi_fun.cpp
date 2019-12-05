@@ -652,7 +652,7 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
 
   std::sort(targets.begin(), targets.end());
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < gm.n_cols; i++)
   {
     find_weights(gm, knots, weights, spline_order, num_bins, i);
@@ -662,7 +662,7 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < targets.size(); i++)
   {
     size_t row = targets[i];

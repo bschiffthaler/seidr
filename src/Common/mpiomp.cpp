@@ -225,13 +225,17 @@ void mpi_sync_tempdir(std::string * tempdir)
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 
+#ifdef DEBUG
+  seidr_mpi_logger log("common@" + mpi_get_host());
+#endif
+
   if (rank == 0)
   {
     if (ntasks > 1)
     {
 #ifdef DEBUG
       log << "Informing threads of tempdir: " << (*tempdir) << '\n';
-      log.log(LOG_DEBUG);
+      log.send(LOG_DEBUG);
 #endif
       for (int i = 1; i < ntasks; i++)
       {

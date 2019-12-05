@@ -298,7 +298,7 @@ void narromi_thread(const arma::mat& gene_matrix,
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (size_t x = 0; x < ind.size(); x++) 
   {
     start = std::clock();

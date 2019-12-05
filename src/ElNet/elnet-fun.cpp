@@ -137,7 +137,7 @@ void el_ensemble(const arma::mat& geneMatrix,
     samples(i) = i;
   }
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (uint64_t i = 0; i < uvec.size(); i++)  // NOLINT 
   {
     arma::vec ret(geneMatrix.n_cols);

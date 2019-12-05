@@ -184,7 +184,7 @@ void genie3(const arma::mat& gm,
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
   //SeidrForestData data(gm, genes);
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (arma::uword i = 0; i < pred.size(); i++)
   {
 

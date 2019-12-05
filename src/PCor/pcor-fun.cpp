@@ -74,7 +74,7 @@ void fast_svd(arma::mat& U, arma::vec& s, arma::mat& V, arma::mat& m)
 
 arma::mat pcor(arma::mat& X)
 {
-  LOG_INIT_CLOG();
+  logger log(std::cerr, "pcor");
   arma::mat ret;
   log(LOG_INFO) << "Estimating lambda...\n";
   double lambda = estimate_lambda(X);

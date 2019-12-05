@@ -101,7 +101,7 @@ void plsnet(const arma::mat& geneMatrix,
   // Create random generators for samples and genes
   std::uniform_int_distribution<> sample_gen(0, geneMatrix.n_rows - 1);
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (uint64_t i = 0; i < uvec.size(); i++)
   {
     arma::vec ret(geneMatrix.n_cols, arma::fill::zeros);

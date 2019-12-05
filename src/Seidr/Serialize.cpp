@@ -530,6 +530,9 @@ extern "C" {
       if (EDGE_EXISTS(attr.flag))
       {
         scores.resize(header.attr.nalgs);
+        supp_str.resize(header.attr.nsupp_str);
+        supp_int.resize(header.attr.nsupp_int);
+        supp_flt.resize(header.attr.nsupp_flt);
         for (uint16_t i = 0; i < header.attr.nalgs; i++)
         {
           n = bgzf_read(file.bgzfile, &scores[i], sizeof(edge_score));
@@ -545,7 +548,7 @@ extern "C" {
             raise_err("Couldn't read SeidrFileEdge"
                       " supplementary data\n", file, header);
           std::string sinfo(es.data);
-          supp_str.push_back(sinfo);
+          supp_str[i] = sinfo;
         }
         for (uint16_t i = 0; i < header.attr.nsupp_int; i++)
         {
@@ -554,7 +557,7 @@ extern "C" {
           if (n == 0)
             raise_err("Couldn't read SeidrFileEdge"
                       " supplementary data\n", file, header);
-          supp_int.push_back(es.data);
+          supp_int[i] = es.data;
         }
         for (uint16_t i = 0; i < header.attr.nsupp_flt; i++)
         {
@@ -563,7 +566,7 @@ extern "C" {
           if (n == 0)
             raise_err("Couldn't read SeidrFileEdge"
                       " supplementary data\n", file, header);
-          supp_flt.push_back(es.data);
+          supp_flt[i] = es.data;
         }
       }
     }
@@ -578,6 +581,9 @@ extern "C" {
         raise_err("Couldn't read SeidrFileEdge attributes\n", file,
                   header);
       scores.resize(header.attr.nalgs);
+      supp_str.resize(header.attr.nsupp_str);
+      supp_int.resize(header.attr.nsupp_int);
+      supp_flt.resize(header.attr.nsupp_flt);
       for (uint16_t i = 0; i < header.attr.nalgs; i++)
       {
         n = bgzf_read(file.bgzfile, &scores[i], sizeof(edge_score));
@@ -593,7 +599,7 @@ extern "C" {
           raise_err("Couldn't read SeidrFileEdge"
                     " supplementary data\n", file, header);
         std::string sinfo(es.data);
-        supp_str.push_back(sinfo);
+        supp_str[i] = sinfo;
       }
       for (uint16_t i = 0; i < header.attr.nsupp_int; i++)
       {
@@ -602,7 +608,7 @@ extern "C" {
         if (n == 0)
           raise_err("Couldn't read SeidrFileEdge"
                     " supplementary data\n", file, header);
-        supp_int.push_back(es.data);
+        supp_int[i] = es.data;
       }
       for (uint16_t i = 0; i < header.attr.nsupp_flt; i++)
       {
@@ -611,7 +617,7 @@ extern "C" {
         if (n == 0)
           raise_err("Couldn't read SeidrFileEdge"
                     " supplementary data\n", file, header);
-        supp_flt.push_back(es.data);
+        supp_flt[i] = es.data;
       }
     }
   }

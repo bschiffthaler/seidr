@@ -86,7 +86,7 @@ int main(int argc, char ** argv) {
 
     po::options_description mpiopt("MPI Options");
     mpiopt.add_options()
-    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
      "Number of genes in MPI batch")
     ("tempdir,T",
      po::value<std::string>(&param.tempdir),
@@ -265,6 +265,20 @@ int main(int argc, char ** argv) {
     {
       targets = read_genes(param.targets_file, param.row_delim,
                            param.field_delim);
+    }
+
+    if (param.bs == 0)
+    {
+      if (param.mode == EL_PARTIAL)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
     }
 
     if (param.min_sample_size == 0)

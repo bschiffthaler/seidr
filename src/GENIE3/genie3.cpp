@@ -54,70 +54,82 @@ int main(int argc, char ** argv) {
   po::options_description umbrella("GENIE3 implementation for Seidr");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("genie3_scores.tsv"),
-   "Output file path")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)");
+  po::variables_map vm;
 
-  po::options_description algopt("GENIE3 Options");
-  algopt.add_options()
-  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-   "Transform data to z-scores")
-  ("min-node-size,N",
-   po::value<uint64_t>(&param.min_node_size)->
-   default_value(5), "Minimum node size")
-  ("min-prop,p",
-   po::value<double>(&param.minprop)->
-   default_value(0.1, "0.1"), "Minimal proportion in random forest")
-  ("alpha,a",
-   po::value<double>(&param.alpha)->default_value(0.5, "0.5"),
-   "Alpha value for random forests");
+  try
+  {
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("genie3_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)");
 
-  po::options_description bootopt("Bootstrap Options");
-  bootopt.add_options()
-  ("ntree,n",
-   po::value<uint64_t>(&param.ntree)->default_value(1000),
-   "Number of random forest trees to grow")
-  ("mtry,m",
-   po::value<uint64_t>(&param.mtry)->
-   default_value(0, "sqrt(m)"), "Number of features to sample in each tree");
-  
-  po::options_description mpiopt("MPI Options");
-  mpiopt.add_options()
-  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
-   "Number of genes in MPI batch")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir),
-   "Temporary directory path");
+    po::options_description algopt("GENIE3 Options");
+    algopt.add_options()
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores")
+    ("min-node-size,N",
+     po::value<uint64_t>(&param.min_node_size)->
+     default_value(5), "Minimum node size")
+    ("min-prop,p",
+     po::value<double>(&param.minprop)->
+     default_value(0.1, "0.1"), "Minimal proportion in random forest")
+    ("alpha,a",
+     po::value<double>(&param.alpha)->default_value(0.5, "0.5"),
+     "Alpha value for random forests");
 
-  po::options_description ompopt("OpenMP Options");
+    po::options_description bootopt("Bootstrap Options");
+    bootopt.add_options()
+    ("ntree,n",
+     po::value<uint64_t>(&param.ntree)->default_value(1000),
+     "Number of random forest trees to grow")
+    ("mtry,m",
+     po::value<uint64_t>(&param.mtry)->
+     default_value(0, "sqrt(m)"), "Number of features to sample in each tree");
+
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
+
+    po::options_description ompopt("OpenMP Options");
     ompopt.add_options()
     ("threads,O", po::value<int>(&param.nthreads)->
      default_value(omp_get_max_threads()),
      "Number of OpenMP threads per MPI task");
 
-  po::options_description req("Required");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
+    po::options_description req("Required");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
 
-  umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+    umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
+
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
+
 
   if (vm.count("help") || argc == 1)
   {
@@ -138,7 +150,7 @@ int main(int argc, char ** argv) {
 
   log.set_log_level(param.verbosity);
 
-  if (vm.count("targets"))
+  if (vm.count("targets") > 0)
   {
     param.mode = GENIE3_PARTIAL;
   }
@@ -238,8 +250,22 @@ int main(int argc, char ** argv) {
 
     if (param.mode == GENIE3_PARTIAL)
     {
-      targets = read_genes(param.targets_file, param.row_delim, 
+      targets = read_genes(param.targets_file, param.row_delim,
                            param.field_delim);
+    }
+
+    if (param.bs == 0)
+    {
+      if (param.mode == GENIE3_PARTIAL)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
     }
 
     switch (param.mode) {

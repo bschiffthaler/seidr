@@ -327,3 +327,29 @@ void make_tpos(uint32_t& tpos, const SeidrFileHeader& h)
   }
   assert_in_range<uint32_t>(tpos, 0, h.attr.nalgs - 1);
 }
+
+uint64_t get_mpi_nthread()
+{
+  int procn;
+  MPI_Comm_size(MPI_COMM_WORLD, &procn);
+  if (procn < 0)
+  {
+    throw std::runtime_error("Number of MPI threads could not be"
+                             " reliably determined");
+  }
+  uint64_t ret = static_cast<uint64_t>(procn);
+  return ret;
+}
+
+uint64_t guess_batch_size(uint64_t const & set_size,
+                          uint64_t const & task_n)
+{
+  if (set_size % task_n == 0)
+  {
+    return set_size / task_n;
+  }
+  else
+  {
+    return (set_size / task_n) + 1;
+  }
+}

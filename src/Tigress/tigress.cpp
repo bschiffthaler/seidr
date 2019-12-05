@@ -51,66 +51,77 @@ int main(int argc, char ** argv) {
   seidr_tigress_param_t param;
 
   po::options_description umbrella("TIGRESS implementation for Seidr");
+  po::variables_map vm;
+  try
+  {
+    po::options_description opt("Common Options");
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists");
 
-  po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
-   "Output file path")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists");
+    po::options_description algopt("TIGRESS Options");
+    algopt.add_options()
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores")
+    ("nlambda,n",
+     po::value<seidr_uword_t>(&param.nsteps)->default_value(10),
+     "The maximum number of lambda values")
+    ("min-lambda,l",
+     po::value<double>(&param.fmin)->default_value(0.3, "0.3"),
+     "The minimum lambda as a fraction of the maximum.")
+    ("allow-low-var",
+     po::bool_switch(&param.allow_low_var)->default_value(false),
+     "Disable low variance filter when subsampling data (at your own risk)");
 
-  po::options_description algopt("TIGRESS Options");
-  algopt.add_options()
-  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-   "Transform data to z-scores")
-  ("nlambda,n",
-   po::value<seidr_uword_t>(&param.nsteps)->default_value(10),
-   "The maximum number of lambda values")
-  ("min-lambda,l",
-   po::value<double>(&param.fmin)->default_value(0.3, "0.3"),
-   "The minimum lambda as a fraction of the maximum.");
-  
-  po::options_description mpiopt("MPI Options");
-  mpiopt.add_options()
-  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
-   "Number of genes in MPI batch")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir),
-   "Temporary directory path");
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
 
-  po::options_description ompopt("OpenMP Options");
+    po::options_description ompopt("OpenMP Options");
     ompopt.add_options()
     ("threads,O", po::value<int>(&param.nthreads)->
      default_value(omp_get_max_threads()),
      "Number of OpenMP threads per MPI task");
 
-  po::options_description bootopt("Bootstrap Options");
-  bootopt.add_options()
-  ("ensemble,e",
-   po::value<seidr_uword_t>(&param.boot)->default_value(1000),
-   "The ensemble size");
+    po::options_description bootopt("Bootstrap Options");
+    bootopt.add_options()
+    ("ensemble,e",
+     po::value<seidr_uword_t>(&param.boot)->default_value(1000),
+     "The ensemble size");
 
-  po::options_description req("Required Options");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
+    po::options_description req("Required Options");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
 
-  umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+    umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
 
   if (vm.count("help") || argc == 1)
   {
@@ -203,7 +214,7 @@ int main(int argc, char ** argv) {
   {
     mpi_sync_tempdir(&param.tempdir);
   }
-  
+
   // All threads wait until checks are done
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -211,18 +222,46 @@ int main(int argc, char ** argv) {
   {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(),
                          "--threads");
+    log << "Setting " << param.nthreads << " OMP threads\n";
+    log.send(LOG_DEBUG);
     omp_set_num_threads(param.nthreads);
+
     // Get input files
+    log << "Loading " << param.infile << '\n';
+    log.send(LOG_DEBUG);
     gene_matrix.load(param.infile);
+
+    log << "Reading " << param.gene_file << '\n';
+    log.send(LOG_DEBUG);
     genes = read_genes(param.gene_file, param.row_delim, param.field_delim);
 
+    log << "Checking if matrix looks OK\n";
+    log.send(LOG_DEBUG);
     verify_matrix(gene_matrix, genes);
 
     if (param.do_scale)
+    {
       scale(gene_matrix);
+    }
 
     if (param.mode == TIGLM_PARTIAL)
+    {
       targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
+    }
+
+    if (param.bs == 0)
+    {
+      if (param.mode == TIGLM_PARTIAL)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
+    }
 
     switch (param.mode) {
     case TIGLM_FULL:

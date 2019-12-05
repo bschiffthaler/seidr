@@ -51,11 +51,13 @@ public:
   double get_fmin() {return _fmin;}
   seidr_uword_t set_nsteps() {return _nsteps;}
   void set_targeted(bool x) {_targeted = x;}
+  void set_allow_low_var(bool x) {_allow_low_var = x;}
 private:
   seidr_uword_t _nboot = 0;
   seidr_uword_t _nsteps = 0;
   double _fmin = 0;
   bool _targeted = false;
+  bool _allow_low_var = false;
 };
 
 void seidr_mpi_tigress::entrypoint()
@@ -68,7 +70,8 @@ void seidr_mpi_tigress::entrypoint()
     {
       uvec.push_back(i);
     }
-    tiglm(_data, _genes, uvec, _tempdir, _nboot, _fmin, _nsteps, this);
+    tiglm(_data, _genes, uvec, _tempdir, _nboot, _fmin, _nsteps,
+          _allow_low_var, this);
     get_more_work();
   }
   log << "No more work. Waiting for other tasks to finish...\n";
@@ -129,6 +132,7 @@ void tiglm(const arma::mat& geneMatrix,
            const seidr_uword_t& boot,
            const double& fmin,
            const seidr_uword_t& nsteps,
+           const bool& allow_low_var,
            seidr_mpi_tigress * self)
 {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
@@ -137,6 +141,10 @@ void tiglm(const arma::mat& geneMatrix,
   double ns_d = geneMatrix.n_rows;
 
   size_t n_good = ceil(sqrt(ns_d / 2));
+  if (allow_low_var)
+  {
+    n_good = 1;
+  }
 
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
@@ -146,7 +154,7 @@ void tiglm(const arma::mat& geneMatrix,
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (uint64_t i = 0; i < pred.size(); i++)
   {
     #pragma omp critical
@@ -176,6 +184,15 @@ void tiglm(const arma::mat& geneMatrix,
 
     while (iter < boot) {
 
+#ifdef DEBUG
+      #pragma omp critical
+      {
+        log << "Iter: " << iter << '\n';
+        log.send(LOG_DEBUG);
+        while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      }
+#endif
+
       // Shuffle the samples
       std::vector<arma::uvec > split = shuffle(ns);
       arma::vec yA = predictor(split[0]);
@@ -186,6 +203,15 @@ void tiglm(const arma::mat& geneMatrix,
 
       // If any of the vectors have less than two usable values, try again
       if (syA.n_elem < n_good || syB.n_elem < n_good) {
+#ifdef DEBUG
+        #pragma omp critical
+        {
+          log << "Have to shuffle: A=" << syA.n_elem
+          << " B=" << syB.n_elem << '\n';
+          log.send(LOG_DEBUG);
+          while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+        }
+#endif
         nboot++;
         if (nboot > 1000)
         {
@@ -283,6 +309,7 @@ void tiglm_full(const arma::mat& GM,
   mpi.set_nboot(param.boot);
   mpi.set_fmin(param.fmin);
   mpi.set_nsteps(param.nsteps);
+  mpi.set_allow_low_var(param.allow_low_var);
 
   mpi.entrypoint();
 
@@ -339,6 +366,7 @@ void tiglm_partial(const arma::mat& GM,
   mpi.set_fmin(param.fmin);
   mpi.set_nsteps(param.nsteps);
   mpi.set_targeted(true);
+  mpi.set_allow_low_var(param.allow_low_var);
 
   mpi.entrypoint();
 

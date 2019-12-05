@@ -54,69 +54,78 @@ int main(int argc, char ** argv) {
   seidr_plsnet_param_t param;
 
   po::options_description umbrella("PLSNET implementation for Seidr");
+  po::variables_map vm;
+  try
+  {
+    po::options_description opt("Common Options");
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("plsnet_scores.tsv"),
+     "Output file path")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)");
 
-  po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("plsnet_scores.tsv"),
-   "Output file path")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)");
+    po::options_description algopt("PLSNET Options");
+    algopt.add_options()
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores")
+    ("components,c",
+     po::value<seidr_uword_t>(&param.ncomp)->
+     default_value(5),
+     "The number of PLS components to be considered");
 
-  po::options_description algopt("PLSNET Options");
-  algopt.add_options()
-  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-   "Transform data to z-scores")
-  ("components,c",
-   po::value<seidr_uword_t>(&param.ncomp)->
-   default_value(5),
-   "The number of PLS components to be considered");
-  
-  po::options_description mpiopt("MPI Options");
-  mpiopt.add_options()
-  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
-   "Number of genes in MPI batch")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir),
-   "Temporary directory path");
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
 
-  po::options_description ompopt("OpenMP Options");
+    po::options_description ompopt("OpenMP Options");
     ompopt.add_options()
     ("threads,O", po::value<int>(&param.nthreads)->
      default_value(omp_get_max_threads()),
      "Number of OpenMP threads per MPI task");
 
-  po::options_description bootopt("Bootstrap Options");
-  bootopt.add_options()
-  ("ensemble,e",
-   po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
-   "The ensemble size")
-  ("predictor-size,p",
-   po::value<seidr_uword_t>(&param.predictor_sample_size)->
-   default_value(0, "sqrt(m)"),
-   "The number of predictors to be sampled.");
+    po::options_description bootopt("Bootstrap Options");
+    bootopt.add_options()
+    ("ensemble,e",
+     po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
+     "The ensemble size")
+    ("predictor-size,p",
+     po::value<seidr_uword_t>(&param.predictor_sample_size)->
+     default_value(0, "sqrt(m)"),
+     "The number of predictors to be sampled.");
 
-  po::options_description req("Required Options");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
+    po::options_description req("Required Options");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
 
-  umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+    umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
 
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+
+  }
   if (vm.count("help") || argc == 1)
   {
     std::cerr << umbrella << '\n';
@@ -223,10 +232,28 @@ int main(int argc, char ** argv) {
     verify_matrix(gene_matrix, genes);
 
     if (param.do_scale)
+    {
       scale(gene_matrix);
+    }
 
     if (param.mode == PLSNET_PARTIAL)
+    {
       targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
+    }
+
+    if (param.bs == 0)
+    {
+      if (param.mode == PLSNET_PARTIAL)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
+    }
 
     if (param.predictor_sample_size == 0)
     {

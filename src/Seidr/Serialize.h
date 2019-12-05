@@ -96,7 +96,7 @@ extern "C" {
   };
 
   struct __attribute__ ((packed)) header_centrality {
-    double data = 0;;
+    double data = 0;
   };
 
   struct __attribute__ ((packed)) edge_index {

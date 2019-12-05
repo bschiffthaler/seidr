@@ -155,3 +155,7 @@ void assert_arg_constraint(std::vector<T> allowed, T arg)
     throw std::runtime_error(ss.str());
   }
 }
+
+uint64_t get_mpi_nthread();
+uint64_t guess_batch_size(uint64_t const & set_size,
+                          uint64_t const & task_n);
