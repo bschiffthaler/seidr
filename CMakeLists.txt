@@ -29,6 +29,27 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+##########################
+## Set up flags ##
+##########################
+
+set(CMAKE_OPTIMIZATION_LEVEL_PRIVATE "-O0")
+if (CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+  set(CMAKE_OPTIMIZATION_LEVEL_PRIVATE "-O3")
+endif()
+if (CMAKE_OPTIMIZATION_LEVEL)
+  set(CMAKE_OPTIMIZATION_LEVEL_PRIVATE "-O${CMAKE_OPTIMIZATION_LEVEL}")
+endif()
+
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
+set(CMAKE_Fortran_FLAGS_RELEASE "-DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
+
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g")
+set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g")
+
+set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g -Wall  -Wextra -Wpedantic")
+set(CMAKE_Fortran_FLAGS_DEBUG "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g -Wall  -Wextra -Wpedantic")
+
 # Add common CXX flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_VERSION=${SEIDR_VERSION}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERSION=${SEIDR_VERSION}")
@@ -46,14 +67,22 @@ else()
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-integer-8 -m64 -fdefault-real-8 -fdefault-double-8 -ffixed-form")
 endif()
 
+####################
+## Compile faster ##
+####################
+if (CMAKE_PIPE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pipe")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -pipe")
+endif()
+
 ##########################
 ## General Optimization ##
 ##########################
 
-# Enable Processor tuning in command line
+# Enable Processor tuning in command line (only in release mode)
 if(CMAKE_BUILD_NATIVE)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -mtune=native")
-  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -march=native -mtune=native")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -march=native -mtune=native")
 endif()
 
 # Allow user to select dangerous optimizations
@@ -317,13 +346,7 @@ if (CMAKE_CLANG_ANALYZE)
 else()
   message(STATUS "  Clang Analyze: No")
 endif()
-if (CMAKE_OFAST)
-  message(STATUS "  Optimization: -Ofast")
-elseif (CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
-  message(STATUS "  Optimization: -O3")
-else ()
-  message(STATUS "  Optimization: None")
-endif()
+message(STATUS "  Optimization: ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
 if (CMAKE_BUILD_NATIVE)
   message(STATUS "  Native build: Yes")
 else()
@@ -331,6 +354,25 @@ else()
 endif()
 if (NARROMI_USE_CLP)
   message(STATUS "  LP Engine: CLP")
+  message(STATUS "    Linking: ${CLP_LIBRARIES}")
 else()
   message(STATUS "  LP Engine: GLPK")
+  message(STATUS "    Linking: ${GLPK_LIBRARIES}")
+endif()
+message(STATUS "  Armadillo: ${ARMADILLO_LIBRARIES}")
+message(STATUS "  BLAS: ${BLAS_LIBRARIES}")
+message(STATUS "  Boost: ${Boost_LIBRARIES}")
+message(STATUS "  ZLIB: ${ZLIB_LIBRARIES}")
+if (SEIDR_PSTL)
+  message(STATUS "  TBB: ${TBB_LIBRARIES}")
+endif()
+if (CMAKE_BUILD_TYPE MATCHES "Release")
+  message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
+  message(STATUS "  Fortran flags: ${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_RELEASE}")
+elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+  message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+  message(STATUS "  Fortran flags: ${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_RELWITHDEBINFO}")
+else()
+  message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG}")
+  message(STATUS "  Fortran flags: ${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_DEBUG}")
 endif()
