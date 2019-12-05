@@ -153,6 +153,7 @@ list SFWrapper::supplementary()
 bool SFWrapper::next_edge()
 {
   // Get next edge
+  _e = SeidrFileEdge();
   while (_k < _sfh.attr.edges)
   {
     _e.unserialize(_sf, _sfh);
@@ -184,6 +185,7 @@ bool SFWrapper::next_edge()
 dict SFWrapper::edge()
 {
   dict result;
+  result.clear();
   if (_k <= _sfh.attr.edges && EDGE_EXISTS(_e.attr.flag))
   {
     if (! _sfh.attr.dense)
@@ -276,6 +278,7 @@ uint8_t SFWrapper::edge_flag()
 dict SFWrapper::edge_supplementary()
 {
   dict result;
+  result.clear();
   if (_k <= _sfh.attr.edges && EDGE_EXISTS(_e.attr.flag))
   {
     list supp_str;
