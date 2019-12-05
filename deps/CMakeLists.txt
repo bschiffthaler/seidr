@@ -56,7 +56,7 @@ file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/ranger)
 file(GLOB RANGER_HEADERS "../external/ranger/src/*.h")
 file(COPY ${RANGER_HEADERS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/ranger)
 add_library(ranger ../external/ranger/src/Data.cpp
-  ../external/ranger/src/DataChar.cpp ../external/ranger/src/DataFloat.cpp 
+  ../external/ranger/src/Data.cpp
   ../external/ranger/src/Forest.cpp ../external/ranger/src/ForestRegression.cpp 
   ../external/ranger/src/Tree.cpp ../external/ranger/src/TreeRegression.cpp 
   ../external/ranger/src/utility.cpp)

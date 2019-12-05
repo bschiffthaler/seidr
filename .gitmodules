@@ -1,9 +1,6 @@
 [submodule "external/networkit"]
 	path = external/networkit
 	url = https://github.com/kit-parco/networkit
-[submodule "external/ranger"]
-	path = external/ranger
-	url = https://github.com/imbs-hl/ranger
 [submodule "external/libbs"]
 	path = external/libbs
 	url = https://github.com/bschiffthaler/libbs
@@ -16,3 +13,6 @@
 [submodule "external/glmnet"]
 	path = external/glmnet
 	url = https://github.com/cran/glmnet
+[submodule "external/ranger"]
+	path = external/ranger
+	url = https://github.com/bschiffthaler/ranger
