@@ -23,6 +23,7 @@
 #include <fs.h>
 #include <mpiomp.h>
 #include <linear-fun.h>
+#include <cp_resume.h>
 // External
 #include <mpi.h>
 #include <linear.h>
@@ -53,99 +54,106 @@ int main(int argc, char ** argv) {
   seidr_llr_param_t param;
 
   po::options_description umbrella("NIMEFI SVM implementation for Seidr");
-
-  po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite if output already exists")
-  ("targets,t", po::value<std::string>(&param.targets_file),
-   "File containing gene names"
-   " of genes of interest. The network will only be"
-   " calculated using these as the sources of potential connections.")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
-   "Output file path")
-  ("save-resume",
-   po::value<std::string>(&param.cmd_file),
-   "Path to a file that stores job resume info.")
-  ("resume-from",
-   po::value<std::string>(&param.cmd_file),
-   "Try to resume job from this file.")
-  ("verbosity,v",
-   po::value<unsigned>(&param.verbosity)->default_value(3),
-   "Verbosity level (lower is less verbose)")
-  ;
-
-  po::options_description mpiopt("MPI Options");
-  mpiopt.add_options()
-  ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(20),
-   "Number of genes in MPI batch")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir),
-   "Temporary directory path");
-
-  po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()
-  ("threads,O", po::value<int>(&param.nthreads)->
-   default_value(omp_get_max_threads()),
-   "Number of OpenMP threads per MPI task");
-
-  po::options_description bootopt("Bootstrap Options");
-  bootopt.add_options()
-  ("ensemble,e",
-   po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
-   "The ensemble size")
-  ("min-predictor-size,p",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
-   default_value(0, "20% of predictors"),
-   "The minimum number of predictors to be sampled.")
-  ("max-predictor-size,P",
-   po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
-   default_value(0, "80% of predictors"),
-   "The maximum number of predictors to be sampled")
-  ("min-experiment-size,x",
-   po::value<seidr_uword_t>(&param.min_sample_size)->
-   default_value(0, "20% of experiments"),
-   "The minimum number of experiments to be sampled")
-  ("max-experiment-size,X",
-   po::value<seidr_uword_t>(&param.max_sample_size)->
-   default_value(0, "80% of experiments"),
-   "The maximum number of experiments to be sampled");
-
-  po::options_description req("Required Options");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->required(),
-   "The expression table (without headers)")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "File containing gene names");
-
-  po::options_description svmopt("SVM options");
-  svmopt.add_options()
-  ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-   "Transform data to z-scores")
-  ("penalty,C",
-   po::value<double>(&param.svparam.C)->default_value(1, "1"),
-   "Penalty C value")
-  ("tol,l",
-   po::value<double>(&param.svparam.eps)->default_value(0.001, "0.001"),
-   "Epsilon/tolerance (stopping criterion)")
-  ("eps,E",
-   po::value<double>(&param.svparam.p)->default_value(0.1, "0.1"),
-   "Epsilon (for EPSILON_SVR)")
-  ("solver,S",
-   po::value<std::string>(&param.solver)->default_value("L2R_L2LOSS_SVR"),
-   "SVM solver to use [L2R_L2LOSS_SVR, L2R_L2LOSS_SVR_DUAL, L2R_L1LOSS_SVR_DUAL]");
-
-  // param.svparam.shrinking = 1;
-
-
-  umbrella.add(req).add(svmopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
-
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).
-            options(umbrella).run(), vm);
+  try
+  {
+    po::options_description opt("Common Options");
+    opt.add_options()
+    ("help,h", "Show this help message")
+    ("force,f", po::bool_switch(&param.force)->default_value(false),
+     "Force overwrite if output already exists")
+    ("targets,t", po::value<std::string>(&param.targets_file),
+     "File containing gene names"
+     " of genes of interest. The network will only be"
+     " calculated using these as the sources of potential connections.")
+    ("outfile,o",
+     po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
+     "Output file path")
+    ("save-resume",
+     po::value<std::string>(&param.cmd_file),
+     "Path to a file that stores job resume info.")
+    ("resume-from",
+     po::value<std::string>(&param.cmd_file),
+     "Try to resume job from this file.")
+    ("verbosity,v",
+     po::value<unsigned>(&param.verbosity)->default_value(3),
+     "Verbosity level (lower is less verbose)")
+    ;
 
+    po::options_description mpiopt("MPI Options");
+    mpiopt.add_options()
+    ("batch-size,B", po::value<uint64_t>(&param.bs)->default_value(0),
+     "Number of genes in MPI batch")
+    ("tempdir,T",
+     po::value<std::string>(&param.tempdir),
+     "Temporary directory path");
+
+    po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()
+    ("threads,O", po::value<int>(&param.nthreads)->
+     default_value(omp_get_max_threads()),
+     "Number of OpenMP threads per MPI task");
+
+    po::options_description bootopt("Bootstrap Options");
+    bootopt.add_options()
+    ("ensemble,e",
+     po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
+     "The ensemble size")
+    ("min-predictor-size,p",
+     po::value<seidr_uword_t>(&param.predictor_sample_size_min)->
+     default_value(0, "20% of predictors"),
+     "The minimum number of predictors to be sampled.")
+    ("max-predictor-size,P",
+     po::value<seidr_uword_t>(&param.predictor_sample_size_max)->
+     default_value(0, "80% of predictors"),
+     "The maximum number of predictors to be sampled")
+    ("min-experiment-size,x",
+     po::value<seidr_uword_t>(&param.min_sample_size)->
+     default_value(0, "20% of experiments"),
+     "The minimum number of experiments to be sampled")
+    ("max-experiment-size,X",
+     po::value<seidr_uword_t>(&param.max_sample_size)->
+     default_value(0, "80% of experiments"),
+     "The maximum number of experiments to be sampled");
+
+    po::options_description req("Required Options");
+    req.add_options()
+    ("infile,i", po::value<std::string>(&param.infile)->required(),
+     "The expression table (without headers)")
+    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
+     "File containing gene names");
+
+    po::options_description svmopt("SVM options");
+    svmopt.add_options()
+    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
+     "Transform data to z-scores")
+    ("penalty,C",
+     po::value<double>(&param.svparam.C)->default_value(1, "1"),
+     "Penalty C value")
+    ("tol,l",
+     po::value<double>(&param.svparam.eps)->default_value(0.001, "0.001"),
+     "Epsilon/tolerance (stopping criterion)")
+    ("eps,E",
+     po::value<double>(&param.svparam.p)->default_value(0.1, "0.1"),
+     "Epsilon (for EPSILON_SVR)")
+    ("solver,S",
+     po::value<std::string>(&param.solver)->default_value("L2R_L2LOSS_SVR"),
+     "SVM solver to use [L2R_L2LOSS_SVR, L2R_L2LOSS_SVR_DUAL, L2R_L1LOSS_SVR_DUAL]");
+
+    // param.svparam.shrinking = 1;
+
+
+    umbrella.add(req).add(svmopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
+
+    po::store(po::command_line_parser(argc, argv).
+              options(umbrella).run(), vm);
+  }
+  catch (std::exception& e)
+  {
+    log << "Argument exception: " << e.what() << '\n';
+    log.send(LOG_ERR);
+    return 22;
+  }
   if (vm.count("help") || argc == 1)
   {
     std::cerr << umbrella << '\n';
@@ -252,6 +260,8 @@ int main(int argc, char ** argv) {
         mpi_sync_tempdir(&param.tempdir);
         if (vm.count("save-resume") > 0)
         {
+          cp_resume<seidr_llr_param_t> cp_res(param);
+          cp_res.print();
           std::ofstream ofs(param.cmd_file.c_str());
           boost::archive::xml_oarchive oa(ofs);
           oa << BOOST_SERIALIZATION_NVP(param);
@@ -292,6 +302,20 @@ int main(int argc, char ** argv) {
     if (param.mode == SVM_PARTIAL)
     {
       targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
+    }
+
+    if (param.bs == 0)
+    {
+      if (param.mode == SVM_PARTIAL)
+      {
+        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+      }
+      else
+      {
+        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+      }
+      log << "Setting batch size to " << param.bs << '\n';
+      log.log(LOG_INFO);
     }
 
     if (param.min_sample_size == 0)
