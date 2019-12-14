@@ -27,6 +27,7 @@
 #include <vector>
 #include <boost/numeric/conversion/cast.hpp>
 #include <coin/ClpSimplex.hpp>
+#include <coin/ClpInterior.hpp>
 #include <coin/CoinPackedMatrix.hpp>
 #include <coin/ClpSolve.hpp>
 #include <omp.h>
@@ -90,22 +91,29 @@ arma::mat lp_ipt(const arma::mat& X,
   CoinPackedMatrix problem_mat(true, ia.data(), ja.data(), ar.data(),
                                boost::numeric_cast<int>(lps));
 
-  ClpSimplex model;
-  model.setLogLevel(0); // Be quiet
-  model.loadProblem(problem_mat, NULL, NULL, obj.data(), rowlb.data(),
-                    rowub.data());
-  model.setOptimizationDirection(1); //Minimize
-  model.setPrimalTolerance(1e-7); // Same as GLPK
-  //std::cerr << "Writing Problem\n";
-  //model.writeLp("Problem");
-  //model.primal(0);
-  //ClpSolve param;
-  //param.setSolveType(ClpSolve::useDual);
-  //param.setPresolveType(ClpSolve::presolveOn);
-  //param.setDoDual(false); // Don't do dual as part of presolve
-  model.initialSolve();
-
-  const double * solution = model.primalColumnSolution();
+  double const * solution;
+  if (al == "interior-point")
+  {
+    auto model = ClpInterior();
+    model.setLogLevel(0); // Be quiet
+    model.loadProblem(problem_mat, NULL, NULL, obj.data(), rowlb.data(),
+                      rowub.data());
+    model.setOptimizationDirection(1); //Minimize
+    model.setPrimalTolerance(1e-7); // Same as GLPK
+    model.primalDual();
+    solution = model.primalColumnSolution();
+  }
+  else
+  {
+    auto model = ClpSimplex();
+    model.setLogLevel(0); // Be quiet
+    model.loadProblem(problem_mat, NULL, NULL, obj.data(), rowlb.data(),
+                      rowub.data());
+    model.setOptimizationDirection(1); //Minimize
+    model.setPrimalTolerance(1e-7); // Same as GLPK
+    model.initialSolve();
+    solution = model.primalColumnSolution();
+  }
 
   arma::vec res(xf.n_cols + 2 * ns);
   for (uint64_t i = 0; i < xf.n_cols + 2 * ns; i++)
