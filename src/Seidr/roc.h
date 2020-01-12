@@ -21,6 +21,7 @@
 struct seidr_roc_param_t
 {
   std::string gold;
+  std::string gold_neg;
   std::string infile;
   uint32_t tpos;
   uint32_t nedg;

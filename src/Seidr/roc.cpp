@@ -135,6 +135,7 @@ std::vector<double> make_range_cutoffs(std::vector< MiniEdge >& v, uint32_t n)
 
 std::pair< uint32_t, uint32_t >
 get_tp_fp(std::vector< std::pair< uint32_t, uint32_t> >& truth,
+          std::vector< std::pair< uint32_t, uint32_t> >& tneg,
           std::vector< MiniEdge >& v)
 {
   uint32_t tp = 0, fp = 0;
@@ -150,14 +151,29 @@ get_tp_fp(std::vector< std::pair< uint32_t, uint32_t> >& truth,
     }
     auto x = std::pair<uint32_t, uint32_t>(i, j);
     if (std::binary_search(truth.begin(), truth.end(), x))
+    {
       tp++;
+    }
     else
-      fp++;
+    {
+      if (tneg.size() > 0)
+      {
+        if (std::binary_search(tneg.begin(), tneg.end(), x))
+        {
+          fp++;
+        }
+      }
+      else
+      {
+        fp++;
+      }
+    }
   }
   return std::pair<uint32_t, uint32_t>(tp, fp);
 }
 
 void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
+                        std::vector< std::pair< uint32_t, uint32_t> >& tneg,
                         std::vector< MiniEdge >& v,
                         double& fedg)
 {
@@ -176,9 +192,23 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
     }
     auto x = std::pair<uint32_t, uint32_t>(i, j);
     if (std::binary_search(truth.begin(), truth.end(), x))
+    {
       tp++;
+    }
     else
-      fp++;
+    {
+      if (tneg.size() > 0)
+      {
+        if (std::binary_search(tneg.begin(), tneg.end(), x))
+        {
+          fp++;
+        }
+      }
+      else
+      {
+        fp++;
+      }
+    }
 
     cnt++;
 
@@ -195,6 +225,7 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
 }
 
 void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
+               std::vector<std::pair<uint32_t, uint32_t>>& tneg,
                std::vector<MiniEdge>& v,
                std::pair<uint32_t, uint32_t>& tpfp,
                uint32_t& datap,
@@ -226,9 +257,23 @@ void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     }
     auto x = std::pair<uint32_t, uint32_t>(i, j);
     if (std::binary_search(truth.begin(), truth.end(), x))
+    {
       tp++;
+    }
     else
-      fp++;
+    {
+      if (tneg.size() > 0)
+      {
+        if (std::binary_search(tneg.begin(), tneg.end(), x))
+        {
+          fp++;
+        }
+      }
+      else
+      {
+        fp++;
+      }
+    }
     double tpr = numeric_cast<double> (tp) / numeric_cast<double> (tpfp.first);
     double fpr = numeric_cast<double> (fp) / numeric_cast<double> (tpfp.second);
     double ppv = numeric_cast<double> (tp) / numeric_cast<double> (cnt);
@@ -288,7 +333,10 @@ int roc(int argc, char * argv[])
    "Number of data points to print")
   ("tfs,t",
    po::value<std::string>(&param.tfs),
-   "List of transcription factors to consider");
+   "List of transcription factors to consider")
+  ("neg,x",
+   po::value<std::string>(&param.gold_neg)->default_value("", ""),
+   "True negative edges");
 
   po::options_description req("Required");
   req.add_options()
@@ -330,6 +378,17 @@ int roc(int argc, char * argv[])
     assert_exists(param.infile);
     assert_can_read(param.infile);
 
+    param.gold = to_absolute(param.gold);
+    assert_exists(param.gold);
+    assert_can_read(param.gold);
+
+    if (param.gold_neg != "")
+    {
+      param.gold_neg = to_absolute(param.gold_neg);
+      assert_exists(param.gold_neg);
+      assert_can_read(param.gold_neg);
+    }
+
     if (param.outfile != "-")
     {
       param.outfile = to_absolute(param.outfile);
@@ -363,26 +422,41 @@ int roc(int argc, char * argv[])
     }
 
     auto gv = make_gold_vec(param.gold, refmap);
+    std::vector< std::pair< uint32_t, uint32_t > > ngv;
+    if (param.gold_neg != "")
+    {
+      ngv = make_gold_vec(param.gold_neg, refmap);
+    }
     auto nv = read_network_minimal(h, f, -1, param.tpos);
 
     SORTWCOMP(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
     if (param.tfs != "")
+    {
       nv = filter_tf(param.tfs, nv, refmap);
+    }
     if (param.nedg != 0)
+    {
       nv.resize(param.nedg);
+    }
 
     if (param.fedg > 0)
-      resize_by_fraction(gv, nv, param.fedg);
+    {
+      resize_by_fraction(gv, ngv, nv, param.fedg);
+    }
 
-    auto tpfp = get_tp_fp(gv, nv);
+    auto tpfp = get_tp_fp(gv, ngv, nv);
 
     std::shared_ptr<std::ostream> out;
     if (param.outfile == "-")
+    {
       out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+    }
     else
+    {
       out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    }
 
-    print_roc(gv, nv, tpfp, param.datap, *out);
+    print_roc(gv, ngv, nv, tpfp, param.datap, *out);
 
     f.close();
     return 0;
