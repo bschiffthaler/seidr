@@ -224,12 +224,13 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
 
 }
 
-void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
-               std::vector<std::pair<uint32_t, uint32_t>>& tneg,
-               std::vector<MiniEdge>& v,
-               std::pair<uint32_t, uint32_t>& tpfp,
-               uint32_t& datap,
-               std::ostream& out)
+double print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
+                 std::vector<std::pair<uint32_t, uint32_t>>& tneg,
+                 std::vector<MiniEdge>& v,
+                 std::pair<uint32_t, uint32_t>& tpfp,
+                 uint32_t& datap,
+                 std::ostream& out,
+                 std::string algorithm)
 {
   logger log(std::cerr, "ROC");
   uint32_t tp = 0, fp = 0;
@@ -241,9 +242,15 @@ void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
   {
     intervy = numeric_cast<double> (ne) /
               numeric_cast<double> (datap);
+    log(LOG_DEBUG) << "intervy: " << intervy << '\n';
   }
-  log(LOG_INFO) << "intervy: " << intervy << '\n';
   out << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
+
+  // For on-the-fly integration -> AUC
+  double y_i = 0, y_j = 0;
+  double x_i = 0, x_j = 0;
+  double auc = 0;
+
   for (auto& e : v)
   {
     cnt++;
@@ -279,10 +286,27 @@ void print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     double ppv = numeric_cast<double> (tp) / numeric_cast<double> (cnt);
     if (cnt > intervx || cnt == ne - 1)
     {
-      out << tpr << '\t' << fpr << '\t' << ppv << '\n';
+      out << tpr << '\t' << fpr << '\t' << ppv;
+      if (algorithm != "")
+      {
+        out << '\t' << algorithm << '\n';
+      }
+      else
+      {
+        out << '\n';
+      }
       intervx += intervy;
     }
+    y_i = y_j;
+    x_i = x_j;
+    y_j = tpr;
+    x_j = fpr;
+    if (cnt > 1)
+    {
+      auc += ((y_i + y_j) / 2) * (x_j - x_i);
+    }
   }
+  return auc;
 }
 
 int roc(int argc, char * argv[])
@@ -336,7 +360,10 @@ int roc(int argc, char * argv[])
    "List of transcription factors to consider")
   ("neg,x",
    po::value<std::string>(&param.gold_neg)->default_value("", ""),
-   "True negative edges");
+   "True negative edges")
+  ("all,a", po::bool_switch(&param.all)->default_value(false),
+   "Calculate ROC for all scores in the SeidrFile")
+  ;
 
   po::options_description req("Required");
   req.add_options()
@@ -411,9 +438,7 @@ int roc(int argc, char * argv[])
     f.open("r");
     SeidrFileHeader h;
     h.unserialize(f);
-
     make_tpos(param.tpos, h);
-
     std::map<std::string, uint32_t> refmap;
     uint32_t ind = 0;
     for (auto& no : h.nodes)
@@ -427,24 +452,6 @@ int roc(int argc, char * argv[])
     {
       ngv = make_gold_vec(param.gold_neg, refmap);
     }
-    auto nv = read_network_minimal(h, f, -1, param.tpos);
-
-    SORTWCOMP(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
-    if (param.tfs != "")
-    {
-      nv = filter_tf(param.tfs, nv, refmap);
-    }
-    if (param.nedg != 0)
-    {
-      nv.resize(param.nedg);
-    }
-
-    if (param.fedg > 0)
-    {
-      resize_by_fraction(gv, ngv, nv, param.fedg);
-    }
-
-    auto tpfp = get_tp_fp(gv, ngv, nv);
 
     std::shared_ptr<std::ostream> out;
     if (param.outfile == "-")
@@ -456,7 +463,60 @@ int roc(int argc, char * argv[])
       out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
     }
 
-    print_roc(gv, ngv, nv, tpfp, param.datap, *out);
+    // Store start of edges in the SF in case we need to read more than once
+    int64_t offset = f.tell();
+    if (! param.all)
+    {
+      // Start ROC for single algorithm
+      auto nv = read_network_minimal(h, f, -1, param.tpos);
+      SORTWCOMP(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
+      if (param.tfs != "")
+      {
+        nv = filter_tf(param.tfs, nv, refmap);
+      }
+      if (param.nedg != 0)
+      {
+        nv.resize(param.nedg);
+      }
+      if (param.fedg > 0)
+      {
+        resize_by_fraction(gv, ngv, nv, param.fedg);
+      }
+      auto tpfp = get_tp_fp(gv, ngv, nv);
+      double auc = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
+                             h.algs[param.tpos]);
+      *out << "#AUC: " << auc << '\t' << h.algs[param.tpos] << '\n';
+    }
+    else
+    {
+      std::vector< std::pair<double, std::string> > aucs;
+      for (uint16_t i = 0; i < h.attr.nalgs; i++)
+      {
+        f.seek(offset);
+        auto nv = read_network_minimal(h, f, -1, i);
+        SORTWCOMP(nv.begin(), nv.end(), me_score_sort_abs); //TODO: sort on rank, this is not robust
+        if (param.tfs != "")
+        {
+          nv = filter_tf(param.tfs, nv, refmap);
+        }
+        if (param.nedg != 0)
+        {
+          nv.resize(param.nedg);
+        }
+        if (param.fedg > 0)
+        {
+          resize_by_fraction(gv, ngv, nv, param.fedg);
+        }
+        auto tpfp = get_tp_fp(gv, ngv, nv);
+        double auc = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
+                               h.algs[i]);
+        aucs.push_back( std::make_pair(auc, h.algs[i]) );
+      }
+      for (const auto& a : aucs)
+      {
+        *out << "#AUC: " << a.first << '\t' << a.second << '\n';
+      }
+    }
 
     f.close();
     return 0;
