@@ -60,6 +60,11 @@ extern "C" {
       throw std::runtime_error("Error seeking in SeidrFile\n");
   }
 
+  int64_t SeidrFile::tell()
+  {
+    return bgzf_tell(bgzfile);
+  }
+
   void SeidrFileHeader::serialize(SeidrFile& file) const
   {
     ssize_t n = 0;

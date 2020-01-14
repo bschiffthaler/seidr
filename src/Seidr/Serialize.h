@@ -171,6 +171,7 @@ extern "C" {
     void open(const char * mode);
     void close();
     void seek(int64_t offset);
+    int64_t tell();
     uint8_t _closed;
     uint8_t _opened;
     void each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f);
