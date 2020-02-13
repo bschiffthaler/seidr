@@ -28,6 +28,7 @@ struct seidr_asp_param_t
   bool invert;
   std::string outfile;
   bool force;
+  bool absolute;
 };
 
 int asp(int argc, char * argv[]);

@@ -73,7 +73,9 @@ int asp(int argc, char ** argv)
   ("use-rank,r", po::bool_switch(&param.trank)->default_value(false),
    "Use rank as edge weight basis instead of score")
   ("invert,I", po::bool_switch(&param.invert)->default_value(false),
-   "Invert scores (if higher scores are better)");
+   "Invert scores (if higher scores are better)")
+  ("absolute,a", po::bool_switch(&param.absolute)->default_value(false),
+   "Use absolute weights.");
 
 
   po::options_description fopt("Formatting Options");
@@ -146,6 +148,7 @@ int asp(int argc, char ** argv)
     double weight = edges[i].s;
     if (almost_equal(weight, 0))
       weight = 1e-8;
+    weight = param.absolute ? fabs(weight) : weight;
     weight = param.invert ? 1.0 / weight : weight;
     g.addEdge(edges[i].i, edges[i].j, weight);
   }
