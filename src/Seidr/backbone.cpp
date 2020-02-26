@@ -224,7 +224,7 @@ int backbone(int argc, char * argv[])
   rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & hs) {
     if (! nc_calculcated) // Need to add the backbone data
     {
-      if (std::isfinite(e.scores[param.tpos].s))
+      if (EDGE_EXISTS(e.attr.flag) && std::isfinite(e.scores[param.tpos].s))
       {
         double& ni = node_strengths[e.index.i];
         double& nj = node_strengths[e.index.j];
@@ -259,7 +259,7 @@ int backbone(int argc, char * argv[])
         e.supp_flt.push_back(score);
         e.supp_flt.push_back(sdev_cij);
       }
-      else
+      else if (EDGE_EXISTS(e.attr.flag))
       {
         e.supp_flt.push_back(NAN);
         e.supp_flt.push_back(NAN);
@@ -267,7 +267,8 @@ int backbone(int argc, char * argv[])
     }
     if (param.filter > 0)
     {
-      if (e.supp_flt[nc_score_ind] - (e.supp_flt[nc_sdev_ind] * param.filter) > 0)
+      if (EDGE_EXISTS(e.attr.flag) &&
+          e.supp_flt[nc_score_ind] - (e.supp_flt[nc_sdev_ind] * param.filter) > 0)
       {
         e.serialize(out, h);
         ectr++;
@@ -282,10 +283,13 @@ int backbone(int argc, char * argv[])
     else
     {
       e.serialize(out, h);
-      ectr++;
+      if (EDGE_EXISTS(e.attr.flag))
+      {
+        ectr++;
+      }
     }
 
-  });
+  }, true);
 
   rf.close();
   out.close();

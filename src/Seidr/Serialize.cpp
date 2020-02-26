@@ -1009,7 +1009,8 @@ extern "C" {
     return ret;
   }
 
-  void SeidrFile::each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f)
+  void SeidrFile::each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f,
+    bool include_missing)
   {
     SeidrFileHeader h;
     h.unserialize((*this));
@@ -1023,7 +1024,7 @@ extern "C" {
           e.unserialize((*this), h);
           e.index.i = i;
           e.index.j = j;
-          if (EDGE_EXISTS(e.attr.flag))
+          if (EDGE_EXISTS(e.attr.flag) || include_missing)
           {
             f(e, h);
           }
