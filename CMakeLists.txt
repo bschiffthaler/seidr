@@ -16,7 +16,7 @@ include_directories(src/Common src/Narromi src/Tigress src/SVM
 
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
-set(SEIDR_MINOR_VERSION 12)
+set(SEIDR_MINOR_VERSION 13)
 set(SEIDR_PATCH_VERSION 0)
 set(SEIDR_VERSION
   ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
@@ -259,6 +259,8 @@ target_link_libraries( pcor ${ARMADILLO_LIBRARIES})
 target_link_libraries( genie3 ${ARMADILLO_LIBRARIES})
 
 # Boost
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_RELEASE_LIBS ON)
 find_package( Boost COMPONENTS system filesystem program_options serialization REQUIRED )
 include_directories( ${BOOST_INCLUDE_DIR} )
 target_link_libraries( seidr ${Boost_LIBRARIES})
