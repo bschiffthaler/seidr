@@ -3,17 +3,16 @@
 #include <BSlogger.h>
 
 #if defined(SEIDR_PSTL)
-#include <tbb/task_scheduler_init.h>
+#include <tbb/global_control.h>
 #include <omp.h>
-#endif
 
-void set_pstl_threads(int target)
+void set_pstl_threads(int target, tbb::global_control& tbb_control)
 {
   logger log(std::cerr, "set_pstl_threads");
 #ifdef SEIDR_PSTL
   assert_in_range<int>(target, 1, GET_MAX_PSTL_THREADS(),
                        "--threads");
-  SET_NUM_PSTL_THREADS(target);
+  tbb_control = SET_NUM_PSTL_THREADS(target);
   omp_set_num_threads(target);
 #else
   if (target > 1)
@@ -24,3 +23,7 @@ void set_pstl_threads(int target)
   }
 #endif
 }
+
+#else
+  void set_pstl_threads(int target, void * ctl) {}
+#endif

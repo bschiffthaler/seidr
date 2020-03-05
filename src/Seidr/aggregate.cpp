@@ -27,7 +27,6 @@
 #include <parallel_control.h>
 // Parallel includes
 #if defined(SEIDR_PSTL)
-#include <tbb/task_scheduler_init.h>
 #include <pstl/execution>
 #include <pstl/algorithm>
 #else
@@ -447,6 +446,9 @@ int aggregate(int argc, char * argv[])
   // Variables used by the function
   seidr_aggregate_param_t param;
 
+  // In case we have TBB/PSTL, initialize a global control object
+  INIT_TBB_CONTROL();
+
   // We ignore the first argument, the function name
 #ifndef TEST_BUILD
   const char * args[argc - 1];
@@ -522,7 +524,7 @@ int aggregate(int argc, char * argv[])
 
   try
   {
-    set_pstl_threads(param.nthreads);
+    set_pstl_threads(param.nthreads, tbb_control);
     log(LOG_INFO) << param.out_file << '\n';
     param.out_file = to_absolute(param.out_file);
 

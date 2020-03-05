@@ -45,15 +45,23 @@ namespace po = boost::program_options;
 #define _STR(s) #s
 
 #if defined(SEIDR_PSTL)
-  #define SORT(start, end) std::sort(pstl::execution::par, start, end)
-  #define SORTWCOMP(start, end, comp) std::sort(pstl::execution::par, start, end, comp)
-  #define SET_NUM_PSTL_THREADS(x) tbb::task_scheduler_init init(x)
-  #define GET_MAX_PSTL_THREADS() tbb::task_scheduler_init::default_num_threads()
+  #define SORT(start, end) \
+    std::sort(pstl::execution::par, start, end)
+  #define SORTWCOMP(start, end, comp) \
+    std::sort(pstl::execution::par, start, end, comp)
+  #define SET_NUM_PSTL_THREADS(x) \
+    tbb::global_control(tbb::global_control::max_allowed_parallelism, x);
+  #define GET_MAX_PSTL_THREADS() \
+    tbb::task_scheduler_init::default_num_threads()
+  #define INIT_TBB_CONTROL() tbb::global_control \
+    tbb_control(tbb::global_control::max_allowed_parallelism, \
+                tbb::task_scheduler_init::default_num_threads());
 #else
   #define SORT(start, end) std::sort(start, end)
   #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
   #define SET_NUM_PSTL_THREADS(x)
   #define GET_MAX_PSTL_THREADS() 1
+  #define INIT_TBB_CONTROL() int tbb_control = nullptr;
 #endif
 
 typedef double seidr_score_t;

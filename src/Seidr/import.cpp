@@ -258,6 +258,10 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 int import(int argc, char * argv[]) {
 
   logger log(std::cerr, "import");
+  
+  // In case we have TBB/PSTL, initialize a global control object
+  INIT_TBB_CONTROL();
+
   read_logger pr(log, 100000000); // processed rows
 
   std::vector<std::string> genes;
@@ -339,7 +343,7 @@ int import(int argc, char * argv[]) {
   try
   {
 
-    set_pstl_threads(param.nthreads);
+    set_pstl_threads(param.nthreads, tbb_control);
 
     if (param.format == "el")
       param.is_edge_list = true;
