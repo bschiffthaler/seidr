@@ -27,8 +27,6 @@
 
 #undef DEBUG
 
-#include <gsl/gsl_fit.h>
-#include <gsl/gsl_statistics.h>
 #if defined(SEIDR_PSTL)
 #include <tbb/task_scheduler_init.h>
 #include <pstl/execution>
@@ -194,13 +192,9 @@ thresh_t check_one(std::vector<MiniEdge>& ev, double thresh, uint64_t& stop,
     y.push_back(pd);
   }
 
-  double c0 = 0, c1 = 0, cov00 = 0, cov01 = 0, cov11 = 0, sumsq = 0, tss = 0, rsqu = 0;
-
-  gsl_fit_linear(&y[0], 1, &x[0], 1, x.size(),
-                 &c0, &c1, &cov00, &cov01, &cov11,
-                 &sumsq);
-  tss = gsl_stats_tss(&x[0], 1, x.size());
-  rsqu = 1 - sumsq / tss;
+  arma::mat c = arma::cor(arma::conv_to<arma::vec>::from(x),
+                          arma::conv_to<arma::vec>::from(y));
+  double rsqu = arma::as_scalar(arma::pow(c, 2));
 
   NetworKit::ClusteringCoefficient cc;
   double trans = cc.exactGlobal(g);

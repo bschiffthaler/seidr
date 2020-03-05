@@ -1,4 +1,20 @@
 cmake_minimum_required(VERSION 3.9.4)
+cmake_policy(SET CMP0074 NEW)
+
+# Are we building a package
+if (CMAKE_BUILD_PORTABLE)
+  set(CMAKE_SKIP_BUILD_RPATH FALSE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  set(CMAKE_INSTALL_RPATH "lib")
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/bundle/include")
+  link_directories("${CMAKE_CURRENT_SOURCE_DIR}/bundle/lib")
+  set(CMAKE_CXX_COMPILER "${CMAKE_CURRENT_SOURCE_DIR}/bundle/bin/clang++")
+  set(CMAKE_C_COMPILER "${CMAKE_CURRENT_SOURCE_DIR}/bundle/bin/clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_USE_WRAPPER")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif()
+
 project(seidr)
 include(ExternalProject)
 
@@ -28,6 +44,22 @@ set(CMAKE_CXX_STANDARD 11)
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
+
+set(CPACK_PACKAGE_VENDOR "Bastian Schiffthaler")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Seidr")
+set(CPACK_PACKAGE_VERSION_MAJOR ${SEIDR_MAJOR_VERSION})
+set(CPACK_PACKAGE_VERSION_MINOR ${SEIDR_MINOR_VERSION})
+set(CPACK_PACKAGE_VERSION_PATCH ${SEIDR_PATCH_VERSION})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENCE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES
+    /.git
+    /dist
+    /.*build.*
+    /\\\\.DS_Store
+)
+include(CPack)
 
 ##########################
 ## Set up flags ##
@@ -258,6 +290,24 @@ target_link_libraries( plsnet ${ARMADILLO_LIBRARIES})
 target_link_libraries( pcor ${ARMADILLO_LIBRARIES})
 target_link_libraries( genie3 ${ARMADILLO_LIBRARIES})
 
+if (CMAKE_BUILD_PORTABLE)
+  set(HDF5_USE_STATIC_LIBRARIES ON)
+  find_package(HDF5 REQUIRED)
+  include_directories( ${HDF5_INCLUDE_DIRS})
+  target_link_libraries( seidr ${HDF5_LIBRARIES})
+  target_link_libraries( tigress ${HDF5_LIBRARIES})
+  target_link_libraries( svm-ensemble ${HDF5_LIBRARIES})
+  target_link_libraries( llr-ensemble ${HDF5_LIBRARIES})
+  target_link_libraries( el-ensemble ${HDF5_LIBRARIES})
+  target_link_libraries( narromi ${HDF5_LIBRARIES})
+  target_link_libraries( correlation ${HDF5_LIBRARIES})
+  target_link_libraries( anoverence ${HDF5_LIBRARIES})
+  target_link_libraries( mi ${HDF5_LIBRARIES})
+  target_link_libraries( plsnet ${HDF5_LIBRARIES})
+  target_link_libraries( pcor ${HDF5_LIBRARIES})
+  target_link_libraries( genie3 ${HDF5_LIBRARIES})
+endif()
+
 # Boost
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_RELEASE_LIBS ON)
@@ -317,10 +367,6 @@ if(SEIDR_WITH_MPI)
   endif()
 endif()
 
-# GSL
-find_package(GSL REQUIRED)
-include_directories(${GSL_INCLUDE_PATH})
-target_link_libraries(seidr ${GSL_LIBRARIES})
 
 # Need to link BLAS because of liblinear/libsvm
 find_package(BLAS REQUIRED)
@@ -339,6 +385,14 @@ else()
   include_directories(${GLPK_INCLUDE_PATH})
   target_link_libraries(narromi ${GLPK_LIBRARIES})
 endif()
+
+#####
+## Install
+#####
+
+install(TARGETS anoverence correlation el-ensemble genie3 llr-ensemble mi
+        narromi pcor plsnet seidr svm-ensemble tigress
+        DESTINATION bin)
 
 message(STATUS "Summary:")
 message(STATUS "  Seidr version: ${SEIDR_VERSION}")
