@@ -9,6 +9,24 @@ parallelism on a single computer or across many nodes in a cluster. Some inferen
 algorithms in ``seidr`` have been run on hundreds of CPUs across many nodes in
 a high performance compute cluster.
 
+Running in OMP mode
+^^^^^^^^^^^^^^^^^^^
+
+By default, if your computer has multiple CPU cores availble, ``seidr`` will use
+as many as it can. If the subprogram has parallel processing support, you can
+control the extent of the parallelization with the ``-O,--threads`` option.
+
+Example::
+  # Use all available threads by default:
+  seidr import ...
+
+  # Use two threds
+  seidr import -O 2 ...
+
+  # Use environment variables to control the number of threads
+  export OMP_NUM_THREADS=2
+  seidr import ..
+
 Running in MPI mode
 ^^^^^^^^^^^^^^^^^^^
 
@@ -51,5 +69,5 @@ This is the number of genes a compute thread will process at once before request
 more from the master thread. Lower batch sizes will lead to more time spent in I/O
 operations and more temporary files, but setting it too high might leave compute
 threads without work for portions of the run. A good rule of thumb is to set this
-to :math:`\frac{n_{genes}}{n_{cpus} * 10}`. As an example, if I am estimating the
-network for 25,000 genes using 64 compute threads, I set ``--batch-size`` to :math:`\frac{25000}{64 * 10} = 39`.
+to :math:`\frac{n_{genes}}{n_{nodes}}`. As an example, if I am estimating the
+network for 25,000 genes using a five nodes, I set ``--batch-size`` to :math:`\frac{25000}{5} = 5000`. In general, it is safe to let ``seidr`` decide on the batch size.

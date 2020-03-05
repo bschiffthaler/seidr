@@ -3,6 +3,8 @@
 Estimating a hard threshold for a given seidr network
 =====================================================
 
+**Note that generally ``seidr backbone`` is preferred to this approach**
+
 Post aggregation, if any network in the input dataset was fully dense (i.e. 
 having a score for each possible link in the network) the aggregated network
 will also be fully dense. The vast majority of the edges in the network will be
