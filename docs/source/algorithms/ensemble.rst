@@ -49,11 +49,11 @@ With that, we can run the ensembles::
 
 The output is a square matrix of scores::
 
-    0   0   0.876   0.124   0
-    0.894   0   0.106   0   0
-    0.894   0   0   0.106   0
-    0.894   0   0.106   0   0
-    0.894   0   0.106   0   0
+    0       0   0.876   0.124   0
+    0.894   0   0.106   0       0
+    0.894   0   0       0.106   0
+    0.894   0   0.106   0       0
+    0.894   0   0.106   0       0
 
 
 Optional arguments for the Ensemble methods

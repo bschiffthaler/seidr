@@ -46,8 +46,8 @@ The output is a lower triangular matrix of scores::
 
     0
     0.798215    0.874873
-    0   0.889133    0
-    0   0   0.860645    0.95965
+    0           0.889133    0
+    0           0           0.860645    0.95965
 
 
 Tuning the number of bins and spline degree

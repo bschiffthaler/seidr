@@ -5,7 +5,7 @@ TIGRESS
 
 TIGRESS uses an ensemble approach (here called stability selection) to reduce prediction
 variance in a LASSO model. It works somewhat similar to the other :ref:`ensemble-label` .
-TIGRESS is published in [Haury2012]_ . The LASSO uses the GLMNET Fortrn backend in 
+TIGRESS is published in [Haury2012]_ . The LASSO uses the GLMNET Fortran backend in 
 [Friedman2010]_ .
 
 Running TIGRESS
@@ -43,10 +43,10 @@ With that, we can run PCor::
 
 The output is a square matrix of scores::
 
-    0   0.5197  0.6558  0.2139  0.0838
-    0.6909  0   0.169   0.2216  0.3628
-    0.4819  0.1774  0   0.3084  0.7075
-    0.137   0.1418  0.3349  0   0.675
+    0       0.5197  0.6558  0.2139  0.0838
+    0.6909  0       0.169   0.2216  0.3628
+    0.4819  0.1774  0       0.3084  0.7075
+    0.137   0.1418  0.3349  0       0.675
     0.0182  0.1736  0.7209  0.6138  0
 
 Optional arguments for TIGRESS

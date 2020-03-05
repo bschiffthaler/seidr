@@ -20,6 +20,7 @@ If you have any questions, contact me at:
    source/import/import
    source/aggregate/aggregate
    source/threshold/threshold
+   source/backbone/backbone
 
 .. toctree::
    :caption: Installing seidr
