@@ -21,7 +21,11 @@
 // Seidr
 #include <common.h>
 #include <linear-fun.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 // External
 #include <mpi.h>
 #include <iostream>
@@ -350,7 +354,7 @@ void svm_full(const arma::mat& GM,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
@@ -364,7 +368,7 @@ void svm_full(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 void svm_partial(const arma::mat& GM,
@@ -409,7 +413,7 @@ void svm_partial(const arma::mat& GM,
   mpi.set_targeted(true);
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   destroy_param(&param.svparam);
   mpi.remove_queue_file();
   #pragma omp critical
@@ -423,5 +427,5 @@ void svm_partial(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }

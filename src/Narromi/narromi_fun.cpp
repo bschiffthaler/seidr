@@ -23,7 +23,11 @@
 #include <common.h>
 #include <IP_LPT2.h>
 #include <stats_fun.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 #include <fs.h>
 // External
 #include <mpi.h>
@@ -204,7 +208,7 @@ void full_narromi(const arma::mat& GM,
   mpi.set_algorithm(param.al);
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -217,7 +221,7 @@ void full_narromi(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 /* Run narromi algorithm on a full expression set on a set of
@@ -263,7 +267,7 @@ void partial_narromi(const arma::mat& GM,
   mpi.set_targeted(true);
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -276,7 +280,7 @@ void partial_narromi(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 void narromi_thread(const arma::mat& gene_matrix,

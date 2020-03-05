@@ -21,7 +21,11 @@
 // Seidr
 #include <common.h>
 #include <plsnet-fun.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 #include <fs.h>
 // External
 #include <iostream>
@@ -187,7 +191,7 @@ void plsnet_full(const arma::mat& GM,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -200,7 +204,7 @@ void plsnet_full(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 void plsnet_partial(const arma::mat& GM,
@@ -244,7 +248,7 @@ void plsnet_partial(const arma::mat& GM,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -257,7 +261,7 @@ void plsnet_partial(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 arma::vec vip(arma::mat& X, arma::vec& Y, arma::uword ncomp)

@@ -64,6 +64,16 @@ namespace po = boost::program_options;
   #define INIT_TBB_CONTROL() int tbb_control = nullptr;
 #endif
 
+#ifdef SEIDR_WITH_MPI
+    #define SEIDR_MPI_BARRIER() MPI_Barrier(MPI_COMM_WORLD);
+    #define SEIDR_MPI_FINALIZE() MPI_Finalize();
+    #define SEIDR_MPI_INIT() MPI_Init(&argc, &argv); int rank = 0; MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    #define SEIDR_MPI_BARRIER() nullptr;
+    #define SEIDR_MPI_FINALIZE() nullptr;
+    #define SEIDR_MPI_INIT() int rank = 0;
+#endif
+
 typedef double seidr_score_t;
 
 #ifndef SEIDR_SCORE_DOUBLE

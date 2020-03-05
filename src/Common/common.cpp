@@ -22,7 +22,11 @@
 #include <Serialize.h>
 #include <common.h>
 #include <fs.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 // External
 #include <cerrno>
 #include <fstream>
@@ -330,8 +334,10 @@ void make_tpos(uint32_t& tpos, const SeidrFileHeader& h)
 
 uint64_t get_mpi_nthread()
 {
-  int procn;
-  MPI_Comm_size(MPI_COMM_WORLD, &procn);
+  int procn = 0;
+  #ifdef SEIDR_WITH_MPI
+    MPI_Comm_size(MPI_COMM_WORLD, &procn);
+  #endif
   if (procn < 0)
   {
     throw std::runtime_error("Number of MPI threads could not be"

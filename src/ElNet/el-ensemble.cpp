@@ -21,7 +21,11 @@
 // Seidr
 #include <common.h>
 #include <fs.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 #include <elnet-fun.h>
 // External
 #include <mpi.h>
@@ -40,10 +44,7 @@ using boost::numeric_cast;
 
 int main(int argc, char ** argv) {
 
-  MPI_Init(&argc, &argv);
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  SEIDR_MPI_INIT();
 
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
@@ -240,7 +241,7 @@ int main(int argc, char ** argv) {
     mpi_sync_tempdir(&param.tempdir);
   }
   // All threads wait until checks are done
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  SEIDR_MPI_BARRIER(); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 
   try
   {

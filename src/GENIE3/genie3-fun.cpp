@@ -21,7 +21,11 @@
 // Seidr
 #include <common.h>
 #include <genie3-fun.h>
-#include <mpiomp.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 // External
 #include <iostream>
 #include <random>
@@ -338,7 +342,8 @@ void genie3_full(const arma::mat& gm,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  
+  SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -350,8 +355,7 @@ void genie3_full(const arma::mat& gm,
       mpi.finalize();
     }
   }
-
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 void genie3_partial(const arma::mat& gm,
@@ -396,7 +400,8 @@ void genie3_partial(const arma::mat& gm,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER(); // NOLINT
+
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -409,5 +414,5 @@ void genie3_partial(const arma::mat& gm,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }

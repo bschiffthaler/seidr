@@ -22,9 +22,13 @@
 #include <common.h>
 #include <fs.h>
 #include <mi_fun.h>
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 // External
 #include <omp.h>
-#include <mpiomp.h>
 #include <cerrno>
 #include <string>
 #include <vector>
@@ -37,10 +41,7 @@ namespace po = boost::program_options;
 
 int main(int argc, char ** argv) {
 
-  MPI_Init(&argc, &argv);
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  SEIDR_MPI_INIT();
 
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
 
@@ -229,7 +230,7 @@ int main(int argc, char ** argv) {
     mpi_sync_tempdir(&param.tempdir);
   }
   // All threads wait until checks are done
-  MPI_Barrier(MPI_COMM_WORLD);
+  SEIDR_MPI_BARRIER();
 
   try
   {

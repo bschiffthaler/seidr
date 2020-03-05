@@ -24,7 +24,12 @@
 #include <elnet-fun.h>
 #include <fs.h>
 #include <glmnetx.h>
-#include <mpiomp.h>
+
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 
 #include <omp.h>
 // External
@@ -303,7 +308,7 @@ void el_full(const arma::mat& GM,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
   #pragma omp critical
   {
@@ -316,7 +321,7 @@ void el_full(const arma::mat& GM,
     }
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
 
 void el_partial(const arma::mat& GM,
@@ -361,7 +366,7 @@ void el_partial(const arma::mat& GM,
 
   mpi.entrypoint();
 
-  MPI_Barrier(MPI_COMM_WORLD); // NOLINT
+  SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
   if (mpi.rank() == 0)
   {
@@ -370,5 +375,5 @@ void el_partial(const arma::mat& GM,
     mpi.finalize();
   }
 
-  MPI_Finalize();
+  SEIDR_MPI_FINALIZE();
 }
