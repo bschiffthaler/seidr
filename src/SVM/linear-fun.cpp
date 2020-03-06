@@ -27,7 +27,6 @@
   #include <mpi_dummy.h>
 #endif
 // External
-#include <mpi.h>
 #include <iostream>
 #include <random>
 #include <string>
