@@ -17,7 +17,12 @@ FIND_PATH(TBB_INCLUDE_DIR tbb/task.h
 ${TBB_CUSTOM_PATH}/include
 )
 
-SET(TBB_NAMES ${TBB_NAMES} tbb)
+IF (TBB_REQUIRE_STATIC)
+  SET(TBB_NAMES libtbb.a)
+ELSE()
+  SET(TBB_NAMES ${TBB_NAMES} tbb)
+ENDIF()
+
 FIND_LIBRARY(TBB_LIBRARY
   NAMES ${TBB_NAMES}
   PATHS /usr/lib /usr/local/lib /lib /usr/lib/tbb /usr/local/lib/tbb /lib/tbb ${TBB_CUSTOM_PATH}/lib

@@ -17,7 +17,12 @@ FIND_PATH(GLPK_INCLUDE_DIR glpk.h
 ${GLPK_CUSTOM_PATH}/include
 )
 
-SET(GLPK_NAMES ${GLPK_NAMES} glpk)
+IF (GLPK_REQUIRE_STATIC)
+  SET(GLPK_NAMES libglpk.a)
+ELSE()
+  SET(GLPK_NAMES ${GLPK_NAMES} glpk)
+ENDIF()
+
 FIND_LIBRARY(GLPK_LIBRARY
   NAMES ${GLPK_NAMES}
   PATHS /usr/lib /usr/local/lib /lib /usr/lib/glpk /usr/local/lib/glpk /lib/glpk ${GLPK_CUSTOM_PATH}/lib
