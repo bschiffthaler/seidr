@@ -28,7 +28,6 @@
 #endif
 #include <svm-fun.h>
 // External
-#include <mpi.h>
 #include <svm.h>
 #include <cerrno>
 #include <string>

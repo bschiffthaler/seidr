@@ -28,7 +28,6 @@
 #endif
 #include <elnet-fun.h>
 // External
-#include <mpi.h>
 #include <omp.h>
 #include <cerrno>
 #include <string>

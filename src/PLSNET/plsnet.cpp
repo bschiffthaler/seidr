@@ -29,7 +29,6 @@
 #include <plsnet-fun.h>
 // External
 #include <omp.h>
-#include <mpi.h>
 #include <cerrno>
 #include <string>
 #include <vector>

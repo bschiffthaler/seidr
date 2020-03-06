@@ -28,7 +28,6 @@
   #include <mpi_dummy.h>
 #endif
 // External
-#include <mpi.h>
 #include <cerrno>
 #include <string>
 #include <vector>

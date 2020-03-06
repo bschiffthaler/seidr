@@ -29,7 +29,6 @@
 #include <linear-fun.h>
 #include <cp_resume.h>
 // External
-#include <mpi.h>
 #include <linear.h>
 #include <cerrno>
 #include <string>
