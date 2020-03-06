@@ -25,5 +25,5 @@ void set_pstl_threads(int target, tbb::global_control& tbb_control)
 }
 
 #else
-  void set_pstl_threads(int target, void * ctl) {}
+  void set_pstl_threads(int target, int ctl) {}
 #endif

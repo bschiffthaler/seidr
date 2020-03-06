@@ -61,7 +61,7 @@ namespace po = boost::program_options;
   #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
   #define SET_NUM_PSTL_THREADS(x)
   #define GET_MAX_PSTL_THREADS() 1
-  #define INIT_TBB_CONTROL() int tbb_control = nullptr;
+  #define INIT_TBB_CONTROL() int tbb_control = -1;
 #endif
 
 #ifdef SEIDR_WITH_MPI

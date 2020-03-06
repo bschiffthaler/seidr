@@ -30,7 +30,6 @@
 #endif
 #include <fs.h>
 // External
-#include <mpi.h>
 #include <armadillo>
 #include <vector>
 #include <fstream>
