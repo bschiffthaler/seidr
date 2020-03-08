@@ -1,6 +1,6 @@
 # - Find CLP (includes and library)
 # This module defines
-#  CLP_INCLUDE_DIR
+#  CLP_INCLUDE_PATH
 #  CLP_LIBRARIES
 #  CLP_FOUND
 # also defined, but not for general use are
@@ -11,13 +11,29 @@ if (NOT "$ENV{CLP_ROOT}" STREQUAL "")
 endif()
 
 SET(CLP_LIBPATHS /usr/lib64 /usr/lib /usr/local/lib /lib /usr/lib/coin 
-    /usr/local/lib/coin /lib/coin ${CLP_CUSTOM_PATH}/lib)
+    /usr/local/lib/coin /lib/coin ${CLP_CUSTOM_PATH}/lib
+)
 
-FIND_PATH(CLP_INCLUDE_DIR coin
-/usr/include/
-/usr/local/include/
-/include
-${CLP_CUSTOM_PATH}/include
+SET(CLP_INCPATHS /usr/include/ /usr/local/include/ /include
+    ${CLP_CUSTOM_PATH}/include /usr/include/clp /usr/local/include/clp 
+    /include/clp ${CLP_CUSTOM_PATH}/include/clp /usr/include/coin 
+    /usr/local/include/coin /include/coin ${CLP_CUSTOM_PATH}/include/coin
+    /usr/include/clp/coin /usr/local/include/clp/coin /include/clp/coin 
+    ${CLP_CUSTOM_PATH}/include/clp/coin /usr/include/coinutils/coin 
+    /usr/local/include/coinutils/coin /include/coinutils/coin 
+    ${CLP_CUSTOM_PATH}/include/coinutils/coin /usr/include/coinutils 
+    /usr/local/include/coinutils /include/coinutils 
+    ${CLP_CUSTOM_PATH}/include/coinutils
+)
+
+FIND_PATH(CLP_INCLUDE_DIR
+  NAMES ClpSimplex.hpp ClpInterior.hpp CoinPackedMatrix.hpp ClpSolve.hpp
+  PATHS ${CLP_INCPATHS}
+)
+
+FIND_PATH(COIN_INCLUDE_DIR 
+  NAMES CoinPragma.hpp
+  PATHS ${CLP_INCPATHS}
 )
 
 IF (CLP_REQUIRE_STATIC)
@@ -88,18 +104,23 @@ ENDIF()
 
 IF (CLP_REQUIRE_STATIC)
   IF (CLP_LIBRARY AND CLPSOLVER_LIBRARY AND COINUTILS_LIBRARY AND 
-      CLP_INCLUDE_DIR AND COINASL_LIBRARY AND COINGLPK_LIBRARY AND 
-      COINMUMPS_LIBRARY AND COINMETIS_LIBRARY)
+      CLP_INCLUDE_DIR AND COIN_INCLUDE_DIR AND COINASL_LIBRARY AND 
+      COINGLPK_LIBRARY AND COINMUMPS_LIBRARY AND COINMETIS_LIBRARY)
       SET(CLP_LIBRARIES ${CLP_LIBRARY} ${CLPSOLVER_LIBRARY} ${COINUTILS_LIBRARY}
           ${COINGLPK_LIBRARY} ${COINASL_LIBRARY} ${COINMUMPS_LIBRARY}
           ${COINMETIS_LIBRARY})
+      GET_FILENAME_COMPONENT(CLP_INCLUDE_PATH ${CLP_INCLUDE_DIR} DIRECTORY)
+      GET_FILENAME_COMPONENT(COIN_INCLUDE_PATH ${COIN_INCLUDE_DIR} DIRECTORY)
       SET(CLP_FOUND "YES")
   ELSE ()
     SET(CLP_FOUND "NO")
   ENDIF ()
 ELSE()
-  IF (CLP_LIBRARY AND CLPSOLVER_LIBRARY AND COINUTILS_LIBRARY AND CLP_INCLUDE_DIR)
+  IF (CLP_LIBRARY AND CLPSOLVER_LIBRARY AND COINUTILS_LIBRARY AND 
+      CLP_INCLUDE_DIR AND COIN_INCLUDE_DIR)
       SET(CLP_LIBRARIES ${CLP_LIBRARY} ${CLPSOLVER_LIBRARY} ${COINUTILS_LIBRARY})
+      GET_FILENAME_COMPONENT(CLP_INCLUDE_PATH ${CLP_INCLUDE_DIR} DIRECTORY)
+      GET_FILENAME_COMPONENT(COIN_INCLUDE_PATH ${COIN_INCLUDE_DIR} DIRECTORY)
       SET(CLP_FOUND "YES")
   ELSE ()
     SET(CLP_FOUND "NO")
@@ -118,7 +139,7 @@ ELSE (CLP_FOUND)
 ENDIF (CLP_FOUND)
 
 # Deprecated declarations.
-SET (NATIVE_CLP_INCLUDE_PATH ${CLP_INCLUDE_DIR} )
+SET (NATIVE_CLP_INCLUDE_PATH ${CLP_INCLUDE_PATH} )
 GET_FILENAME_COMPONENT (NATIVE_CLP_LIB_PATH ${CLP_LIBRARY} PATH)
 
 MARK_AS_ADVANCED(

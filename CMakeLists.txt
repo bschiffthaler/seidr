@@ -25,10 +25,6 @@ enable_language(Fortran)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 
-include_directories(src/Common src/Narromi src/Tigress src/SVM 
-  src/ElNet src/Seidr src/Correlation src/MI src/PLSNET src/PCor 
-  src/GENIE3 src/Anoverence external/bgzf)
-
 #######################################
 ## Version, C++ Standard, build type ##
 #######################################
@@ -169,16 +165,21 @@ if(OPENMP_CXX_FOUND)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
+# Everything incudes Common
+include_directories(src/Common src/Seidr external/bgzf)
+
 # Create library from common files to avoid re-compiling them 
 add_library(seidr-common src/Common/common.cpp 
   src/Common/fs.cpp src/Common/BSlogger.cpp 
   "${MPI_SRC}")
+target_include_directories(seidr-common PRIVATE src/Seidr)
+
 add_library(seidr-glmnet external/glmnet/src/glmnet5dp.f)
+
 add_library(seidr-bgzf external/bgzf/bgzf.c)
 
 # Build a custom library from the networkit sources
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/deps/include)
 
 # Build executables:
 ## Seidr
@@ -195,20 +196,28 @@ add_executable(seidr src/Seidr/adjacency.cpp src/Seidr/aggregate.cpp
                src/Seidr/tau.cpp src/Seidr/test.cpp 
                src/Seidr/threshold.cpp src/Seidr/top.cpp
                src/Seidr/viewRanks.cpp src/Seidr/seidr.cpp)
+target_include_directories(seidr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/deps/include src/Seidr)
+
 ## Tigress
 add_executable(tigress src/Tigress/tiglm.cpp src/Tigress/tigress.cpp 
   src/Tigress/glmnet2.cpp)
+target_include_directories(tigress PRIVATE src/Tigress)
+
 ## el-ensemble
 add_executable(el-ensemble src/ElNet/el-ensemble.cpp src/ElNet/elnet-fun.cpp 
   src/ElNet/glmnetx.cpp)
+target_include_directories(el-ensemble PRIVATE src/ElNet)
+
 ## SVM ensemble
 add_executable(svm-ensemble src/SVM/svm-ensemble.cpp src/SVM/svm-fun.cpp 
   external/libsvm/svm.cpp)
-target_include_directories(svm-ensemble PRIVATE external/libsvm)
+target_include_directories(svm-ensemble PRIVATE external/libsvm src/SVM)
+
 ## llr ensemble
 add_executable(llr-ensemble src/SVM/linear-ensemble.cpp src/SVM/linear-fun.cpp 
   external/liblinear/linear.cpp external/liblinear/tron.cpp)
-target_include_directories(llr-ensemble PRIVATE external/liblinear)
+target_include_directories(llr-ensemble PRIVATE external/liblinear src/SVM)
+
 ## Narromi
 if (NARROMI_USE_CLP)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNARROMI_USE_CLP")
@@ -218,21 +227,34 @@ else()
 endif()
 add_executable(narromi src/Narromi/stats_fun.cpp ${IP_SRC}
   src/Narromi/narromi_fun.cpp src/Narromi/narromi.cpp)
+target_include_directories(narromi PRIVATE src/Narromi)
+
 ## Correlation
 add_executable(correlation src/Correlation/correlation.cpp 
   src/Correlation/cor_fun.cpp)
+target_include_directories(correlation PRIVATE src/Correlation)
+
 ## Anoverence
 add_executable(anoverence src/Anoverence/anoverence.cpp 
   src/Anoverence/anova-fun.cpp)
+target_include_directories(anoverence PRIVATE src/Anoverence)
+
 ## CLR
 add_executable(mi src/MI/mi.cpp src/MI/mi_fun.cpp)
+target_include_directories(mi PRIVATE src/MI)
+
 ## PLSNET
 add_executable(plsnet src/PLSNET/plsnet.cpp src/PLSNET/plsnet-fun.cpp)
+target_include_directories(plsnet PRIVATE src/PLSNET)
+
 ## Partial Correlation
 add_executable(pcor src/PCor/pcor.cpp src/PCor/pcor-fun.cpp)
+target_include_directories(pcor PRIVATE src/PCor)
+
 ## Genie3
 add_executable(genie3 src/GENIE3/genie3.cpp src/GENIE3/genie3-fun.cpp)
-target_include_directories(genie3 PRIVATE external/ranger/src)
+target_include_directories(genie3 PRIVATE external/ranger/src src/GENIE3
+                           ${CMAKE_BINARY_DIR}/deps/include)
 
 # Link libraries
 target_link_libraries(seidr seidr-common)
@@ -268,7 +290,7 @@ target_include_directories( seidr PRIVATE external/bgzf )
 target_link_libraries( seidr seidr-bgzf )
 # Link zlib _after_ bgzf to avoid undef refl issues
 find_package( ZLIB REQUIRED )
-include_directories( ${ZLIB_INCLUDE_DIRS} )
+target_include_directories(seidr PRIVATE ${ZLIB_INCLUDE_DIRS} )
 target_link_libraries( seidr ${ZLIB_LIBRARIES} )
 
 if (SEIDR_PSTL)
@@ -297,6 +319,7 @@ else()
   # Armadillo
   find_package( Armadillo REQUIRED )
   include_directories( ${ARMADILLO_INCLUDE_DIRS})
+  message(STATUS ${ARMADILLO_INCLUDE_DIRS})
   target_link_libraries( seidr ${ARMADILLO_LIBRARIES})
   target_link_libraries( tigress ${ARMADILLO_LIBRARIES})
   target_link_libraries( svm-ensemble ${ARMADILLO_LIBRARIES})
@@ -397,7 +420,8 @@ target_link_libraries(svm-ensemble ${BLAS_LIBRARIES})
 
 if (NARROMI_USE_CLP)
   find_package(CLP REQUIRED)
-  include_directories(${CLP_INCLUDE_PATH})
+  target_include_directories(narromi PRIVATE ${CLP_INCLUDE_PATH} ${CLP_INCLUDE_PATH}/coin)
+  target_include_directories(narromi PRIVATE ${COIN_INCLUDE_PATH} ${COIN_INCLUDE_PATH}/coin)
   target_link_libraries(narromi ${CLP_LIBRARIES})
   if (CMAKE_LINK_STATIC)
     find_package(BZip2 REQUIRED)
@@ -407,7 +431,7 @@ if (NARROMI_USE_CLP)
 else()
   # GLPK
   find_package(GLPK REQUIRED)
-  include_directories(${GLPK_INCLUDE_PATH})
+  target_include_directories(narromi PRIVATE ${GLPK_INCLUDE_PATH})
   target_link_libraries(narromi ${GLPK_LIBRARIES})
 endif()
 
