@@ -128,7 +128,7 @@ int main(int argc, char ** argv)
       assert_exists(param.targets_file);
     }
 
-    if (vm.count("outfile") == 0)
+    if (vm["outfile"].defaulted())
     {
       param.outfile = param.method + "_scores.tsv";
     }

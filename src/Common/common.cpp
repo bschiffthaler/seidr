@@ -350,6 +350,10 @@ uint64_t get_mpi_nthread()
 uint64_t guess_batch_size(uint64_t const & set_size,
                           uint64_t const & task_n)
 {
+  if (task_n == 0)
+  {
+    return set_size;
+  }
   if (set_size % task_n == 0)
   {
     return set_size / task_n;

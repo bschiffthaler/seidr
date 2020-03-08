@@ -53,7 +53,12 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
 
 void seidr_mpi_omp::remove_queue_file() {}
 
-void seidr_mpi_omp::get_more_work() {}
+void seidr_mpi_omp::get_more_work()
+{
+  // Since we take all the work at construction time all this needs to do is
+  // to set the completion condition
+  _my_indices.clear();
+}
 
 bool seidr_mpi_omp::check_logs(const std::string& bn)
 {
