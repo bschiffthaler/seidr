@@ -434,7 +434,7 @@ def main(args):
         desc1 = scipy.stats.describe([x["All"] for x in outcomes_ref])
         desc2 = scipy.stats.describe([x["All"] for x in outcomes])
         pc = scipy.stats.mannwhitneyu(
-            [x["All"] for x in outcomes_ref],
+            [np.mean([x["All"] for x in outcomes_ref])],
             [x["All"] for x in outcomes],
             alternative="greater",
         )
@@ -453,7 +453,7 @@ def main(args):
             desc1 = scipy.stats.describe([x["Sub"][i] for x in outcomes_ref])
             desc2 = scipy.stats.describe([x["Sub"][i] for x in outcomes])
             pc = scipy.stats.mannwhitneyu(
-                [x["Sub"][i] for x in outcomes_ref],
+                [np.mean([x["Sub"][i] for x in outcomes_ref])],
                 [x["Sub"][i] for x in outcomes],
                 alternative="greater",
             )
@@ -1200,6 +1200,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     main(args)
