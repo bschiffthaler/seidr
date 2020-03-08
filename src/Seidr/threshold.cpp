@@ -234,9 +234,6 @@ int threshold(int argc, char ** argv)
 {
   logger log(std::cerr, "threshold");
 
-  // In case we have TBB/PSTL, initialize a global control object
-  INIT_TBB_CONTROL();
-
   const char * args[argc - 1];
   std::string pr(argv[0]);
   pr += " threshold";
@@ -317,7 +314,7 @@ int threshold(int argc, char ** argv)
 
   try
   {
-    set_pstl_threads(param.nthreads, tbb_control);
+    set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);

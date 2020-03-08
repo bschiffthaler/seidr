@@ -53,9 +53,6 @@ namespace po = boost::program_options;
     tbb::global_control(tbb::global_control::max_allowed_parallelism, x);
   #define GET_MAX_PSTL_THREADS() \
     tbb::task_scheduler_init::default_num_threads()
-  #define INIT_TBB_CONTROL() tbb::global_control \
-    tbb_control(tbb::global_control::max_allowed_parallelism, \
-                tbb::task_scheduler_init::default_num_threads());
 #else
   #define SORT(start, end) std::sort(start, end)
   #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)

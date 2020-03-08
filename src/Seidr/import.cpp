@@ -205,6 +205,10 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 {
 //Sorting
   logger log(std::cerr, "rank_vector");
+  
+  // Do nothing on empty dataset
+  if (ev.size() == 0) return;
+
   if (reverse)
   {
     if (absolute)
@@ -258,9 +262,6 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 int import(int argc, char * argv[]) {
 
   logger log(std::cerr, "import");
-  
-  // In case we have TBB/PSTL, initialize a global control object
-  INIT_TBB_CONTROL();
 
   read_logger pr(log, 100000000); // processed rows
 
@@ -343,7 +344,7 @@ int import(int argc, char * argv[]) {
   try
   {
 
-    set_pstl_threads(param.nthreads, tbb_control);
+    set_pstl_threads(param.nthreads);
 
     if (param.format == "el")
       param.is_edge_list = true;
