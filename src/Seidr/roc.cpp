@@ -224,7 +224,7 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
 
 }
 
-double print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
+std::pair<double, double> print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
                  std::vector<std::pair<uint32_t, uint32_t>>& tneg,
                  std::vector<MiniEdge>& v,
                  std::pair<uint32_t, uint32_t>& tpfp,
@@ -247,9 +247,9 @@ double print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
   out << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
 
   // For on-the-fly integration -> AUC
-  double y_i = 0, y_j = 0;
-  double x_i = 0, x_j = 0;
-  double auc = 0;
+  double y_i = 0, y_j = 0, a_i = 0, a_j = 0;
+  double x_i = 0, x_j = 0, b_i = 0, b_j = 0;
+  double auc = 0, aupr = 0;
 
   for (auto& e : v)
   {
@@ -301,21 +301,25 @@ double print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     x_i = x_j;
     y_j = tpr;
     x_j = fpr;
+
+    a_i = a_j;
+    b_i = b_j;
+    a_j = ppv;
+    b_j = tpr;
+
     if (cnt > 1)
     {
       auc += ((y_i + y_j) / 2) * (x_j - x_i);
+      aupr += ((a_i + a_j) / 2) * (b_j - b_i);
     }
   }
-  return auc;
+  return std::pair<double, double> {auc, aupr};
 }
 
 int roc(int argc, char * argv[])
 {
 
   logger log(std::cerr, "ROC");
-
-  // In case we have TBB/PSTL, initialize a global control object
-  INIT_TBB_CONTROL();
 
   const char * args[argc - 1];
   std::string pr(argv[0]);
@@ -403,7 +407,7 @@ int roc(int argc, char * argv[])
 
   try
   {
-    set_pstl_threads(param.nthreads, tbb_control);
+    set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
@@ -486,13 +490,15 @@ int roc(int argc, char * argv[])
         resize_by_fraction(gv, ngv, nv, param.fedg);
       }
       auto tpfp = get_tp_fp(gv, ngv, nv);
-      double auc = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
-                             h.algs[param.tpos]);
-      *out << "#AUC: " << auc << '\t' << h.algs[param.tpos] << '\n';
+      auto metric = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
+                              h.algs[param.tpos]);
+      *out << "#AUC: " << metric.first << '\t' << h.algs[param.tpos] << '\n';
+      *out << "#AUPR: " << metric.second << '\t' << h.algs[param.tpos] << '\n';
     }
     else
     {
       std::vector< std::pair<double, std::string> > aucs;
+      std::vector< std::pair<double, std::string> > auprs;
       for (uint16_t i = 0; i < h.attr.nalgs; i++)
       {
         f.seek(offset);
@@ -511,13 +517,15 @@ int roc(int argc, char * argv[])
           resize_by_fraction(gv, ngv, nv, param.fedg);
         }
         auto tpfp = get_tp_fp(gv, ngv, nv);
-        double auc = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
-                               h.algs[i]);
-        aucs.push_back( std::make_pair(auc, h.algs[i]) );
+        auto metrics = print_roc(gv, ngv, nv, tpfp, param.datap, *out,
+                                 h.algs[i]);
+        aucs.push_back( std::make_pair(metrics.first, h.algs[i]) );
+        auprs.push_back( std::make_pair(metrics.second, h.algs[i]) );
       }
-      for (const auto& a : aucs)
+      for (uint64_t i = 0; i < aucs.size(); i++)
       {
-        *out << "#AUC: " << a.first << '\t' << a.second << '\n';
+        *out << "#AUC: " << aucs[i].first << '\t' << aucs[i].second << '\n';
+        *out << "#AUPR: " << auprs[i].first << '\t' << auprs[i].second << '\n';
       }
     }
 
