@@ -1,0 +1,39 @@
+package:
+  name: seidr
+  version: 0.13.1
+
+source:
+  git_rev: 0.13.1
+  git_url: https://github.com/bschiffthaler/seidr.git
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - cmake
+    - make
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+  host:
+    - boost-cpp
+    - glpk
+    - zlib
+    - armadillo
+    - openblas
+    - mkl
+    - llvm-openmp
+  run:
+    - boost-cpp
+    - glpk
+    - zlib
+    - armadillo
+    - openblas
+    - mkl
+    - llvm-openmp
+
+about:
+  home: https://github.com/bschiffthaler/seidr
+  license: GPLv3
+  summary: Community gene network toolkit
