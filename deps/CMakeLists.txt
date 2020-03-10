@@ -60,6 +60,9 @@ add_library(ranger ../external/ranger/src/Data.cpp
   ../external/ranger/src/Forest.cpp ../external/ranger/src/ForestRegression.cpp 
   ../external/ranger/src/Tree.cpp ../external/ranger/src/TreeRegression.cpp 
   ../external/ranger/src/utility.cpp)
+find_package(Armadillo REQUIRED)
+include_directories(${ARMADILLO_INCLUDE_DIRS})
+target_link_libraries(ranger PRIVATE ${ARMADILLO_LIBRARIES})
 
 # Build libbs
 file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/libbs)
