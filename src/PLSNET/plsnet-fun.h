@@ -23,6 +23,10 @@
 #include <vector>
 #include <string>
 
+
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/archive/xml_iarchive.hpp>
+
 #define PLSNET_FULL 0
 #define PLSNET_PARTIAL 1
 
@@ -30,6 +34,26 @@
 
 struct seidr_plsnet_param_t
 {
+  friend class boost::serialization::access;
+  template<typename Archive>
+  void serialize(Archive & ar, const unsigned int version)
+  {
+    ar & BOOST_SERIALIZATION_NVP(infile);
+    ar & BOOST_SERIALIZATION_NVP(gene_file);
+    ar & BOOST_SERIALIZATION_NVP(targets_file);
+    ar & BOOST_SERIALIZATION_NVP(do_scale);
+    ar & BOOST_SERIALIZATION_NVP(force);
+    ar & BOOST_SERIALIZATION_NVP(row_delim);
+    ar & BOOST_SERIALIZATION_NVP(field_delim);
+    ar & BOOST_SERIALIZATION_NVP(bs);
+    ar & BOOST_SERIALIZATION_NVP(mode);
+    ar & BOOST_SERIALIZATION_NVP(outfile);
+    ar & BOOST_SERIALIZATION_NVP(tempdir);
+    ar & BOOST_SERIALIZATION_NVP(verbosity);
+    ar & BOOST_SERIALIZATION_NVP(nthreads);
+    ar & BOOST_SERIALIZATION_NVP(ensemble_size);
+    ar & BOOST_SERIALIZATION_NVP(ncomp);
+  }
   std::string infile;
   std::string gene_file;
   std::string targets_file;
@@ -45,7 +69,10 @@ struct seidr_plsnet_param_t
   arma::uword ncomp;
   std::string tempdir;
   unsigned verbosity;
+  bool resuming;
   int nthreads;
+  std::vector<uint64_t> good_idx;
+  std::string cmd_file;
 };
 
 struct simpls_t {

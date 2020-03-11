@@ -89,6 +89,13 @@ arma::uvec get_i(arma::uword ind, size_t s);
 std::vector<std::string> read_genes(const std::string& inputs,
                                     char row_delim = '\n', char field_delim = '\t');
 
+// Check if value is in sorted range
+template <typename T>
+bool in_sorted_range(const T& query, const std::vector<T>& subject)
+{
+  return std::binary_search(subject.cbegin(), subject.cend(), query);
+}
+
 bool is_gzip(const std::string& input);
 
 bool almost_equal(seidr_score_t, seidr_score_t);

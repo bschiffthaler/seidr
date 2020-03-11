@@ -328,7 +328,17 @@ void genie3_full(const arma::mat& gm,
   std::vector<uint64_t> uvec;
   for (uint64_t i = 0; i < gm.n_cols; i++)
   {
-    uvec.push_back(i);
+    if (param.resuming)
+    {
+      if (! in_sorted_range<uint64_t>(i, param.good_idx))
+      {
+        uvec.push_back(i);
+      }
+    }
+    else
+    {
+      uvec.push_back(i);
+    }
   }
 
   seidr_mpi_genie3 mpi(param.bs, gm, uvec, genes, param.tempdir,
@@ -385,7 +395,17 @@ void genie3_partial(const arma::mat& gm,
     }
     else
     {
-      positions.push_back(pos);
+      if (param.resuming)
+      {
+        if (! in_sorted_range<uint64_t>(pos, param.good_idx))
+        {
+          positions.push_back(pos);
+        }
+      }
+      else
+      {
+        positions.push_back(pos);
+      }
     }
   }
 

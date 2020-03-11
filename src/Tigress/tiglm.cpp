@@ -305,7 +305,17 @@ void tiglm_full(const arma::mat& GM,
   std::vector<uint64_t> uvec;
   for (uint64_t i = 0; i < GM.n_cols; i++)
   {
-    uvec.push_back(i);
+    if (param.resuming)
+    {
+      if (! in_sorted_range<uint64_t>(i, param.good_idx))
+      {
+        uvec.push_back(i);
+      }
+    }
+    else
+    {
+      uvec.push_back(i);
+    }
   }
 
   seidr_mpi_tigress mpi(param.bs, GM, uvec, genes, param.tempdir,
@@ -360,7 +370,17 @@ void tiglm_partial(const arma::mat& GM,
     }
     else
     {
-      positions.push_back(pos);
+      if (param.resuming)
+      {
+        if (! in_sorted_range<uint64_t>(pos, param.good_idx))
+        {
+          positions.push_back(pos);
+        }
+      }
+      else
+      {
+        positions.push_back(pos);
+      }
     }
   }
 

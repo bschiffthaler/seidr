@@ -22,10 +22,11 @@
 #include <narromi_fun.h>
 #include <common.h>
 #include <fs.h>
+#include <cp_resume.h>
 #ifdef SEIDR_WITH_MPI
-  #include <mpiomp.h>
+#include <mpiomp.h>
 #else
-  #include <mpi_dummy.h>
+#include <mpi_dummy.h>
 #endif
 // External
 #include <omp.h>
@@ -67,6 +68,12 @@ int main(int argc, char ** argv) {
     ("outfile,o",
      po::value<std::string>(&param.outfile)->default_value("narromi_scores.tsv"),
      "Output file path")
+    ("save-resume",
+     po::value<std::string>(&param.cmd_file),
+     "Path to a file that stores job resume info.")
+    ("resume-from",
+     po::value<std::string>(&param.cmd_file),
+     "Try to resume job from this file.")
     ("verbosity,v",
      po::value<unsigned>(&param.verbosity)->default_value(3),
      "Verbosity level (lower is less verbose)");
@@ -145,51 +152,71 @@ int main(int argc, char ** argv) {
     param.mode = NARROMI_PARTIAL;
   }
 
+  cp_resume<seidr_narromi_param_t> cp_res(param, CPR_M);
+  if (vm.count("resume-from") > 0)
+  {
+    assert_exists(param.cmd_file);
+    cp_res.load(param, param.cmd_file);
+  }
+
   // Check all kinds of FS problems that may arise
   if (rank == 0)
   {
     try
     {
-      assert_exists(dirname(param.outfile));
-      assert_exists(param.infile);
-      assert_is_regular_file(param.infile);
-      assert_exists(param.gene_file);
-      assert_can_read(param.gene_file);
-      assert_can_read(param.infile);
-
-      if (vm.count("targets"))
+      if (vm.count("resume-from") > 0 && file_exists(param.cmd_file))
       {
-        assert_exists(param.targets_file);
-        assert_can_read(param.targets_file);
+        log << "Trying to resume from " << param.cmd_file << '\n';
+        log.log(LOG_INFO);
+        cp_res.resume();
+        mpi_sync_tempdir(&param.tempdir);
+        // Only need to sync CPR when resuming
+        param.good_idx = cp_res.get_good_idx();
+        mpi_sync_cpr_vector(&param.good_idx);
       }
-
-      if (! param.force)
-        assert_no_overwrite(param.outfile);
-
-      if (! vm.count("tempdir"))
-        param.tempdir = tempfile(dirname(param.outfile));
       else
-        param.tempdir = tempfile(to_absolute(param.tempdir));
-      if (dir_exists(param.tempdir))
       {
-        if (param.force)
+        assert_exists(dirname(param.outfile));
+        assert_exists(param.infile);
+        assert_is_regular_file(param.infile);
+        assert_exists(param.gene_file);
+        assert_can_read(param.gene_file);
+        assert_can_read(param.infile);
+
+        if (vm.count("targets"))
         {
-          log << "Removing previous temp files.\n";
-          log.log(LOG_WARN);
-          fs::remove_all(param.tempdir);
+          assert_exists(param.targets_file);
+          assert_can_read(param.targets_file);
+        }
+
+        if (! param.force)
+          assert_no_overwrite(param.outfile);
+
+        if (! vm.count("tempdir"))
+          param.tempdir = tempfile(dirname(param.outfile));
+        else
+          param.tempdir = tempfile(to_absolute(param.tempdir));
+        if (dir_exists(param.tempdir))
+        {
+          if (param.force)
+          {
+            log << "Removing previous temp files.\n";
+            log.log(LOG_WARN);
+            fs::remove_all(param.tempdir);
+          }
+          else
+          {
+            throw std::runtime_error("Dir exists: " + param.tempdir);
+          }
         }
         else
         {
-          throw std::runtime_error("Dir exists: " + param.tempdir);
+          create_directory(param.tempdir);
         }
+        assert_arg_constraint<std::string>({"simplex", "interior-point"}, param.al);
+        assert_dir_is_writeable(param.tempdir);
+        mpi_sync_tempdir(&param.tempdir);
       }
-      else
-      {
-        create_directory(param.tempdir);
-      }
-      assert_arg_constraint<std::string>({"simplex", "interior-point"}, param.al);
-      assert_dir_is_writeable(param.tempdir);
-      mpi_sync_tempdir(&param.tempdir);
     }
     catch (std::runtime_error& e)
     {
@@ -201,6 +228,10 @@ int main(int argc, char ** argv) {
   else
   {
     mpi_sync_tempdir(&param.tempdir);
+    if (vm.count("resume-from") > 0)
+    {
+      mpi_sync_cpr_vector(&param.good_idx);
+    }
   }
   // All threads wait until checks are done
   SEIDR_MPI_BARRIER();
@@ -234,15 +265,21 @@ int main(int argc, char ** argv) {
       targets = read_genes(param.targets_file, param.row_delim,
                            param.field_delim);
     }
-    if (param.bs == 0)
+    if (vm["batch-size"].defaulted())
     {
       if (param.mode == NARROMI_PARTIAL)
       {
-        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+        uint64_t s = param.resuming ?
+                     (targets.size() - param.good_idx.size()) :
+                     targets.size();
+        param.bs = guess_batch_size(s, get_mpi_nthread());
       }
       else
       {
-        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+        uint64_t s = param.resuming ?
+                     (genes.size() - param.good_idx.size()) :
+                     genes.size();
+        param.bs = guess_batch_size(s, get_mpi_nthread());
       }
       log << "Setting batch size to " << param.bs << '\n';
       log.log(LOG_INFO);
@@ -254,6 +291,14 @@ int main(int argc, char ** argv) {
     log.log(LOG_ERR);
     return errno;
   }
+
+  if (rank == 0)
+    {
+      if (vm.count("save-resume") > 0)
+      {
+        cp_res.save(param.cmd_file, param);
+      }
+    }
 
   try
   {

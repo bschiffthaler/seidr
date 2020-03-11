@@ -727,7 +727,17 @@ void mi_full(const arma::mat & gm,
   std::vector<uint64_t> indices(gm.n_cols);
   for (uint64_t i = 0; i < gm.n_cols; i++)
   {
-    indices[i] = i;
+    if (param.resuming)
+    {
+      if (! in_sorted_range<uint64_t>(i, param.good_idx))
+      {
+        indices.push_back(i);
+      }
+    }
+    else
+    {
+      indices.push_back(i);
+    }
   }
 
   std::random_shuffle(indices.begin(), indices.end());

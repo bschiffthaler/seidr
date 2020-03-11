@@ -98,6 +98,7 @@ void seidr_mpi_logger::send(unsigned ll)
 }
 
 void mpi_sync_tempdir(std::string * tempdir) {}
+void mpi_sync_cpr_vector(std::vector<uint64_t> * resume) {}
 
 std::string mpi_get_host()
 {

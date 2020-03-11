@@ -22,9 +22,9 @@
 #include <common.h>
 #include <linear-fun.h>
 #ifdef SEIDR_WITH_MPI
-  #include <mpiomp.h>
+#include <mpiomp.h>
 #else
-  #include <mpi_dummy.h>
+#include <mpi_dummy.h>
 #endif
 // External
 #include <iostream>
@@ -339,7 +339,17 @@ void svm_full(const arma::mat& GM,
   std::vector<uint64_t> uvec;
   for (uint64_t i = 0; i < GM.n_cols; i++)
   {
-    uvec.push_back(i);
+    if (param.resuming)
+    {
+      if (! in_sorted_range<uint64_t>(i, param.good_idx))
+      {
+        uvec.push_back(i);
+      }
+    }
+    else
+    {
+      uvec.push_back(i);
+    }
   }
 
   seidr_mpi_svm mpi(param.bs, GM, uvec, genes, param.tempdir,
@@ -397,7 +407,17 @@ void svm_partial(const arma::mat& GM,
     }
     else
     {
-      positions.push_back(pos);
+      if (param.resuming)
+      {
+        if (! in_sorted_range<uint64_t>(pos, param.good_idx))
+        {
+          positions.push_back(pos);
+        }
+      }
+      else
+      {
+        positions.push_back(pos);
+      }
     }
   }
 

@@ -21,6 +21,7 @@
 // Seidr
 #include <common.h>
 #include <fs.h>
+#include <cp_resume.h>
 #ifdef SEIDR_WITH_MPI
   #include <mpiomp.h>
 #else
@@ -69,6 +70,12 @@ int main(int argc, char ** argv) {
     ("outfile,o",
      po::value<std::string>(&param.outfile)->default_value("plsnet_scores.tsv"),
      "Output file path")
+    ("save-resume",
+     po::value<std::string>(&param.cmd_file),
+     "Path to a file that stores job resume info.")
+    ("resume-from",
+     po::value<std::string>(&param.cmd_file),
+     "Try to resume job from this file.")
     ("verbosity,v",
      po::value<unsigned>(&param.verbosity)->default_value(3),
      "Verbosity level (lower is less verbose)");
@@ -160,11 +167,30 @@ int main(int argc, char ** argv) {
     param.targets_file = to_absolute(param.targets_file);
   }
 
+  cp_resume<seidr_plsnet_param_t> cp_res(param, CPR_M);
+  if (vm.count("resume-from") > 0)
+  {
+    assert_exists(param.cmd_file);
+    cp_res.load(param, param.cmd_file);
+  }
+
   // Check all kinds of FS problems that may arise in the master thread
   if (rank == 0)
   {
     try
     {
+      if (vm.count("resume-from") > 0 && file_exists(param.cmd_file))
+      {
+        log << "Trying to resume from " << param.cmd_file << '\n';
+        log.log(LOG_INFO);
+        cp_res.resume();
+        mpi_sync_tempdir(&param.tempdir);
+        // Only need to sync CPR when resuming
+        param.good_idx = cp_res.get_good_idx();
+        mpi_sync_cpr_vector(&param.good_idx);
+      }
+      else
+      {
       assert_exists(dirname(param.outfile));
       assert_exists(param.infile);
       assert_is_regular_file(param.infile);
@@ -206,6 +232,7 @@ int main(int argc, char ** argv) {
       assert_dir_is_writeable(param.tempdir);
       mpi_sync_tempdir(&param.tempdir);
     }
+    }
     catch (std::runtime_error& e)
     {
       log << e.what() << '\n';
@@ -216,6 +243,10 @@ int main(int argc, char ** argv) {
   else
   {
     mpi_sync_tempdir(&param.tempdir);
+    if (vm.count("resume-from") > 0)
+    {
+      mpi_sync_cpr_vector(&param.good_idx);
+    }
   }
 
   // All threads wait until checks are done
@@ -241,15 +272,21 @@ int main(int argc, char ** argv) {
       targets = read_genes(param.targets_file, param.row_delim, param.field_delim);
     }
 
-    if (param.bs == 0)
+    if (vm["batch-size"].defaulted())
     {
       if (param.mode == PLSNET_PARTIAL)
       {
-        param.bs = guess_batch_size(targets.size(), get_mpi_nthread());
+        uint64_t s = param.resuming ?
+                     (targets.size() - param.good_idx.size()) :
+                     targets.size();
+        param.bs = guess_batch_size(s, get_mpi_nthread());
       }
       else
       {
-        param.bs = guess_batch_size(genes.size(), get_mpi_nthread());
+        uint64_t s = param.resuming ?
+                     (genes.size() - param.good_idx.size()) :
+                     genes.size();
+        param.bs = guess_batch_size(s, get_mpi_nthread());
       }
       log << "Setting batch size to " << param.bs << '\n';
       log.log(LOG_INFO);
@@ -271,6 +308,14 @@ int main(int argc, char ** argv) {
 
     log << "Sample size: " << param.predictor_sample_size << '\n';
     log.send(LOG_INFO);
+
+    if (rank == 0)
+    {
+      if (vm.count("save-resume") > 0)
+      {
+        cp_res.save(param.cmd_file, param);
+      }
+    }
 
     switch (param.mode) {
     case PLSNET_FULL:

@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+
 #include <BSlogger.h>
 #include <common.h>
 #include <fs.h>
@@ -91,4 +93,6 @@ operator<<(seidr_mpi_logger& lhs, const T& rhs)
 }
 
 void mpi_sync_tempdir(std::string * tempdir);
+void mpi_sync_cpr_vector(std::vector<uint64_t> * resume);
+
 std::string mpi_get_host();

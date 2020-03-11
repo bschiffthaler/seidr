@@ -26,6 +26,10 @@
 #include <cmath>
 #include <string>
 
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/archive/xml_iarchive.hpp>
+
+
 #define LOG_NAME "mi"
 
 class aranode {
@@ -37,6 +41,26 @@ public:
 
 struct seidr_mi_param_t
 {
+  friend class boost::serialization::access;
+  template<typename Archive>
+  void serialize(Archive & ar, const unsigned int version)
+  {
+    ar & BOOST_SERIALIZATION_NVP(infile);
+    ar & BOOST_SERIALIZATION_NVP(gene_file);
+    ar & BOOST_SERIALIZATION_NVP(targets_file);
+    ar & BOOST_SERIALIZATION_NVP(mi_file);
+    ar & BOOST_SERIALIZATION_NVP(force);
+    ar & BOOST_SERIALIZATION_NVP(bs);
+    ar & BOOST_SERIALIZATION_NVP(mode);
+    ar & BOOST_SERIALIZATION_NVP(outfile);
+    ar & BOOST_SERIALIZATION_NVP(tempdir);
+    ar & BOOST_SERIALIZATION_NVP(verbosity);
+    ar & BOOST_SERIALIZATION_NVP(nthreads);
+    ar & BOOST_SERIALIZATION_NVP(use_existing);
+    ar & BOOST_SERIALIZATION_NVP(spline_order);
+    ar & BOOST_SERIALIZATION_NVP(num_bins);
+    ar & BOOST_SERIALIZATION_NVP(m);
+  }
   std::string infile;
   uint64_t bs;
   std::string outfile;
@@ -51,7 +75,10 @@ struct seidr_mi_param_t
   unsigned verbosity;
   char m = 0;
   std::string tempdir;
+  bool resuming;
   int nthreads;
+  std::vector<uint64_t> good_idx;
+  std::string cmd_file;
 };
 
 arma::vec knot_vector(size_t spline_order, size_t num_bins);

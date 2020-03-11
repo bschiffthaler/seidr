@@ -12,6 +12,9 @@ if (CMAKE_LINK_STATIC)
         "${CMAKE_BUNDLE_DIR}/lib/libgcc.a"
         "${CMAKE_BUNDLE_DIR}/lib/libquadmath.a")
   endif()
+  if (LINUX)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+  endif()
   set(Boost_USE_STATIC_LIBS ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_USE_WRAPPER" )
   set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
@@ -81,7 +84,7 @@ set(CMAKE_Fortran_FLAGS_RELEASE "-DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g")
 set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g")
 
-set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g -Wall  -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g -Wall -Wextra -Wpedantic")
 set(CMAKE_Fortran_FLAGS_DEBUG "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g -Wall  -Wextra -Wpedantic")
 
 # Add common CXX flags
@@ -303,6 +306,7 @@ endif()
 # ZLIB & BGZIP compression
 target_include_directories( seidr PRIVATE external/bgzf )
 target_link_libraries( seidr PUBLIC seidr-bgzf )
+
 # Link zlib _after_ bgzf to avoid undef refl issues
 find_package( ZLIB REQUIRED )
 target_include_directories(seidr PRIVATE ${ZLIB_INCLUDE_DIRS} )

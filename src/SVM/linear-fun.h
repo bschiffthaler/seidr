@@ -82,6 +82,7 @@ struct seidr_llr_param_t
   parameter svparam;
   std::string solver;
   int nthreads;
+  std::vector<uint64_t> good_idx;
 };
 
 void svm(const arma::mat& geneMatrix,

@@ -265,6 +265,49 @@ void mpi_sync_tempdir(std::string * tempdir)
   }
 }
 
+void mpi_sync_cpr_vector(std::vector<uint64_t> * resume)
+{
+  int ntasks;
+  MPI_Comm_size(MPI_COMM_WORLD, &ntasks); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+
+#ifdef DEBUG
+  seidr_mpi_logger log("common@" + mpi_get_host());
+#endif
+
+  if (rank == 0)
+  {
+    if (ntasks > 1)
+    {
+      for (int i = 1; i < ntasks; i++)
+      {
+        MPI_Send(&(*resume)[0], resume->size(), MPI_UNSIGNED_LONG, i, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+                 SEIDR_MPI_CPR_TAG, MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+      }
+    }
+  }
+  else
+  {
+    MPI_Status probe_status;
+    MPI_Probe(MPI_ANY_SOURCE, SEIDR_MPI_CPR_TAG, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+              MPI_COMM_WORLD, &probe_status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+    int size;
+    MPI_Status status;
+    int source = probe_status.MPI_SOURCE;
+    MPI_Get_count(&probe_status, MPI_UNSIGNED_LONG, &size); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+    resume->resize(size);
+    MPI_Recv(&(*resume)[0], size, MPI_UNSIGNED_LONG, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+             source,
+             SEIDR_MPI_CPR_TAG,
+             MPI_COMM_WORLD, &status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+#ifdef DEBUG
+    log << "Got informed of tempdir: " << (*tempdir) << '\n';
+    log.log(LOG_DEBUG);
+#endif
+  }
+}
+
 std::string mpi_get_host()
 {
   std::string host;
