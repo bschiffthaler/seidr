@@ -95,7 +95,7 @@ bool file_can_read(const std::string& fname)
 }
 
 bool file_can_create(const std::string& fname)
-{ 
+{
   std::ofstream test(fname.c_str(), std::ios::out);
   bool ret = test.good();
   test.close();
@@ -164,7 +164,7 @@ void rename(const std::string& lhs, const std::string& rhs)
     fs::rename(lhs, rhs);
   }
   // Fall back to copying in case relinking doesn't work
-  catch(const fs::filesystem_error& e)
+  catch (const fs::filesystem_error& e)
   {
     fs::copy_file(lhs, rhs, fs::copy_option::overwrite_if_exists);
     fs::remove(lhs);
@@ -181,7 +181,7 @@ void remove(const std::string& fname, bool recursive)
   {
     fs::remove(fname);
   }
-} 
+}
 
 std::string replace_ext(const std::string& fname, const std::string& new_ext)
 {
@@ -192,31 +192,41 @@ std::string replace_ext(const std::string& fname, const std::string& new_ext)
 
 std::string tempfile(const std::string& tempdir)
 {
-  auto tfile = fs::unique_path();
+  fs::path tempf;
   boost::filesystem::path dir;
-  if (tempdir.empty()) 
+  dir = fs::canonical(dir);
+
+  if (tempdir.empty())
   {
-    dir = fs::temp_directory_path(); 
+    dir = fs::temp_directory_path();
   }
   else
   {
-    dir = fs::path(tempdir); 
+    dir = fs::path(tempdir);
   }
-  dir = fs::canonical(dir);
-  fs::path tempf = (dir /= tfile);
+  
+  // Guarantee that we are not overwriting anything
+  do
+  {
+    auto tfile = fs::unique_path();
+    tempf = (dir /= tfile);
+  }
+  while(fs::exists(tempf));
+
+
   return tempf.string();
 }
 
 std::string tempdir(const std::string& tempdir)
 {
   boost::filesystem::path dir;
-  if (tempdir.empty()) 
+  if (tempdir.empty())
   {
-    dir = fs::temp_directory_path(); 
+    dir = fs::temp_directory_path();
   }
   else
   {
-    dir = fs::path(tempdir); 
+    dir = fs::path(tempdir);
   }
   dir = fs::canonical(dir);
   return dir.string();
