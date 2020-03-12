@@ -43,6 +43,11 @@ namespace po = boost::program_options;
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
+#define _AT __FILE__ ":" _XSTR(__LINE__)
+#define _BUG(x) throw std::runtime_error("Looks like you have encountered "\
+"a bug.\nPlease report this message and steps to reproduce is to:\n"\
+"https://github.com/bschiffthaler/seidr/issues\n"\
+"Error message: " x)
 
 #if defined(SEIDR_PSTL)
   #define SORT(start, end) \
