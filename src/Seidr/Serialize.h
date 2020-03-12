@@ -175,7 +175,7 @@ extern "C" {
     uint8_t _closed;
     uint8_t _opened;
     void each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f,
-      bool include_missing = false);
+                   bool include_missing = false);
     void each_edge_exit_early(std::function<bool(SeidrFileEdge&, SeidrFileHeader&)> f);
   };
 
@@ -224,6 +224,9 @@ extern "C" {
 
   class SeidrFileIndex {
   public:
+    SeidrFileIndex(bool case_insensitive = false, bool strict = false) :
+      _case_insensitive(case_insensitive),
+      _strict(strict) {}
     void build(std::string& inf);
     void build(SeidrFile& inf);
     void serialize(SeidrFile& file);
@@ -231,7 +234,7 @@ extern "C" {
     uint64_t coord_to_inx(uint32_t i, uint32_t j) {
       return (((i + 1) * i) / 2) - ((i + 1) - (j + 1));
     }
-    uint32_t find(std::string& x);
+    std::pair<bool, uint32_t> find(const std::string& x);
     std::vector<offset_t> get_offset_node(std::string& node);
     offset_t get_offset_pair(std::string& lhs, std::string& rhs);
     std::set<offset_t> get_offset_nodelist(std::vector<std::string>& nodelist);
@@ -241,6 +244,9 @@ extern "C" {
     uint32_t nodes;
     uint64_t edges;
     std::map<std::string, uint32_t> gmap;
+  private:
+    bool _case_insensitive;
+    bool _strict;
   };
 
   struct MiniEdge {
@@ -291,6 +297,19 @@ extern "C" {
                double threshold = -std::numeric_limits<double>::infinity(),
                uint32_t tpos = 0,
                bool trank = false);
+
+  class SeidrFileIndexNodeNotFound : public std::exception
+  {
+  public:
+    SeidrFileIndexNodeNotFound(std::string msg) : _msg(msg) {}
+    
+    virtual const char* what() const throw()
+    {
+        return _msg.c_str();
+    }
+  private:
+    std::string _msg;
+  };
 
 #ifdef MAKE_EXTERN
 }

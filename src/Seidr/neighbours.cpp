@@ -68,6 +68,10 @@ int neighbours(int argc, char * argv[])
   opt.add_options()
   ("force,f", po::bool_switch(&param.force)->default_value(false),
    "Force overwrite output file if it exists")
+  ("strict,s", po::bool_switch(&param.strict)->default_value(false),
+   "Fail on all issues instead of warning")
+  ("case-insensitive,I", po::bool_switch(&param.case_insensitive)->default_value(false),
+   "Search case insensitive nodes")
   ("help,h", "Show this help message")
   ("outfile,o",
    po::value<std::string>(&param.outfile)->default_value("-"),
@@ -88,7 +92,7 @@ int neighbours(int argc, char * argv[])
    "Number of top first-degree neighbours to return")
   ("genes,g",
    po::value<std::string>(&param.nodelist),
-   "Number of top first-degree neighbours to return")
+   "Gene names to search")
   ("rank,r", po::bool_switch(&param.trank)->default_value(false),
    "Use rank instead of score")
   ("unique,u", po::bool_switch(&param.unique)->default_value(false),
@@ -168,115 +172,140 @@ int neighbours(int argc, char * argv[])
   log(LOG_INFO) << "Reading indexfile...\n";
   SeidrFile sfi(param.indexfile.c_str());
   sfi.open("r");
-  SeidrFileIndex index;
+  SeidrFileIndex index(param.case_insensitive, param.strict);
   index.unserialize(sfi, h);
   sfi.close();
 
-  if (vm.count("genes"))
+  try
   {
-    std::vector<std::string> genes = tokenize_delim(param.nodelist, ",");
-    std::vector<SeidrFileEdge> edges_nu;
-    std::set<SeidrFileEdge, sfe_score_sort_class> edges_u;
-    for (auto& gene : genes)
+    if (vm.count("genes"))
     {
-      std::vector<offset_t> offsets = index.get_offset_node(gene);
-      std::vector<SeidrFileEdge> edges;
-      for (auto& offset : offsets)
+      std::vector<std::string> genes = tokenize_delim(param.nodelist, ",");
+      std::vector<SeidrFileEdge> edges_nu;
+      std::set<SeidrFileEdge, sfe_score_sort_class> edges_u;
+      for (auto& gene : genes)
       {
-        f.seek(offset.o);
-        SeidrFileEdge e;
-        e.unserialize(f, h);
-        e.index.i = offset.i;
-        e.index.j = offset.j;
-        edges.push_back(e);
-      }
-      if (param.trank)
-        SORTWCOMP(edges.begin(), edges.end(), sfe_score_sort);
-      else
-        SORTWCOMP(edges.begin(), edges.end(), sfe_rank_sort);
-      for (uint16_t i = 0; i < param.n; i++)
-      {
-        if (param.unique)
-          edges_u.insert(edges[i]);
+        std::vector<offset_t> offsets = index.get_offset_node(gene);
+        if (offsets.size() == 0)
+        {
+          log(LOG_WARN) << "No edges found for " << gene << '\n';
+        }
+        std::vector<SeidrFileEdge> edges;
+        for (auto& offset : offsets)
+        {
+          f.seek(offset.o);
+          SeidrFileEdge e;
+          e.unserialize(f, h);
+          e.index.i = offset.i;
+          e.index.j = offset.j;
+          edges.push_back(e);
+        }
+        if (param.trank)
+        {
+          SORTWCOMP(edges.begin(), edges.end(), sfe_score_sort);
+        }
         else
-          edges_nu.push_back(edges[i]);
+        {
+          SORTWCOMP(edges.begin(), edges.end(), sfe_rank_sort);
+        }
+        for (uint16_t i = 0; i < param.n; i++)
+        {
+          if (param.unique && i < edges.size())
+          {
+            edges_u.insert(edges[i]);
+          }
+          else if (i < edges.size())
+          {
+            edges_nu.push_back(edges[i]);
+          }
+        }
       }
-    }
-    if (param.unique)
-    {
-      for (auto& e : edges_u)
+      if (param.unique)
       {
-        e.print(h);
+        for (auto& e : edges_u)
+        {
+          e.print(h);
+        }
+      }
+      else
+      {
+        for (auto& e : edges_nu)
+        {
+          e.print(h);
+        }
       }
     }
     else
     {
-      for (auto& e : edges_nu)
+      log(LOG_INFO) << "Creating score matrix...\n";
+      arma::mat gm = read_network_arma(h, f, -std::numeric_limits<double>::infinity(),
+                                       param.tpos, param.trank);
+      std::vector<offset_t> offsets_nu;
+      std::set<offset_t> offsets_u;
+      for (arma::uword i = 0; i < gm.n_rows; i++)
       {
-        e.print(h);
+        arma::vec v = gm.col(i);
+
+        arma::uvec sort_index;
+        if (param.trank)
+        {
+          sort_index = arma::sort_index(v);
+        }
+        else
+        {
+          sort_index = arma::sort_index(v, "descend");
+        }
+
+        for (uint16_t j = 0; j < param.n; j++)
+        {
+          uint32_t xi = i;
+          uint32_t xj = sort_index[j];
+          offset_t off = index.get_offset_pair(h.nodes[xi], h.nodes[xj]);
+          if (off.o == -1)
+          {
+            log(LOG_WARN) << "Could not get pair " << h.nodes[xi] << ":"
+                          << h.nodes[xj] << '\n';
+          }
+          else if (param.unique)
+          {
+            offsets_u.insert(off);
+          }
+          else
+          {
+            offsets_nu.push_back(off);
+          }
+        }
+      }
+      if (param.unique)
+      {
+        for (auto& offset : offsets_u)
+        {
+          f.seek(offset.o);
+          SeidrFileEdge e;
+          e.unserialize(f, h);
+          e.index.i = offset.i;
+          e.index.j = offset.j;
+          e.print(*out, h);
+        }
+      }
+      else
+      {
+        for (auto& offset : offsets_nu)
+        {
+          f.seek(offset.o);
+          SeidrFileEdge e;
+          e.unserialize(f, h);
+          e.index.i = offset.i;
+          e.index.j = offset.j;
+          e.print(*out, h);
+        }
       }
     }
   }
-  else
+  catch (std::exception& e)
   {
-    log(LOG_INFO) << "Creating score matrix...\n";
-    arma::mat gm = read_network_arma(h, f, -std::numeric_limits<double>::infinity(),
-                                     param.tpos, param.trank);
-    std::vector<offset_t> offsets_nu;
-    std::set<offset_t> offsets_u;
-    for (arma::uword i = 0; i < gm.n_rows; i++)
-    {
-      arma::vec v = gm.col(i);
-
-      arma::uvec sort_index;
-      if (param.trank)
-      {
-        sort_index = arma::sort_index(v);
-      }
-      else
-      {
-        sort_index = arma::sort_index(v, "descend");
-      }
-
-      for (uint16_t j = 0; j < param.n; j++)
-      {
-        uint32_t xi = i;
-        uint32_t xj = sort_index[j];
-        offset_t off = index.get_offset_pair(h.nodes[xi], h.nodes[xj]);
-        if (param.unique)
-        {
-          offsets_u.insert(off);
-        }
-        else
-        {
-          offsets_nu.push_back(off);
-        }
-      }
-    }
-    if (param.unique)
-    {
-      for (auto& offset : offsets_u)
-      {
-        f.seek(offset.o);
-        SeidrFileEdge e;
-        e.unserialize(f, h);
-        e.index.i = offset.i;
-        e.index.j = offset.j;
-        e.print(*out, h);
-      }
-    }
-    else
-    {
-      for (auto& offset : offsets_nu)
-      {
-        f.seek(offset.o);
-        SeidrFileEdge e;
-        e.unserialize(f, h);
-        e.index.i = offset.i;
-        e.index.j = offset.j;
-        e.print(*out, h);
-      }
-    }
+    log(LOG_ERR) << e.what() << '\n';
+    return 1;
   }
   return 0;
 }

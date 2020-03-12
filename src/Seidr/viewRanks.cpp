@@ -608,7 +608,7 @@ int view(int argc, char * argv[]) {
 
     SeidrFile sfi(param.indexfile.c_str());
     sfi.open("r");
-    SeidrFileIndex index;
+    SeidrFileIndex index(param.case_insensitive);
     index.unserialize(sfi, h);
     sfi.close();
     std::set<offset_t> nodeset = index.get_offset_nodelist(param.nodelist);

@@ -21,6 +21,7 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <cctype>
 #include <string>
 #include <sstream>
 #include <bgzf.h>
@@ -876,9 +877,16 @@ extern "C" {
     nodes = h.nodes;
     edges = h.edges;
     uint32_t gmap_i = 0;
-    for (auto& n : head.nodes)
+    for (const auto& node : head.nodes)
     {
-      gmap[n] = gmap_i++;
+      std::string xn = node;
+      if (_case_insensitive)
+      {
+        std::for_each(xn.begin(), xn.end(), [](char& c) {
+          c = std::tolower(c);
+        });
+      }
+      gmap[xn] = gmap_i++;
     }
     uint64_t size = h.size;
     data.resize(size, 0);
@@ -905,69 +913,90 @@ extern "C" {
     }
   }
 
-  uint32_t SeidrFileIndex::find(std::string& n)
+  std::pair<bool, uint32_t>
+  SeidrFileIndex::find(const std::string& n)
   {
     uint32_t r = 0;
-    try
+    std::string xn = n;
+    if (_case_insensitive)
     {
-      r = gmap.at(n);
+      std::for_each(xn.begin(), xn.end(), [](char& c) {
+        c = std::tolower(c);
+      });
     }
-    catch (std::exception& e)
+    auto ptr = gmap.find(xn);
+    if (ptr == gmap.end())
     {
-      std::string err = "Gene ";
-      err += n;
-      err += " not found in header.";
-      throw std::runtime_error(err);
+      if (_strict)
+      {
+        throw SeidrFileIndexNodeNotFound("Index not found for: " + xn);
+      }
+      return std::pair<bool, uint32_t>({false, r});
     }
-    return r;
+    r = ptr->second;
+    return std::pair<bool, uint32_t>({true, r});
   }
 
   std::vector<offset_t> SeidrFileIndex::get_offset_node(std::string& node)
   {
     std::vector<offset_t> ret;
-    uint32_t n = find(node);
-    for (uint32_t i = 0; i < nodes; i++)
+    std::pair<bool, uint32_t> promise_n = find(node);
+    if (promise_n.first)
     {
-      if (i != n)
+      uint32_t n = promise_n.second;
+      for (uint32_t i = 0; i < nodes; i++)
       {
-        uint32_t xi = n;
-        uint32_t xj = i;
-        if (xi < xj)
+        if (i != n)
         {
-          uint32_t tmp = xi;
-          xi = xj;
-          xj = tmp;
-        }
-        uint64_t inx = coord_to_inx(xi, xj);
-        if (data[inx])
-        {
-          offset_t o;
-          o.i = xi;
-          o.j = xj;
-          o.o = data[inx];
-          ret.push_back(o);
+          uint32_t xi = n;
+          uint32_t xj = i;
+          if (xi < xj)
+          {
+            uint32_t tmp = xi;
+            xi = xj;
+            xj = tmp;
+          }
+          uint64_t inx = coord_to_inx(xi, xj);
+          if (data[inx])
+          {
+            offset_t o;
+            o.i = xi;
+            o.j = xj;
+            o.o = data[inx];
+            ret.push_back(o);
+          }
         }
       }
+      std::sort(ret.begin(), ret.end());
     }
-    std::sort(ret.begin(), ret.end());
     return ret;
   }
 
   offset_t SeidrFileIndex::get_offset_pair(std::string& lhs, std::string& rhs)
   {
-    uint32_t i = find(lhs);
-    uint32_t j = find(rhs);
-    if (i < j)
-    {
-      uint32_t tmp = i;
-      i = j;
-      j = tmp;
-    }
-    uint64_t inx = coord_to_inx(i, j);
     offset_t o;
-    o.i = i;
-    o.j = j;
-    o.o = data[inx];
+    std::pair<bool, uint32_t> promise_i = find(lhs);
+    std::pair<bool, uint32_t> promise_j = find(rhs);
+    if (promise_i.first && promise_j.first)
+    {
+      uint32_t i = promise_i.second;
+      uint32_t j = promise_j.second;
+      if (i < j)
+      {
+        uint32_t tmp = i;
+        i = j;
+        j = tmp;
+      }
+      uint64_t inx = coord_to_inx(i, j);
+
+      o.i = i;
+      o.j = j;
+      o.o = data[inx];
+    }
+    else
+    {
+      o.o = -1;
+    }
     return o;
   }
 
@@ -1010,7 +1039,7 @@ extern "C" {
   }
 
   void SeidrFile::each_edge(std::function<void(SeidrFileEdge&, SeidrFileHeader&)> f,
-    bool include_missing)
+                            bool include_missing)
   {
     SeidrFileHeader h;
     h.unserialize((*this));

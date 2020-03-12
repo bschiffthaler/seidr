@@ -51,4 +51,5 @@ struct seidr_param_view_t {
   std::string tempdir = "";
   std::string tempfile = "";
   std::string indexfile = "";
+  bool case_insensitive = false;
 };

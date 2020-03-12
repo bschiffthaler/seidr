@@ -32,6 +32,8 @@ struct seidr_neighbours_param_t
   std::string indexfile;
   bool force;
   int nthreads;
+  bool strict;
+  bool case_insensitive;
 };
 
 int neighbours(int argc, char * argv[]);
