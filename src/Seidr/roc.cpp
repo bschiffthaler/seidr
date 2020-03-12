@@ -42,6 +42,7 @@
 #include <map>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/program_options.hpp>
+#include <iomanip>
 
 namespace po = boost::program_options;
 using boost::numeric_cast;
@@ -89,7 +90,19 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
   {
     log(LOG_WARN) << not_found << " gold standard edges had at least one "
                   << "node which was not present in the network and were "
-                  << "omitted.\n";
+                  << "omitted from: " << infile << '\n';
+    log(LOG_INFO) << ret.size() << " edges kept from " << infile << '\n';
+    double pc_kept = numeric_cast<double>(ret.size()) /
+                     (numeric_cast<double>(ret.size()) +
+                      numeric_cast<double>(not_found));
+    if (pc_kept < 0.01)
+    {
+      log(LOG_WARN) << "Keeping fewer than 1% of gold standard edges. This "
+                    "usually leads to untrustworthy results. "
+                    "Fraction of edges kept: " 
+                    << std::setprecision(2)
+                    << pc_kept << '\n';
+    }
   }
   SORT(ret.begin(), ret.end());
   return ret;
@@ -225,25 +238,19 @@ void resize_by_fraction(std::vector< std::pair< uint32_t, uint32_t> >& truth,
 }
 
 std::pair<double, double> print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
-                 std::vector<std::pair<uint32_t, uint32_t>>& tneg,
-                 std::vector<MiniEdge>& v,
-                 std::pair<uint32_t, uint32_t>& tpfp,
-                 uint32_t& datap,
-                 std::ostream& out,
-                 std::string algorithm)
+                                    std::vector<std::pair<uint32_t, uint32_t>>& tneg,
+                                    std::vector<MiniEdge>& v,
+                                    std::pair<uint32_t, uint32_t>& tpfp,
+                                    uint32_t& datap,
+                                    std::ostream& out,
+                                    std::string algorithm)
 {
   logger log(std::cerr, "ROC");
   uint32_t tp = 0, fp = 0;
   uint32_t cnt = 0;
   uint32_t ne = v.size();
   uint32_t intervx = 0;
-  uint32_t intervy = 0;
-  if (datap != 0)
-  {
-    intervy = numeric_cast<double> (ne) /
-              numeric_cast<double> (datap);
-    log(LOG_DEBUG) << "intervy: " << intervy << '\n';
-  }
+  arma::vec intervy = arma::linspace(0, ne, datap);
   out << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
 
   // For on-the-fly integration -> AUC
@@ -284,7 +291,7 @@ std::pair<double, double> print_roc(std::vector<std::pair<uint32_t, uint32_t>>& 
     double tpr = numeric_cast<double> (tp) / numeric_cast<double> (tpfp.first);
     double fpr = numeric_cast<double> (fp) / numeric_cast<double> (tpfp.second);
     double ppv = numeric_cast<double> (tp) / numeric_cast<double> (cnt);
-    if (cnt > intervx || cnt == ne - 1)
+    if (cnt >= intervy[intervx])
     {
       out << tpr << '\t' << fpr << '\t' << ppv;
       if (algorithm != "")
@@ -295,7 +302,7 @@ std::pair<double, double> print_roc(std::vector<std::pair<uint32_t, uint32_t>>& 
       {
         out << '\n';
       }
-      intervx += intervy;
+      intervx++;
     }
     y_i = y_j;
     x_i = x_j;
@@ -389,7 +396,7 @@ int roc(int argc, char * argv[])
   po::store(po::command_line_parser(argc, args).
             options(umbrella).positional(p).run(), vm);
 
-  if (vm.count("help") || argc == 1)
+  if (vm.count("help") > 0 || argc == 1)
   {
     std::cerr << umbrella << '\n';
     return 22;
@@ -407,6 +414,13 @@ int roc(int argc, char * argv[])
 
   try
   {
+
+    if (vm["edges"].defaulted() && vm["points"].defaulted())
+    {
+      log(LOG_INFO) << "Defaulting to keeping all edges and 1000 output steps\n";
+      param.datap = 1000;
+    }
+
     set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
@@ -415,6 +429,12 @@ int roc(int argc, char * argv[])
     param.gold = to_absolute(param.gold);
     assert_exists(param.gold);
     assert_can_read(param.gold);
+
+    if (vm.count("tfs") > 0)
+    {
+      assert_exists(param.tfs);
+      assert_can_read(param.tfs);
+    }
 
     if (param.gold_neg != "")
     {
