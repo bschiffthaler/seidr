@@ -969,6 +969,13 @@ extern "C" {
       }
       std::sort(ret.begin(), ret.end());
     }
+    else
+    {
+      offset_t o;
+      o.err += "Node " + node + " not in header;";
+      o.o = -1;
+      ret.push_back(o);
+    }
     return ret;
   }
 
@@ -981,20 +988,40 @@ extern "C" {
     {
       uint32_t i = promise_i.second;
       uint32_t j = promise_j.second;
-      if (i < j)
+      if (i == j)
       {
-        uint32_t tmp = i;
-        i = j;
-        j = tmp;
+        o.o = -1;
+        o.err += "Self links not allowed for " + lhs + ":" + rhs + ";";
       }
-      uint64_t inx = coord_to_inx(i, j);
+      else
+      {
+        if (i < j)
+        {
+          uint32_t tmp = i;
+          i = j;
+          j = tmp;
+        }
+        uint64_t inx = coord_to_inx(i, j);
 
-      o.i = i;
-      o.j = j;
-      o.o = data[inx];
+        o.i = i;
+        o.j = j;
+        o.o = data[inx];
+      }
     }
     else
     {
+      if ((! promise_i.first) && promise_j.first)
+      {
+        o.err += "Node '" + lhs + "' of pair '" + lhs + ":" + rhs + "' not found;";
+      }
+      else if ((! promise_j.first) && promise_i.first)
+      {
+        o.err += "Node '" + rhs + "' of pair '" + lhs + ":" + rhs + "' not found";
+      }
+      else
+      {
+        o.err += "Both nodes of pair '" + lhs + ":" + rhs + "' not found";
+      }
       o.o = -1;
     }
     return o;
@@ -1032,7 +1059,9 @@ extern "C" {
       {
         std::vector<offset_t> off = get_offset_node(n);
         for (auto& o : off)
+        {
           ret.insert(o);
+        }
       }
     }
     return ret;

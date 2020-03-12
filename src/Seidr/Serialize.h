@@ -154,6 +154,7 @@ extern "C" {
     uint32_t i = 0;
     uint32_t j = 0;
     int64_t o = 0;
+    std::string err;
     bool operator<(const offset_t& rhs) const {
       if (i == rhs.i)
         return j < rhs.j;

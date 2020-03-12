@@ -193,12 +193,19 @@ int neighbours(int argc, char * argv[])
         std::vector<SeidrFileEdge> edges;
         for (auto& offset : offsets)
         {
-          f.seek(offset.o);
-          SeidrFileEdge e;
-          e.unserialize(f, h);
-          e.index.i = offset.i;
-          e.index.j = offset.j;
-          edges.push_back(e);
+          if (offset.o == -1)
+          {
+            log(LOG_WARN) << offset.err << '\n';
+          }
+          else
+          {
+            f.seek(offset.o);
+            SeidrFileEdge e;
+            e.unserialize(f, h);
+            e.index.i = offset.i;
+            e.index.j = offset.j;
+            edges.push_back(e);
+          }
         }
         if (param.trank)
         {
@@ -263,8 +270,7 @@ int neighbours(int argc, char * argv[])
           offset_t off = index.get_offset_pair(h.nodes[xi], h.nodes[xj]);
           if (off.o == -1)
           {
-            log(LOG_WARN) << "Could not get pair " << h.nodes[xi] << ":"
-                          << h.nodes[xj] << '\n';
+            log(LOG_WARN) << off.err << '\n';
           }
           else if (param.unique)
           {

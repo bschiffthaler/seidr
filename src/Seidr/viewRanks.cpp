@@ -377,7 +377,7 @@ void print_titles(const seidr_param_view_t& param,
     if (ox.size() > 0)
     {
       ox.back() = '\n';
-    } 
+    }
     else
     {
       ox += '\n';
@@ -409,6 +409,10 @@ int view(int argc, char * argv[]) {
   ("force,f", po::bool_switch(&param.force)->default_value(false),
    "Force overwrite output file if it exists")
   ("help,h", "Show this help message")
+  ("strict,s", po::bool_switch(&param.strict)->default_value(false),
+   "Fail on all issues instead of warning")
+  ("case-insensitive,I", po::bool_switch(&param.case_insensitive)->default_value(false),
+   "Search case insensitive nodes")
   ("tempdir,T",
    po::value<std::string>(&param.tempdir)->default_value("", "auto"),
    "Directory to store temporary data");
@@ -608,21 +612,29 @@ int view(int argc, char * argv[]) {
 
     SeidrFile sfi(param.indexfile.c_str());
     sfi.open("r");
-    SeidrFileIndex index(param.case_insensitive);
+    SeidrFileIndex index(param.case_insensitive, param.strict);
     index.unserialize(sfi, h);
     sfi.close();
     std::set<offset_t> nodeset = index.get_offset_nodelist(param.nodelist);
+
     for (const offset_t& o : nodeset)
     {
-      rf.seek(o.o);
-      SeidrFileEdge e;
-      e.unserialize(rf, h);
-      e.index.i = o.i;
-      e.index.j = o.j;
-      if (print_and_check_maxl(e, h, *out, pf, param,
-                               of, hh, do_filter, lines_printed, rf, vm))
+      if (o.o != -1)
       {
-        return 0;
+        rf.seek(o.o);
+        SeidrFileEdge e;
+        e.unserialize(rf, h);
+        e.index.i = o.i;
+        e.index.j = o.j;
+        if (print_and_check_maxl(e, h, *out, pf, param,
+                                 of, hh, do_filter, lines_printed, rf, vm))
+        {
+          return 0;
+        }
+      }
+      else
+      {
+        log(LOG_WARN) << o.err << '\n';
       }
     }
   }
