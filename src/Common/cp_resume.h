@@ -61,6 +61,11 @@ bool cp_resume<T>::_valid(const uint64_t& nf,
   {
     return nf == i;
   }
+  else
+  {
+    _BUG("Control reaches unexpected code block.");
+    return false;
+  }
 }
 
 template <typename T>
