@@ -250,7 +250,7 @@ std::pair<double, double> print_roc(std::vector<std::pair<uint32_t, uint32_t>>& 
   uint32_t cnt = 0;
   uint32_t ne = v.size();
   uint32_t intervx = 0;
-  arma::vec intervy = arma::linspace(0, ne, datap);
+  arma::uvec intervy = arma::linspace<arma::uvec>(0, ne, datap);
   out << "#TP/FP\t" <<  tpfp.first << '\t' << tpfp.second << '\n';
 
   // For on-the-fly integration -> AUC
