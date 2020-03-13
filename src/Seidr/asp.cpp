@@ -22,7 +22,7 @@
 #include <asp.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #undef DEBUG
 

@@ -1,6 +1,6 @@
 #include <common.h>
 #include <parallel_control.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #if defined(SEIDR_PSTL)
 #include <tbb/global_control.h>

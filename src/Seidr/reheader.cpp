@@ -22,7 +22,7 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <reheader.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #include <map>
 #include <set>

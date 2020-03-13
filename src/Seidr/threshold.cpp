@@ -22,7 +22,7 @@
 #include <threshold.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <parallel_control.h>
 
 #undef DEBUG

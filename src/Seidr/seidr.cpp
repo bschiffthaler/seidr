@@ -38,7 +38,7 @@
 #include <reheader.h>
 #include <stats.h>
 #include <tau.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <neighbours.h>
 #include <sample.h>
 #include <test.h>

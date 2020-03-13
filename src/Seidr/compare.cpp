@@ -23,7 +23,7 @@
 #include <compare.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 // External
 #include <cerrno>
 #include <iostream>

@@ -21,7 +21,7 @@
 
 // Seidr
 #include <pred-fun.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <common.h>
 
 // External

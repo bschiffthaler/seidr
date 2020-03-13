@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <fs.h>
 
@@ -79,7 +79,7 @@ public:
   friend seidr_mpi_logger& operator<<(seidr_mpi_logger& lhs, const T& rhs);
   void send(unsigned ll);
   void log(unsigned ll);
-  void set_log_level(unsigned int x) { _loglevel = x; logger::_loglevel = x; }
+  void set_log_level(unsigned int x) { _loglevel = x; }
   static unsigned int _loglevel;
 private:
   std::stringstream _ss;

@@ -21,7 +21,7 @@
 // Seir
 #include <common.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <Serialize.h>
 #include <backbone.h>
 // External

@@ -39,7 +39,7 @@
 #include <common.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <adjacency.h>
 // External
 #include <cerrno>

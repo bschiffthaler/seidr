@@ -23,7 +23,7 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <roc.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <parallel_control.h>
 // Parallel includes
 #if defined(SEIDR_PSTL)

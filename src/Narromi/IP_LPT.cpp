@@ -25,7 +25,7 @@
   #include <IP_LPT.h>
 #endif
 #include <common.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 // External
 #include <armadillo>
 #include <glpk.h>

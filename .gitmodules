@@ -16,3 +16,6 @@
 [submodule "external/ranger"]
 	path = external/ranger
 	url = https://github.com/bschiffthaler/ranger
+[submodule "external/BSlogger"]
+	path = external/BSlogger
+	url = https://github.com/bschiffthaler/BSlogger

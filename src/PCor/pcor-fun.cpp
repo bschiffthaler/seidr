@@ -20,7 +20,7 @@
 
 //seidr
 #include <pcor-fun.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 //external
 #include <armadillo>
 #include <iostream>

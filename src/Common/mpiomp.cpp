@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
 //
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <fs.h>
 #include <mpiomp.h>

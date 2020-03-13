@@ -23,7 +23,7 @@
 #include <Serialize.h>
 #include <fs.h>
 #include <neighbours.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <parallel_control.h>
 // External
 #include <vector>

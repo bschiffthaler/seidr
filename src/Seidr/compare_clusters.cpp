@@ -21,7 +21,7 @@
 #include <compare_clusters.h>
 #include <common.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #include <map>
 #include <iostream>

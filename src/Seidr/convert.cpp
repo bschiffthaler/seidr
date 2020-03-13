@@ -18,7 +18,7 @@
 // along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <fs.h>
 #include <convert.h>

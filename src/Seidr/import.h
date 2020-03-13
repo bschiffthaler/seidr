@@ -20,7 +20,7 @@
 #pragma once
 
 #include <vector>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #define PRINTING_MOD 100000000
 

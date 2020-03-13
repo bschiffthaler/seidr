@@ -22,7 +22,7 @@
 #include <common.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 
 #include <vector>
 #include <set>

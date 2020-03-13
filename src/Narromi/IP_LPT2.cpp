@@ -21,7 +21,7 @@
 //Seidr
 #include <IP_LPT2.h>
 #include <common.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 // External
 #include <armadillo>
 #include <vector>

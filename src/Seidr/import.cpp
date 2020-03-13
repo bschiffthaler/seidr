@@ -23,7 +23,7 @@
 #include <import.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <parallel_control.h>
 // External
 #include <cmath>

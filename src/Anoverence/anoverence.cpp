@@ -22,7 +22,7 @@
 #include <common.h>
 #include <fs.h>
 #include <anova-fun.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 // External
 #include <string>
 #include <vector>

@@ -22,7 +22,7 @@
 #include <stats.h>
 #include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <graphstats.h>
 
 #include <vector>

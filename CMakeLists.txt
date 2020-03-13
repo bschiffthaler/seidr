@@ -165,11 +165,11 @@ if(SEIDR_SCORE_FLOAT)
 endif()
 
 # Everything incudes Common
-include_directories(src/Common src/Seidr external/bgzf)
+include_directories(src/Common src/Seidr external/bgzf external/BSlogger/src)
 
 # Create library from common files to avoid re-compiling them 
 add_library(seidr-common src/Common/common.cpp 
-  src/Common/fs.cpp src/Common/BSlogger.cpp 
+  src/Common/fs.cpp
   "${MPI_SRC}")
 target_include_directories(seidr-common PRIVATE src/Seidr)
 

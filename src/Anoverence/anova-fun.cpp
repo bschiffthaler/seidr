@@ -21,7 +21,7 @@
 
 // Seidr
 #include <anova-fun.h>
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 // External
 #include <iostream>
 #include <string>

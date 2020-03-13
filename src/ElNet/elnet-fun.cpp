@@ -19,7 +19,7 @@
 //
 
 // Seidr
-#include <BSlogger.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <elnet-fun.h>
 #include <fs.h>
