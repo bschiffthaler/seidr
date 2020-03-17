@@ -32,9 +32,96 @@
 
 #include <armadillo>
 
+
 #define SEIDR_MPI_LOG_TAG 0
 #define SEIDR_MPI_TEMPDIR_TAG 1
 #define SEIDR_MPI_CPR_TAG 2
+#define SEIDR_MPI_PROGBAR_TAG 3
+
+template <typename T>
+class seidr_mpi_progbar {
+public:
+  seidr_mpi_progbar(std::ostream& f, T max, uint64_t poll_interval = 1000,
+                    uint64_t width = 60, std::string unit = "units") :
+    _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
+  {
+    MPI_Comm_rank(MPI_COMM_WORLD, &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  }
+  seidr_mpi_progbar& operator++() {
+    if (_rank == 0)
+    {
+      while (true)
+      {
+        int flag = 0;
+        MPI_Status probe_status;
+        MPI_Iprobe(MPI_ANY_SOURCE, SEIDR_MPI_PROGBAR_TAG, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+                   MPI_COMM_WORLD, &flag, &probe_status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        if (flag == 0) break;
+        int size;
+        int ret;
+        MPI_Status status;
+        int source = probe_status.MPI_SOURCE;
+        MPI_Get_count(&probe_status, MPI_INT, &size); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        MPI_Recv(&ret, size, MPI_INT, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+                 source,
+                 SEIDR_MPI_PROGBAR_TAG,
+                 MPI_COMM_WORLD, &status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        _pbar++;
+      }
+      _pbar++;
+      return *this;
+    }
+    else
+    {
+      int ret;
+      MPI_Send(&ret, 1, MPI_INT, 0, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+               SEIDR_MPI_PROGBAR_TAG, MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+      return *this;
+    }
+  }
+  void finalize() {
+    _pbar.finalize();
+  }
+  seidr_mpi_progbar operator++(int) {
+    if (_rank == 0)
+    {
+      seidr_mpi_progbar<T> copy(*this);
+      while (true)
+      {
+        int flag = 0;
+        MPI_Status probe_status;
+        MPI_Iprobe(MPI_ANY_SOURCE, SEIDR_MPI_PROGBAR_TAG, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+                   MPI_COMM_WORLD, &flag, &probe_status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        if (flag == 0) break;
+        int size;
+        int ret;
+        MPI_Status status;
+        int source = probe_status.MPI_SOURCE;
+        MPI_Get_count(&probe_status, MPI_INT, &size); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        MPI_Recv(&ret, size, MPI_INT, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+                 source,
+                 SEIDR_MPI_PROGBAR_TAG,
+                 MPI_COMM_WORLD, &status); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+        _pbar++;
+      }
+      _pbar++;
+      return copy;
+    }
+    else
+    {
+      seidr_mpi_progbar<T> copy(*this);
+      int ret = 1;
+      MPI_Send(&ret, 1, MPI_INT, 0, // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+               SEIDR_MPI_PROGBAR_TAG, MPI_COMM_WORLD); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+      return copy;
+    }
+  }
+private:
+  progbar_fancy<T> _pbar;
+  int _rank;
+  std::string _nam;
+  std::string _host;
+};
 
 class seidr_mpi_omp {
 public:
@@ -52,10 +139,17 @@ public:
   bool check_logs(const std::string& bn);
   void get_more_work();
   void remove_queue_file();
+  void finalize_pbar() {
+    _pbar.finalize();
+  }
+  void increment_pbar() {
+    _pbar++;
+  }
 protected:
   //MPI constants
   int _id;
   int _procn;
+  seidr_mpi_progbar<uint64_t> _pbar;
   //
   uint64_t _current_i;
   uint64_t _bsize;
@@ -67,7 +161,7 @@ protected:
   const std::string& _tempdir;
   //misc
   double _init_time;
-  std::string _queue_file; // can't be const as it needs to sync 
+  std::string _queue_file; // can't be const as it needs to sync
   MPI_File _queue_fh;
 };
 

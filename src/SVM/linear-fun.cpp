@@ -78,13 +78,12 @@ void seidr_mpi_svm::entrypoint()
     {
       uvec.push_back(i);
     }
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     svm(_data, _genes, uvec, _tempdir, _param, _min_sample_size,
         _max_sample_size, _predictor_sample_size_min,
         _predictor_sample_size_max, _ensemble_size, this);
     get_more_work();
   }
-  log << "No more work. Waiting for other tasks to finish...\n";
-  log.send(LOG_INFO);
 }
 
 void seidr_mpi_svm::finalize()
@@ -137,12 +136,6 @@ void svm(const arma::mat& geneMatrix,
   {
     arma::vec ret(geneMatrix.n_cols);
     auto& target = uvec[i];
-    #pragma omp critical
-    {
-      log << "Started gene: " << genes[target] << ".\n";
-      log.send(LOG_INFO);
-      while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
-    }
     arma::uvec pred(geneMatrix.n_cols - 1);
     arma::uword j = 0;
     for (arma::uword i = 0; i < geneMatrix.n_cols; i++)
@@ -315,6 +308,7 @@ void svm(const arma::mat& geneMatrix,
 
     #pragma omp critical
     {
+      self->increment_pbar();
       ofs << target << '\n';
       for (seidr_uword_t i = 0; i < ret.size(); i++)
       {
@@ -371,9 +365,11 @@ void svm_full(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 
@@ -440,9 +436,11 @@ void svm_partial(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 

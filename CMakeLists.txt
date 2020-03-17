@@ -112,6 +112,13 @@ if (CMAKE_PIPE)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -pipe")
 endif()
 
+##############################
+## Allow stripping binaries ##
+##############################
+if (CMAKE_STRIP)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s")
+endif()
+
 ##########################
 ## General Optimization ##
 ##########################

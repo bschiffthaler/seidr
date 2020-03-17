@@ -19,6 +19,11 @@
 
 #pragma once
 
+#ifdef SEIDR_WITH_MPI
+  #include <mpiomp.h>
+#else
+  #include <mpi_dummy.h>
+#endif
 #include <common.h>
 #include <armadillo>
 #include <vector>
@@ -31,6 +36,8 @@
 #define GENIE3_PARTIAL 1
 
 #define LOG_NAME "genie3"
+
+class seidr_mpi_genie3;
 
 struct seidr_genie3_param_t
 {
@@ -88,7 +95,8 @@ void genie3(const arma::mat& gm,
             const uint64_t& mtry,
             const uint64_t& min_node_size, 
             const double& alpha, 
-            const double& minprop);
+            const double& minprop,
+            seidr_mpi_genie3 * self);
 
 void genie3_full(const arma::mat& gm, 
                  const std::vector<std::string>& genes,

@@ -385,7 +385,7 @@ int roc(int argc, char * argv[])
    po::value<std::string>(&param.gold),
    "Gold standard (true edges) input file")
   ("network,n", po::value<std::string>(&param.infile)->required(),
-   "Input SeidrFile");
+   "Input SeidrFile [can be positional]");
 
   umbrella.add(req).add(ropt).add(ompopt).add(opt);
 

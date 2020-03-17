@@ -76,12 +76,13 @@ void seidr_mpi_genie3::entrypoint()
     {
       uvec.push_back(i);
     }
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     genie3(_data, _genes, uvec, _tempdir, _ntree, _mtry,
-           _min_node_size, _alpha, _minprop);
+           _min_node_size, _alpha, _minprop, this);
     get_more_work();
   }
-  log << "No more work. Waiting for other tasks to finish...\n";
-  log.send(LOG_INFO);
+  // log << "No more work. Waiting for other tasks to finish...\n";
+  // log.send(LOG_INFO);
 }
 
 void seidr_mpi_genie3::finalize()
@@ -223,7 +224,8 @@ void genie3(const arma::mat& gm,
             const uint64_t& mtry,
             const uint64_t& min_node_size,
             const double& alpha,
-            const double& minprop)
+            const double& minprop,
+            seidr_mpi_genie3 * self)
 {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   std::string tmpfile = tempfile(tmpdir);
@@ -239,8 +241,8 @@ void genie3(const arma::mat& gm,
 
     #pragma omp critical
     {
-      log << "Gene: " << pred[i] << '\n';
-      log.send(LOG_INFO);
+      // log << "Gene: " << pred[i] << '\n';
+      // log.send(LOG_INFO);
     }
 
     std::vector<std::string> dep_var;
@@ -310,6 +312,7 @@ void genie3(const arma::mat& gm,
               << (k == varimp.size() - 1 ? '\n' : '\t');
         }
       }
+      self->increment_pbar();
     }
   }
   ofs.close();
@@ -360,9 +363,11 @@ void genie3_full(const arma::mat& gm,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
   SEIDR_MPI_FINALIZE();
@@ -428,9 +433,11 @@ void genie3_partial(const arma::mat& gm,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 

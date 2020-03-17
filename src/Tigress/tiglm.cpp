@@ -74,12 +74,11 @@ void seidr_mpi_tigress::entrypoint()
     {
       uvec.push_back(i);
     }
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     tiglm(_data, _genes, uvec, _tempdir, _nboot, _fmin, _nsteps,
           _allow_low_var, this);
     get_more_work();
   }
-  log << "No more work. Waiting for other tasks to finish...\n";
-  log.send(LOG_INFO);
 }
 
 void seidr_mpi_tigress::finalize()
@@ -161,12 +160,6 @@ void tiglm(const arma::mat& geneMatrix,
   #pragma omp parallel for schedule(dynamic)
   for (uint64_t i = 0; i < pred.size(); i++)
   {
-    #pragma omp critical
-    {
-      log << "Gene: " << pred[i] << '\n';
-      log.send(LOG_INFO);
-      while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
-    }
     arma::uvec indices = get_i(pred[i], ng + 1);
     arma::mat cum = arma::zeros<arma::mat>(ng, nsteps);
 
@@ -265,6 +258,7 @@ void tiglm(const arma::mat& geneMatrix,
 
     #pragma omp critical
     {
+      self->increment_pbar();
       arma::uword xi = pred[i];
       ofs << xi << '\n';
       arma::rowvec fin = cum.row(nsteps - 1);
@@ -334,9 +328,11 @@ void tiglm_full(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 
@@ -401,9 +397,11 @@ void tiglm_partial(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 

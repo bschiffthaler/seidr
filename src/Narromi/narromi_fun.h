@@ -30,6 +30,8 @@
 
 #define LOG_NAME "narromi"
 
+class seidr_mpi_narromi;
+
 struct seidr_narromi_param_t
 {
   friend class boost::serialization::access;
@@ -115,5 +117,6 @@ void narromi_thread(const arma::mat& gene_matrix,
                     const double& t,
                     const std::vector<arma::uword>& ind,
                     const std::vector<std::string>& genes,
-                    const std::string tmpdir);
+                    const std::string tmpdir,
+                    seidr_mpi_narromi * self);
 

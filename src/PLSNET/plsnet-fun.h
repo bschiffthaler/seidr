@@ -32,6 +32,8 @@
 
 #define LOG_NAME "plsnet"
 
+class seidr_mpi_plsnet;
+
 struct seidr_plsnet_param_t
 {
   friend class boost::serialization::access;
@@ -96,7 +98,8 @@ void plsnet(const arma::mat& geneMatrix,
             const std::string& tmpdir,
             const arma::uword& predictor_sample_size,
             const arma::uword& ensemble_size, 
-            const arma::uword& ncomp);
+            const arma::uword& ncomp,
+            seidr_mpi_plsnet * self);
 
 void plsnet_partial(const arma::mat& GM,
                     const std::vector<std::string>& genes,

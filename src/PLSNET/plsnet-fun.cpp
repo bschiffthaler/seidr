@@ -70,12 +70,11 @@ void seidr_mpi_plsnet::entrypoint()
     {
       uvec.push_back(i);
     }
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     plsnet(_data, _genes, uvec, _tempdir, _predictor_sample_size,
-           _ensemble_size, _ncomp);
+           _ensemble_size, _ncomp, this);
     get_more_work();
   }
-  log << "No more work. Waiting for other tasks to finish...\n";
-  log.send(LOG_INFO);
 }
 
 void seidr_mpi_plsnet::finalize()
@@ -91,7 +90,8 @@ void plsnet(const arma::mat& geneMatrix,
             const std::string& tmpdir,
             const arma::uword& predictor_sample_size,
             const arma::uword& ensemble_size,
-            const arma::uword& ncomp)
+            const arma::uword& ncomp,
+            seidr_mpi_plsnet * self)
 {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   std::string tmpfile = tempfile(tmpdir);
@@ -110,11 +110,6 @@ void plsnet(const arma::mat& geneMatrix,
   {
     arma::vec ret(geneMatrix.n_cols, arma::fill::zeros);
     auto& target = uvec[i];
-    #pragma omp critical
-    {
-      log << "Started gene: " << genes[target] << ".\n";
-      log.send(LOG_INFO);
-    }
     arma::uvec pred(geneMatrix.n_cols - 1);
     arma::uword j = 0;
     for (arma::uword i = 0; i < geneMatrix.n_cols; i++)
@@ -158,6 +153,7 @@ void plsnet(const arma::mat& geneMatrix,
     }
     #pragma omp critical
     {
+      self->increment_pbar();
       ofs << target << '\n';
       for (seidr_uword_t i = 0; i < ret.size(); i++)
       {
@@ -208,9 +204,11 @@ void plsnet_full(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 
@@ -275,9 +273,11 @@ void plsnet_partial(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 

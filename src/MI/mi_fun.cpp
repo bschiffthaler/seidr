@@ -80,13 +80,9 @@ void seidr_mpi_mi::entrypoint()
       {
         uvec.push_back(i);
       }
-      mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir);
+      while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir, this);
       get_more_work();
-    }
-    #pragma omp critical
-    {
-      log << "No more work. Waiting for other tasks to finish...\n";
-      log.send(LOG_INFO);
     }
   }
 }
@@ -647,7 +643,7 @@ double entropy2d(const arma::mat& gm, arma::vec& knots,
 
 void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
                    std::vector<arma::uword>& targets,
-                   const std::string& tmpdir)
+                   const std::string& tmpdir, seidr_mpi_mi * self)
 {
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
   arma::vec knots = knot_vector(spline_order, num_bins);
@@ -683,13 +679,12 @@ void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
       }
       #pragma omp critical
       {
+        self->increment_pbar();
         ofs << row << '\n';
         for (uint64_t col = 0; col < row; col++)
         {
           ofs << tmp_results[col] << (col == row - 1 ? '\n' : '\t');
         }
-        log << "Finished gene " << row << '\n';
-        log.send(LOG_INFO);
       }
     }
   }
@@ -763,10 +758,11 @@ void mi_full(const arma::mat & gm,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host()));
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 

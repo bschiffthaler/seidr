@@ -39,6 +39,8 @@ public:
   double v;
 };
 
+class seidr_mpi_mi;
+
 struct seidr_mi_param_t
 {
   friend class boost::serialization::access;
@@ -104,7 +106,8 @@ double entropy2d(const arma::mat& gm, arma::vec& knots,
                  size_t num_bins, size_t xi, size_t yi);
 void mi_sub_matrix(const arma::mat& gm, size_t num_bins, size_t spline_order,
                    std::vector<arma::uword>& targets, 
-                   const std::string& tmpfile);
+                   const std::string& tmpfile,
+                   seidr_mpi_mi * self);
 
 void mi_full(const arma::mat& gm, 
              const std::vector<std::string>& genes,

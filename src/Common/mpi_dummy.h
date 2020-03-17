@@ -31,6 +31,34 @@
 
 #define SEIDR_MPI_LOG_TAG 0
 #define SEIDR_MPI_TEMPDIR_TAG 1
+#define SEIDR_MPI_CPR_TAG 2
+#define SEIDR_MPI_PROGBAR_TAG 3
+
+template <typename T>
+class seidr_mpi_progbar {
+public:
+  seidr_mpi_progbar(std::ostream& f, T max, uint64_t poll_interval = 1000,
+                uint64_t width = 60, std::string unit = "units") :
+  _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
+  {  }
+  seidr_mpi_progbar& operator++() {
+    _pbar++;
+    return *this;
+  }
+  void finalize() {
+    _pbar.finalize();
+  }
+  seidr_mpi_progbar operator++(int) {
+    seidr_mpi_progbar<T> copy(*this);
+    _pbar++;
+    return copy;
+  }
+private:
+  progbar_fancy<T> _pbar;
+  int _rank;
+  std::string _nam;
+  std::string _host;
+};
 
 class seidr_mpi_omp {
 public:
@@ -48,10 +76,17 @@ public:
   bool check_logs(const std::string& bn);
   void get_more_work();
   void remove_queue_file();
+  void finalize_pbar() {
+    _pbar.finalize();
+  }
+  void increment_pbar() {
+    _pbar++;
+  }
 protected:
   //MPI constants
   int _id;
   int _procn;
+  seidr_mpi_progbar<uint64_t> _pbar;
   //
   uint64_t _current_i;
   uint64_t _bsize;
@@ -91,6 +126,7 @@ operator<<(seidr_mpi_logger& lhs, const T& rhs)
   lhs._ss << rhs;
   return lhs;
 }
+
 
 void mpi_sync_tempdir(std::string * tempdir);
 void mpi_sync_cpr_vector(std::vector<uint64_t> * resume);

@@ -89,7 +89,7 @@ void seidr_mpi_elnet::entrypoint()
     {
       uvec.push_back(i);
     }
-
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     el_ensemble(_data, _genes, uvec, _tempdir, _min_sample_size,
                 _max_sample_size, _predictor_sample_size_min,
                 _predictor_sample_size_max, _ensemble_size, _alpha, _flmin,
@@ -148,12 +148,6 @@ void el_ensemble(const arma::mat& geneMatrix,
     arma::vec ret(geneMatrix.n_cols);
     seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
     const arma::uword& target = uvec[i];
-    #pragma omp critical
-    {
-      log << "Started gene: " << genes[target] << ".\n";
-      log.send(LOG_INFO);
-      while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
-    }
     arma::uvec pred(geneMatrix.n_cols - 1);
     arma::uword j = 0;
     for (arma::uword i = 0; i < geneMatrix.n_cols; i++)
@@ -274,6 +268,8 @@ void el_ensemble(const arma::mat& geneMatrix,
     }
     #pragma omp critical
     {
+      while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      self->increment_pbar();
       ofs << target << '\n';
       for (seidr_uword_t i = 0; i < ret.size(); i++)
       {

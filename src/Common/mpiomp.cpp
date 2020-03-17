@@ -46,7 +46,8 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
   _outfile(outfile),
   _tempdir(tempdir),
   _init_time( MPI_Wtime() ),
-  _queue_fh(nullptr)
+  _queue_fh(nullptr),
+  _pbar(seidr_mpi_progbar<uint64_t>(std::cerr, indices.size(), 1000, 60, "genes"))
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &_id); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
   MPI_Comm_size(MPI_COMM_WORLD, &_procn); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)

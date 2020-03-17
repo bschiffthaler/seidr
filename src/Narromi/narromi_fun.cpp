@@ -77,13 +77,9 @@ void seidr_mpi_narromi::entrypoint()
     {
       uvec.push_back(i);
     }
-    narromi_thread(_data, _algorithm, _alpha, _t, uvec, _genes, _tempdir);
+    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    narromi_thread(_data, _algorithm, _alpha, _t, uvec, _genes, _tempdir, this);
     get_more_work();
-  }
-  #pragma omp critical
-  {
-    log << "No more work. Waiting for other tasks to finish...\n";
-    log.send(LOG_INFO);
   }
 }
 
@@ -224,9 +220,11 @@ void full_narromi(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 
@@ -293,9 +291,11 @@ void partial_narromi(const arma::mat& GM,
     if (mpi.rank() == 0)
     {
       while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
+      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
     }
   }
 
@@ -308,7 +308,8 @@ void narromi_thread(const arma::mat& gene_matrix,
                     const double& t,
                     const std::vector<arma::uword>& ind,
                     const std::vector<std::string>& genes,
-                    const std::string tmpdir) {
+                    const std::string tmpdir,
+                    seidr_mpi_narromi * self) {
   std::clock_t start;
   size_t tot = gene_matrix.n_cols - 1;
   seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
@@ -326,11 +327,6 @@ void narromi_thread(const arma::mat& gene_matrix,
   {
     start = std::clock();
     arma::uword i = ind[x];
-    #pragma omp critical
-    {
-      log << "Started gene " << genes[i] << '\n';
-      log.send(LOG_INFO);
-    }
     NaResult nr = narromi(gene_matrix, al, alpha, t, i);
     arma::uvec re = nr.re();
     arma::vec si = nr.sig();
@@ -338,6 +334,7 @@ void narromi_thread(const arma::mat& gene_matrix,
 
     #pragma omp critical
     {
+      self->increment_pbar();
       ofs << i << '\n';
       for (arma::uword j = 0; j < tot; j++) {
         if (j == i && j < (tot - 1))
