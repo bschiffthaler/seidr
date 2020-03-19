@@ -619,7 +619,7 @@ int view(int argc, char * argv[]) {
 
     for (const offset_t& o : nodeset)
     {
-      if (o.o != -1)
+      if (o.o > 0)
       {
         rf.seek(o.o);
         SeidrFileEdge e;
@@ -634,7 +634,10 @@ int view(int argc, char * argv[]) {
       }
       else
       {
-        log(LOG_WARN) << o.err << '\n';
+        if (o.o > -99)
+        {
+          log(LOG_WARN) << o.err << '\n';
+        }
       }
     }
   }

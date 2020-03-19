@@ -889,7 +889,7 @@ extern "C" {
       gmap[xn] = gmap_i++;
     }
     uint64_t size = h.size;
-    data.resize(size, 0);
+    data.resize(size, -99);
     if (dense)
     {
       for (uint64_t i = 0; i < size; i++)
