@@ -148,9 +148,9 @@ class PathwayMap(object):
                 members = members.split("|")
                 len_filter = False
                 if min_membership != 0:
-                    len_filter = len(members) >= min_membership
+                    len_filter |= len(members) >= min_membership
                 if max_membership != 0:
-                    len_filter = len(members) <= max_membership
+                    len_filter |= len(members) <= max_membership
                 if len_filter:
                     self.map[pw] = members
 
