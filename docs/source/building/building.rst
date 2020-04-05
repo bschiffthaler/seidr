@@ -22,7 +22,7 @@ Currently, ``seidr`` has the following dependencies (examplary dnf packages on F
 * ``cmake`` 
 * ``git``
 * ``boost-devel`` 
-* ``glpk-devel`` or COIN-OR CLP (see :ref:`clp-label`) 
+* ``glpk-devel`` or ``coin-or-Clp-devel`` (see :ref:`clp-label`) 
 * ``armadillo-devel``
 * ``zlib-devel``
 
@@ -44,13 +44,19 @@ MPI support. If you have the MPI libraries installed (e.g.: ``openmpi-devel`` on
 
   cmake -DSEIDR_WITH_MPI=ON ..
 
-to the CMake build options.
+You will need in addition these packages:
+
+  * ``openmpi-devel``
+
+
+to the CMake build options. This is only beneficial if you want to run multi-node jobs,
+as otherwise the overhead from MPI will decrease overall performance on a single node.
 
 Building Parallel STL (PSTL)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you have Intel TBB and PSTL availble, you can build ``seidr`` with support for
-parallel STL algorithms, which can speed some operations. To do that, add::
+parallel STL algorithms, which can speed up some operations. To do that, add::
 
   cmake -DSEIDR_PSTL=ON ..
 

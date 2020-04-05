@@ -17,6 +17,7 @@ as many as it can. If the subprogram has parallel processing support, you can
 control the extent of the parallelization with the ``-O,--threads`` option.
 
 Example::
+
   # Use all available threads by default:
   seidr import ...
 
@@ -48,7 +49,7 @@ program. You should first define a `hostfile <https://www.open-mpi.org/doc/curre
 
   mpirun -hostfile myhostfile.cfg mi -m CLR -i expr_mat.tsv -g genes.txt
 
-This will spawn a distributed versiob of the MI inference, running the maximum
+This will spawn a distributed version of the MI inference, running the maximum
 amount of OpenMP threads. You can combine ``mpirun`` and the program's ``-O``
 argument to control the number of compute threads each MPI worker spawns.
 

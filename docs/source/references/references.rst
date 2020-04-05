@@ -19,3 +19,4 @@ References
 .. [Wright2017] Wright, M. N., & Ziegler, A. (2017). ranger: A Fast Implementation of Random Forests for High Dimensional Data in C++ and R. Journal of Statistical Software, 77(1), 1–17. https://doi.org/10.18637/jss.v077.i01
 .. [Broido2018] Broido, A. D., & Clauset, A. (2018). Scale-free networks are rare. Retrieved from http://arxiv.org/abs/1801.03400
 .. [Coscia2017] Coscia, M., & Neffke, F. M. H. (2017). Network backboning with noisy data. In Proceedings - International Conference on Data Engineering (pp. 425–436). https://doi.org/10.1109/ICDE.2017.100
+.. [Zhong2014] Zhong, R., Allen, J. D., Xiao, G., & Xie, Y. (2014). Ensemble-based network aggregation improves the accuracy of gene network reconstruction. PloS one, 9(11).

@@ -1,19 +1,26 @@
 .. _index-label:
 
-Welcome to Seidr's documentation!
+Welcome to Seiðr's documentation!
 =================================
 
-Seidr is a toolkit to create crowd networks. We provide fast implementations
+Seiðr is a toolkit to create crowd networks. We provide fast implementations
 of several highly regarded algorithms as well as utility programs to create
 and explore crowd networks.
 
 If you have any questions, contact me at:
 `bastian.schiffthaler@umu.se <mailto:bastian.schiffthaler@umu.se>`_
 
+.. toctree::
+   :caption: Getting Started
+   :maxdepth: 3
+   :titlesonly:
+
+   source/building/building
+   source/getting_started/getting_started
 
 .. toctree::
    :caption: Basics
-   :maxdepth: 2
+   :maxdepth: 3
    :titlesonly:
 
    source/paradigm/paradigm
@@ -23,15 +30,8 @@ If you have any questions, contact me at:
    source/backbone/backbone
 
 .. toctree::
-   :caption: Installing seidr
-   :maxdepth: 2
-   :titlesonly:
-
-   source/building/building
-
-.. toctree::
    :caption: Algorithms
-   :maxdepth: 2
+   :maxdepth: 3
    :titlesonly:
 
    source/algorithms/anoverence
@@ -47,7 +47,7 @@ If you have any questions, contact me at:
 
 .. toctree::
    :caption: Workflows
-   :maxdepth: 2
+   :maxdepth: 3
    :titlesonly:
 
    source/compare/compare
@@ -55,7 +55,7 @@ If you have any questions, contact me at:
 
 .. toctree::
    :caption: Implementation Details
-   :maxdepth: 2
+   :maxdepth: 3
    :titlesonly:
 
    source/mpi/mpi
@@ -63,7 +63,7 @@ If you have any questions, contact me at:
 
 .. toctree::
    :caption: References
-   :maxdepth: 2
+   :maxdepth: 3
    :titlesonly:
 
    source/references/references   
