@@ -87,7 +87,7 @@ int backbone(int argc, char * argv[])
    "Score index to use")
   ("filter,F", po::value<double>(&param.filter)->default_value(-1, "no filter"),
    "Subset network to edges with at least this SD. "
-   "1.28, 1.64, and 2.32 correspond to ~P0.01, 0.05 and 0.1.");
+   "1.28, 1.64, and 2.32 correspond to ~P0.1, 0.05 and 0.01.");
 
   po::options_description req("Required [can be positional]");
   req.add_options()
