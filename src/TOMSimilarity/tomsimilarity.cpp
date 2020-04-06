@@ -77,8 +77,7 @@ int main(int argc, char ** argv)
      "Soft threshold R^2 cutoff in autodetection mode")
     ("tom-type,T",
      po::value<std::string>(&param.tom_type)->default_value("signed"),
-     "TOM type: unsigned, signed, signed-hybrid")
-    ;
+     "TOM type: unsigned, signed, signed-hybrid");
 
     po::options_description req("Required Options");
     req.add_options()
@@ -90,7 +89,6 @@ int main(int argc, char ** argv)
     umbrella.add(req).add(algopt).add(opt);
 
     po::positional_options_description p;
-
 
     po::store(po::command_line_parser(argc, argv).
               options(umbrella).run(), vm);
