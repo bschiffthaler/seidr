@@ -240,6 +240,11 @@ add_executable(correlation src/Correlation/correlation.cpp
   src/Correlation/cor_fun.cpp)
 target_include_directories(correlation PRIVATE src/Correlation)
 
+## TOMSimilarity
+add_executable(tomsimilarity src/TOMSimilarity/tomsimilarity.cpp 
+  src/TOMSimilarity/tom_fun.cpp)
+target_include_directories(tomsimilarity PRIVATE src/TOMSimilarity)
+
 ## Anoverence
 add_executable(anoverence src/Anoverence/anoverence.cpp 
   src/Anoverence/anova-fun.cpp)
@@ -270,6 +275,7 @@ target_link_libraries(llr-ensemble PUBLIC seidr-common)
 target_link_libraries(el-ensemble PUBLIC seidr-common)
 target_link_libraries(narromi PUBLIC seidr-common)
 target_link_libraries(correlation PUBLIC seidr-common)
+target_link_libraries(tomsimilarity PUBLIC seidr-common)
 target_link_libraries(anoverence PUBLIC seidr-common)
 target_link_libraries(mi PUBLIC seidr-common)
 target_link_libraries(plsnet PUBLIC seidr-common)
@@ -303,6 +309,7 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(el-ensemble PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(narromi PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(correlation PUBLIC OpenMP::OpenMP_CXX)
+  target_link_libraries(tomsimilarity PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(anoverence PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(mi PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(plsnet PUBLIC OpenMP::OpenMP_CXX)
@@ -339,6 +346,7 @@ if (CMAKE_LINK_STATIC)
   target_link_libraries( el-ensemble PUBLIC ${BLAS_LIBRARIES})
   target_link_libraries( narromi PUBLIC ${BLAS_LIBRARIES})
   target_link_libraries( correlation PUBLIC ${BLAS_LIBRARIES})
+  target_link_libraries( tomsimilarity PUBLIC ${BLAS_LIBRARIES})
   target_link_libraries( anoverence PUBLIC ${BLAS_LIBRARIES})
   target_link_libraries( mi PUBLIC ${BLAS_LIBRARIES})
   target_link_libraries( plsnet PUBLIC ${BLAS_LIBRARIES})
@@ -356,6 +364,7 @@ else()
   target_link_libraries( el-ensemble PUBLIC ${ARMADILLO_LIBRARIES})
   target_link_libraries( narromi PUBLIC ${ARMADILLO_LIBRARIES})
   target_link_libraries( correlation PUBLIC ${ARMADILLO_LIBRARIES})
+  target_link_libraries( tomsimilarity PUBLIC ${ARMADILLO_LIBRARIES})
   target_link_libraries( anoverence PUBLIC ${ARMADILLO_LIBRARIES})
   target_link_libraries( mi PUBLIC ${ARMADILLO_LIBRARIES})
   target_link_libraries( plsnet PUBLIC ${ARMADILLO_LIBRARIES})
@@ -392,6 +401,7 @@ target_link_libraries( llr-ensemble PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( el-ensemble PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( narromi PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( correlation PUBLIC ${Boost_LIBRARIES})
+target_link_libraries( tomsimilarity PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( anoverence PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( mi PUBLIC ${Boost_LIBRARIES})
 target_link_libraries( plsnet PUBLIC ${Boost_LIBRARIES})
@@ -412,6 +422,7 @@ if(SEIDR_WITH_MPI)
   target_link_libraries( genie3 PUBLIC ${MPI_LIBRARIES})
   target_link_libraries( anoverence PUBLIC ${MPI_LIBRARIES})
   target_link_libraries( correlation PUBLIC ${MPI_LIBRARIES})
+  target_link_libraries( tomsimilarity PUBLIC ${MPI_LIBRARIES})
   target_link_libraries( pcor PUBLIC ${MPI_LIBRARIES})
 
   if(MPI_COMPILE_FLAGS)
@@ -469,7 +480,7 @@ endif()
 #####
 
 install(TARGETS anoverence correlation el-ensemble genie3 llr-ensemble mi
-        narromi pcor plsnet seidr svm-ensemble tigress
+        narromi pcor plsnet seidr svm-ensemble tigress tomsimilarity
         DESTINATION "bin")
 
 message(STATUS "Summary:")
