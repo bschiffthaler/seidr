@@ -227,7 +227,7 @@ int main(int argc, char ** argv)
       std::ofstream ofs(param.outfile, std::ios::out);
       for (auto& t : targets)
       {
-        uint64_t i;
+        uint64_t i = 0;
         try
         {
           i = gene_map.at(t);
@@ -236,6 +236,7 @@ int main(int argc, char ** argv)
         {
           log(LOG_ERR) << e.what() << '\n';
           log(LOG_ERR) << "Target gene " << t << "is not in the expression matrix\n";
+          return 1;
         }
         for (uint64_t j = 0; j < gm.n_cols; j++)
         {
