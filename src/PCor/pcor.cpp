@@ -140,7 +140,8 @@ int main(int argc, char ** argv)
   {
     log(LOG_INFO) << "Loading input matrix...\n";
     gm.load(param.infile.c_str(), arma::raw_ascii);
-    verify_matrix(gm);
+    std::vector<std::string> genes = read_genes(param.gene_file);
+    verify_matrix(gm, genes);
     if (param.do_scale)
     {
       log(LOG_INFO) << "Transforming matrix to z-score\n";

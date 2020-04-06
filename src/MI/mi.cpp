@@ -270,7 +270,8 @@ int main(int argc, char ** argv) {
     omp_set_num_threads(param.nthreads);
     // Get input files
     gene_matrix.load(param.infile);
-    verify_matrix(gene_matrix);
+    std::vector<std::string> genes = read_genes(param.gene_file);
+    verify_matrix(gene_matrix, genes);
     if (param.num_bins == 0)
     {
       arma::uvec bc = bin_count(gene_matrix, 1);
@@ -316,8 +317,6 @@ int main(int argc, char ** argv) {
       param.m = 2;
     }
 
-    std::vector<std::string> genes;
-    genes = read_genes(param.gene_file);
     std::vector<std::string> targets;
     if (vm.count("targets") > 0)
     {

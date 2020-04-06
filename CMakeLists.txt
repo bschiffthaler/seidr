@@ -116,7 +116,7 @@ endif()
 ## Allow stripping binaries ##
 ##############################
 if (CMAKE_STRIP)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wl,-s")
 endif()
 
 ##########################

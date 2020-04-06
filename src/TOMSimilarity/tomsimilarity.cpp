@@ -162,7 +162,8 @@ int main(int argc, char ** argv)
   try
   {
     gm.load(param.infile, arma::raw_ascii);
-    verify_matrix(gm);
+    std::vector<std::string> genes = read_genes(param.gene_file);
+    verify_matrix(gm, genes);
     if (param.do_scale)
     {
       log(LOG_INFO) << "Transforming matrix to z-score\n";
