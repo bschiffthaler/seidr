@@ -20,3 +20,4 @@ References
 .. [Broido2018] Broido, A. D., & Clauset, A. (2018). Scale-free networks are rare. Retrieved from http://arxiv.org/abs/1801.03400
 .. [Coscia2017] Coscia, M., & Neffke, F. M. H. (2017). Network backboning with noisy data. In Proceedings - International Conference on Data Engineering (pp. 425–436). https://doi.org/10.1109/ICDE.2017.100
 .. [Zhong2014] Zhong, R., Allen, J. D., Xiao, G., & Xie, Y. (2014). Ensemble-based network aggregation improves the accuracy of gene network reconstruction. PloS one, 9(11).
+.. [Langfelder2008] Langfelder, P., & Horvath, S. (2008). WGCNA: an R package for weighted correlation network analysis. BMC bioinformatics, 9(1), 559.

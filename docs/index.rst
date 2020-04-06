@@ -44,6 +44,7 @@ If you have any questions, contact me at:
    source/algorithms/pcor
    source/algorithms/plsnet
    source/algorithms/tigress
+   source/algorithms/tomsimilarity
 
 .. toctree::
    :caption: Workflows
