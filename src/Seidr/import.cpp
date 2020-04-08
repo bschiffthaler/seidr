@@ -55,6 +55,25 @@ using boost::numeric_cast;
 typedef std::map<std::string, uint32_t> stringmap;
 typedef std::pair<uint32_t, uint32_t> inx_t;
 
+seidr_score_t parse_score_field(const std::string & field, uint64_t l)
+{
+  try
+  {
+#ifndef SEIDR_SCORE_DOUBLE
+    return std::stof(field);
+#else
+    return std::stod(field);
+#endif
+  }
+  catch (std::exception& e)
+  {
+    std::stringstream ss;
+    ss << "Exception in line: [" << l << "], tried to parse numeric: ["
+       << field << "]. Check file input format. Exception: " << e.what();
+    throw std::runtime_error(ss.str());
+  }
+}
+
 read_logger& read_logger::operator++()
 {
   _i++;
@@ -205,7 +224,7 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 {
 //Sorting
   logger log(std::cerr, "rank_vector");
-  
+
   // Do nothing on empty dataset
   if (ev.size() == 0) return;
 
@@ -410,6 +429,8 @@ int import(int argc, char * argv[]) {
     ifs.reset(new std::ifstream(param.el_file.c_str(), std::ifstream::in));
   }
 
+  uint64_t lno = 0;
+
   if (param.is_edge_list)
   {
     try
@@ -425,23 +446,31 @@ int import(int argc, char * argv[]) {
 
       for (std::string row; std::getline((*ifs), row, '\n');)
       {
+        lno++;
         std::istringstream fl(row);
         size_t x = 0;
         for (std::string field; std::getline(fl, field, '\t');)
         {
           if (x == 0) gi = field;
           if (x == 1) gj = field;
-#ifndef SEIDR_SCORE_DOUBLE
-          if (x == 2) v = std::stof(field);
-#else
-          if (x == 2) v = std::stod(field);
-#endif
+          if (x == 2) v = parse_score_field(field, lno);
           x++;
         }
         reduced_edge e;
         inx_t inx;
-        inx.first = g_map[gi];
-        inx.second = g_map[gj];
+        try
+        {
+          inx.first = g_map.at(gi);
+          inx.second = g_map.at(gj);
+        }
+        catch(std::exception& e)
+        {
+          std::stringstream ss;
+          ss << "Cannot find key pair: [" << gi << ", " << gj 
+             << "] in gene map. These should be gene names in an edge-list formatted "
+             << "file.";
+          throw std::runtime_error(ss.str());
+        }
         e.w = v;
         X.insert(inx, e, param.rev, param.drop_zero);
         pr++;
@@ -470,16 +499,13 @@ int import(int argc, char * argv[]) {
     {
       std::string line;
       std::getline((*ifs), line);
+      lno++;
       std::stringstream ss(line);
       for (uint32_t j = 0; j < i; j++)
       {
         std::string col;
         ss >> col;
-#ifndef SEIDR_SCORE_DOUBLE
-        seidr_score_t x = std::stof(col);
-#else
-        seidr_score_t x = std::stod(col);
-#endif
+        seidr_score_t x = parse_score_field(col, lno);
         reduced_edge e;
         inx_t inx;
         inx.first = i;
@@ -500,17 +526,14 @@ int import(int argc, char * argv[]) {
     {
       std::string line;
       std::getline((*ifs), line);
+      lno++;
       std::stringstream ss(line);
       for (uint32_t j = 0; j < genes.size(); j++)
       {
         std::string col;
         ss >> col;
         if (i == j) continue;
-#ifndef SEIDR_SCORE_DOUBLE
-        seidr_score_t x = std::stof(col);
-#else
-        seidr_score_t x = std::stod(col);
-#endif
+        seidr_score_t x = parse_score_field(col, lno);
         reduced_edge e;
         inx_t inx;
         inx.first = i;
@@ -532,6 +555,7 @@ int import(int argc, char * argv[]) {
     std::string line;
     while (std::getline( (*ifs), line))
     {
+      lno++;
       if (line.at(0) == '>') continue; //comments
       std::stringstream ss(line);
       std::string gi;
@@ -552,11 +576,7 @@ int import(int argc, char * argv[]) {
         else if (tmp % 2 == 0)
         {
           j = g_map.at(target);
-#ifndef SEIDR_SCORE_DOUBLE
-          x = std::stof(col);
-#else
-          x = std::stod(col);
-#endif
+          x = parse_score_field(col, lno);
           reduced_edge e;
           inx_t inx;
           inx.first = i;
