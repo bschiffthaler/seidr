@@ -60,7 +60,7 @@ seidr_score_t parse_score_field(const std::string & field, uint64_t l)
   try
   {
 #ifndef SEIDR_SCORE_DOUBLE
-    return std::stof(field);
+    return std::stod(field);
 #else
     return std::stod(field);
 #endif

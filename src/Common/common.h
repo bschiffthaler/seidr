@@ -81,7 +81,7 @@ typedef double seidr_score_t;
 #ifndef SEIDR_SCORE_DOUBLE
 typedef arma::mat seidr_mat_t;
 #else
-typedef arma::fmat seidr_mat_t;
+typedef arma::mat seidr_mat_t;
 #endif
 
 typedef arma::uword seidr_uword_t;
