@@ -168,7 +168,7 @@ main(int argc, char** argv)
     }
 
     uint64_t p = param.sft;
-    tom_cor_t tt;
+    tom_cor_t tt = SIGNED;
     if (param.tom_type == "unsigned") {
       tt = UNSIGNED;
     } else if (param.tom_type == "signed") {

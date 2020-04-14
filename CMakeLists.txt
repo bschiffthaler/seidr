@@ -145,6 +145,11 @@ if(CMAKE_CLANG_ANALYZE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --analyze")
 endif()
 
+# if (CMAKE_MAKE_TIDY)
+#   set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+# endif()
+
+
 # Enable sanitizers
 if(CMAKE_ASAN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
