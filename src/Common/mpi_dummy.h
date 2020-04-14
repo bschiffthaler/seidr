@@ -22,8 +22,8 @@
 #include <common.h>
 #include <fs.h>
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -34,25 +34,30 @@
 #define SEIDR_MPI_CPR_TAG 2
 #define SEIDR_MPI_PROGBAR_TAG 3
 
-template <typename T>
-class seidr_mpi_progbar {
+template<typename T>
+class seidr_mpi_progbar
+{
 public:
-  seidr_mpi_progbar(std::ostream& f, T max, uint64_t poll_interval = 1000,
-                uint64_t width = 25, std::string unit = "units") :
-  _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
-  {  }
-  seidr_mpi_progbar& operator++() {
+  seidr_mpi_progbar(std::ostream& f,
+                    T max,
+                    uint64_t poll_interval = 1000,
+                    uint64_t width = 25,
+                    std::string unit = "units")
+    : _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
+  {}
+  seidr_mpi_progbar& operator++()
+  {
     _pbar++;
     return *this;
   }
-  void finalize() {
-    _pbar.finalize();
-  }
-  seidr_mpi_progbar operator++(int) {
+  void finalize() { _pbar.finalize(); }
+  seidr_mpi_progbar operator++(int)
+  {
     seidr_mpi_progbar<T> copy(*this);
     _pbar++;
     return copy;
   }
+
 private:
   progbar_fancy<T> _pbar;
   int _rank;
@@ -60,30 +65,28 @@ private:
   std::string _host;
 };
 
-class seidr_mpi_omp {
+class seidr_mpi_omp
+{
 public:
-  //ctors
+  // ctors
   seidr_mpi_omp(const uint64_t& bs,
                 const arma::mat& data,
                 const std::vector<uint64_t>& indices,
                 const std::vector<std::string>& genes,
                 const std::string& tempdir,
                 const std::string& outfile);
-  //getters
-  arma::mat get_data() const {return _data;}
-  uint64_t get_current_i() const {return _current_i;}
-  int rank() {return 0;}
+  // getters
+  arma::mat get_data() const { return _data; }
+  uint64_t get_current_i() const { return _current_i; }
+  int rank() { return 0; }
   bool check_logs(const std::string& bn);
   void get_more_work();
   void remove_queue_file();
-  void finalize_pbar() {
-    _pbar.finalize();
-  }
-  void increment_pbar() {
-    _pbar++;
-  }
+  void finalize_pbar() { _pbar.finalize(); }
+  void increment_pbar() { _pbar++; }
+
 protected:
-  //MPI constants
+  // MPI constants
   int _id;
   int _procn;
   seidr_mpi_progbar<uint64_t> _pbar;
@@ -96,22 +99,24 @@ protected:
   const std::vector<std::string>& _genes;
   const std::string& _outfile;
   const std::string& _tempdir;
-  //misc
+  // misc
   double _init_time;
-  std::string _queue_file; // can't be const as it needs to sync 
-  int * _queue_fh;
+  std::string _queue_file; // can't be const as it needs to sync
+  int* _queue_fh;
 };
 
-class seidr_mpi_logger {
+class seidr_mpi_logger
+{
 public:
   seidr_mpi_logger();
   seidr_mpi_logger(std::string nam);
-  template <typename T>
+  template<typename T>
   friend seidr_mpi_logger& operator<<(seidr_mpi_logger& lhs, const T& rhs);
   void send(unsigned ll);
   void log(unsigned ll);
   void set_log_level(unsigned int x) { _loglevel = x; }
   static unsigned int _loglevel;
+
 private:
   std::stringstream _ss;
   int _rank;
@@ -119,7 +124,7 @@ private:
   std::string _host;
 };
 
-template <typename T>
+template<typename T>
 seidr_mpi_logger&
 operator<<(seidr_mpi_logger& lhs, const T& rhs)
 {
@@ -127,8 +132,10 @@ operator<<(seidr_mpi_logger& lhs, const T& rhs)
   return lhs;
 }
 
+void
+mpi_sync_tempdir(std::string* tempdir);
+void
+mpi_sync_cpr_vector(std::vector<uint64_t>* resume);
 
-void mpi_sync_tempdir(std::string * tempdir);
-void mpi_sync_cpr_vector(std::vector<uint64_t> * resume);
-
-std::string mpi_get_host();
+std::string
+mpi_get_host();

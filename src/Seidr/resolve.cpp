@@ -19,32 +19,33 @@
 //
 
 // Seidr
-#include <common.h>
-#include <resolve.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
+#include <resolve.h>
 // External
-#include <cerrno>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <set>
 #include <boost/program_options.hpp>
+#include <cerrno>
+#include <fstream>
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace po = boost::program_options;
 
-void resolve_im(SeidrFileHeader& h, std::string& fname, std::ostream& out)
+void
+resolve_im(SeidrFileHeader& h, std::string& fname, std::ostream& out)
 {
 
   std::ifstream ifs(fname.c_str(), std::ios::in);
   std::string line;
   uint32_t sc_max = 0;
-  while (std::getline(ifs, line))
-  {
-    if (line.at(0) == '#') continue;
+  while (std::getline(ifs, line)) {
+    if (line.at(0) == '#')
+      continue;
     std::string field;
     std::stringstream ss(line);
     ss >> field;
@@ -58,42 +59,33 @@ void resolve_im(SeidrFileHeader& h, std::string& fname, std::ostream& out)
   ifs.clear();
   ifs.seekg(0, std::ios_base::beg);
 
-  while (std::getline(ifs, line))
-  {
-    if (line.at(0) == '#') continue;
+  while (std::getline(ifs, line)) {
+    if (line.at(0) == '#')
+      continue;
     std::string field;
     std::stringstream ss(line);
     uint32_t ctr = 0;
-    while (std::getline(ss, field, ' '))
-    {
-      if (ctr == 0)
-      {
+    while (std::getline(ss, field, ' ')) {
+      if (ctr == 0) {
         out << field << '\t';
         uint32_t sc = 0;
         for (char c : field)
-          if (c == ':')
-          {
+          if (c == ':') {
             out << '\t';
             sc++;
-          }
-          else
+          } else
             out << c;
-        while (sc < sc_max)
-        {
+        while (sc < sc_max) {
           out << '\t' << "NA";
           sc++;
         }
         out << '\t';
         ctr++;
-      }
-      else if (ctr == 3)
-      {
+      } else if (ctr == 3) {
         auto index = std::stoul(field);
         out << h.nodes[index] << '\n';
         ctr = 0;
-      }
-      else
-      {
+      } else {
         out << field << '\t';
         ctr++;
       }
@@ -101,46 +93,47 @@ void resolve_im(SeidrFileHeader& h, std::string& fname, std::ostream& out)
   }
 }
 
-int resolve(int argc, char * argv[])
+int
+resolve(int argc, char* argv[])
 {
 
   logger log(std::cerr, "resolve");
 
   // We ignore the first argument, the function name
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " resolve";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   seidr_resolve_param_t param;
 
-  po::options_description
-  umbrella("Resolve node indices in text file to node names.");
+  po::options_description umbrella(
+    "Resolve node indices in text file to node names.");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("-"),
-   "Output file name ['-' for stdout]");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.outfile)->default_value("-"),
+    "Output file name ['-' for stdout]");
 
   po::options_description ropt("Resolve Options");
-  ropt.add_options()
-  ("seidr-file,s",
-   po::value<std::string>(&param.sf),
-   "Seidr file which should be used to resolve input")
-  ("format,F",
-   po::value<std::string>(&param.format)->default_value("infomap"),
-   "File format to resolve");
+  ropt.add_options()("seidr-file,s",
+                     po::value<std::string>(&param.sf),
+                     "Seidr file which should be used to resolve input")(
+    "format,F",
+    po::value<std::string>(&param.format)->default_value("infomap"),
+    "File format to resolve");
 
   po::options_description req("Required [can be positional]");
-  req.add_options()
-  ("in-file", po::value<std::string>(&param.infile)->required(),
-   "Input SeidrFile");
+  req.add_options()("in-file",
+                    po::value<std::string>(&param.infile)->required(),
+                    "Input SeidrFile");
 
   umbrella.add(req).add(ropt).add(opt);
 
@@ -148,56 +141,48 @@ int resolve(int argc, char * argv[])
   p.add("in-file", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 22;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
 
-    if (param.outfile != "-")
-    {
+    if (param.outfile != "-") {
       param.outfile = to_absolute(param.outfile);
-      if (! param.force)
-      {
+      if (!param.force) {
         assert_no_overwrite(param.outfile);
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-    assert_arg_constraint<std::string>({"infomap"}, param.format);
-  }
-  catch (std::runtime_error& except)
-  {
+    assert_arg_constraint<std::string>({ "infomap" }, param.format);
+  } catch (std::runtime_error& except) {
     log(LOG_ERR) << except.what() << '\n';
     return 1;
   }
 
   std::shared_ptr<std::ostream> out;
   if (param.outfile == "-")
-    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
   else
-    out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    out =
+      std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
 
-  if (param.format == "infomap")
-  {
+  if (param.format == "infomap") {
     SeidrFile fin(param.sf.c_str());
     fin.open("r");
     SeidrFileHeader h;

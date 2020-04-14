@@ -20,7 +20,5 @@
 #pragma once
 #include <armadillo>
 
-arma::mat lp_ipt(const arma::mat& X, 
-                 const arma::rowvec& Y, 
-                 const std::string& al);
-
+arma::mat
+lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al);

@@ -31,4 +31,5 @@ struct seidr_stats_param_t
   std::string tempfile;
 };
 
-int stats(int argc, char ** argv);
+int
+stats(int argc, char** argv);

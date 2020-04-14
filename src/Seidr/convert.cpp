@@ -20,42 +20,45 @@
 
 #include <BSlogger.hpp>
 #include <common.h>
-#include <fs.h>
 #include <convert.h>
+#include <fs.h>
 
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <fstream>
-#include <sstream>
-#include <memory>
 #include <armadillo>
 #include <boost/program_options.hpp>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace po = boost::program_options;
 
-void parse_el(mat_t& m,
-              std::map<std::string, size_t>& gm,
-              std::istream& ifs,
-              char sep)
+void
+parse_el(mat_t& m,
+         std::map<std::string, size_t>& gm,
+         std::istream& ifs,
+         char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
   std::string line;
-  while (std::getline(ifs, line))
-  {
+  while (std::getline(ifs, line)) {
     std::string field, from, to;
     seidr_score_t w = 0;
     unsigned int counter = 0;
     std::stringstream ss(line);
-    while (std::getline(ss, field, sep))
-    {
-      if (counter == 0) from = field;
-      if (counter == 1) to = field;
+    while (std::getline(ss, field, sep)) {
+      if (counter == 0)
+        from = field;
+      if (counter == 1)
+        to = field;
 #ifdef SEIDR_SCORE_DOUBLE
-      if (counter == 2) w = std::stod(field);
+      if (counter == 2)
+        w = std::stod(field);
 #else
-      if (counter == 2) w = std::stof(field);
+      if (counter == 2)
+        w = std::stof(field);
 #endif
       counter++;
     }
@@ -65,19 +68,17 @@ void parse_el(mat_t& m,
   }
 }
 
-void parse_sm(mat_t& m, std::istream& ifs,
-              char sep)
+void
+parse_sm(mat_t& m, std::istream& ifs, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
   std::string line;
   size_t i = 0;
-  while (std::getline(ifs, line))
-  {
+  while (std::getline(ifs, line)) {
     std::string field;
     std::stringstream ss(line);
     size_t j = 0;
-    while (std::getline(ss, field, sep))
-    {
+    while (std::getline(ss, field, sep)) {
       seidr_score_t w;
 #ifdef SEIDR_SCORE_DOUBLE
       w = std::stod(field);
@@ -91,19 +92,18 @@ void parse_sm(mat_t& m, std::istream& ifs,
   }
 }
 
-void parse_ltri(mat_t& m, std::istream& ifs, bool diag, char sep)
+void
+parse_ltri(mat_t& m, std::istream& ifs, bool diag, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
   std::string line;
   size_t i = diag ? 0 : 1;
-  while (std::getline(ifs, line))
-  {
+  while (std::getline(ifs, line)) {
     size_t j = 0;
     std::string field;
     seidr_score_t w;
     std::stringstream ss(line);
-    while (std::getline(ss, field, sep))
-    {
+    while (std::getline(ss, field, sep)) {
 #ifdef SEIDR_SCORE_DOUBLE
       w = std::stod(field);
 #else
@@ -117,20 +117,19 @@ void parse_ltri(mat_t& m, std::istream& ifs, bool diag, char sep)
   }
 }
 
-void parse_utri(mat_t& m, std::istream& ifs, bool diag, char sep)
+void
+parse_utri(mat_t& m, std::istream& ifs, bool diag, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
   std::string line;
   size_t i = 0;
-  while (std::getline(ifs, line))
-  {
+  while (std::getline(ifs, line)) {
     size_t j = diag ? i : (i + 1);
     std::string field;
     seidr_score_t w;
     std::stringstream ss(line);
     ss.ignore(i);
-    while (std::getline(ss, field, sep))
-    {
+    while (std::getline(ss, field, sep)) {
 #ifdef SEIDR_SCORE_DOUBLE
       w = std::stod(field);
 #else
@@ -144,14 +143,17 @@ void parse_utri(mat_t& m, std::istream& ifs, bool diag, char sep)
   }
 }
 
-void parse_aracne(mat_t& m, std::map<std::string, size_t>& mp,
-                  std::istream& ifs, char sep)
+void
+parse_aracne(mat_t& m,
+             std::map<std::string, size_t>& mp,
+             std::istream& ifs,
+             char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
   std::string line;
-  while (std::getline(ifs, line))
-  {
-    if (line[0] == '>') continue;
+  while (std::getline(ifs, line)) {
+    if (line[0] == '>')
+      continue;
 
     std::string field;
     seidr_score_t w;
@@ -161,8 +163,7 @@ void parse_aracne(mat_t& m, std::map<std::string, size_t>& mp,
     std::getline(ss, field, sep);
     i = mp[field];
 
-    while (std::getline(ss, field, sep))
-    {
+    while (std::getline(ss, field, sep)) {
       j = mp[field];
       std::getline(ss, field, sep);
 #ifdef SEIDR_SCORE_DOUBLE
@@ -175,124 +176,102 @@ void parse_aracne(mat_t& m, std::map<std::string, size_t>& mp,
   }
 }
 
-void write_el(mat_t& m, std::vector<std::string>& g,
-              seidr_score_t fill, std::ostream& out, char sep)
+void
+write_el(mat_t& m,
+         std::vector<std::string>& g,
+         seidr_score_t fill,
+         std::ostream& out,
+         char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
-  for (size_t i = 0; i < g.size(); i++)
-  {
-    for (size_t j = 0; j < g.size(); j++)
-    {
-      if (arma::is_finite(m(i, j)))
-      {
-        out << g[i] << sep
-            << g[j] << sep
-            << m(i, j) << '\n';
+  for (size_t i = 0; i < g.size(); i++) {
+    for (size_t j = 0; j < g.size(); j++) {
+      if (arma::is_finite(m(i, j))) {
+        out << g[i] << sep << g[j] << sep << m(i, j) << '\n';
       }
     }
   }
 }
 
-void write_sm(mat_t& m, std::ostream& out, char sep)
+void
+write_sm(mat_t& m, std::ostream& out, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
-  for (size_t i = 0; i < m.n_rows; i++)
-  {
-    for (size_t j = 0; j < m.n_cols; j++)
-    {
-      out << m(i, j)
-          << ( j == m.n_cols - 1 ? '\n' : sep);
+  for (size_t i = 0; i < m.n_rows; i++) {
+    for (size_t j = 0; j < m.n_cols; j++) {
+      out << m(i, j) << (j == m.n_cols - 1 ? '\n' : sep);
     }
   }
 }
 
-void write_ltri(mat_t& m, bool diag, std::ostream& out, char sep)
+void
+write_ltri(mat_t& m, bool diag, std::ostream& out, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
-  if (diag)
-  {
-    for (size_t i = 0; i < m.n_rows; i++)
-    {
-      for (size_t j = 0; j <= i; j++)
-      {
-        out << m(i, j)
-            << ( j == i ? '\n' : sep);
+  if (diag) {
+    for (size_t i = 0; i < m.n_rows; i++) {
+      for (size_t j = 0; j <= i; j++) {
+        out << m(i, j) << (j == i ? '\n' : sep);
       }
     }
-  }
-  else
-  {
-    for (size_t i = 1; i < m.n_rows; i++)
-    {
-      for (size_t j = 0; j < i; j++)
-      {
-        out << m(i, j)
-            << ( j == i - 1 ? '\n' : sep);
+  } else {
+    for (size_t i = 1; i < m.n_rows; i++) {
+      for (size_t j = 0; j < i; j++) {
+        out << m(i, j) << (j == i - 1 ? '\n' : sep);
       }
     }
   }
 }
 
-void write_utri(mat_t& m, bool diag, std::ostream& out, char sep)
+void
+write_utri(mat_t& m, bool diag, std::ostream& out, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
-  if (diag)
-  {
-    for (size_t i = 0; i < m.n_rows; i++)
-    {
-      for (size_t j = 0; j < i; j++)
-      {
+  if (diag) {
+    for (size_t i = 0; i < m.n_rows; i++) {
+      for (size_t j = 0; j < i; j++) {
         out << sep;
       }
-      for (size_t j = i; j < m.n_cols; j++)
-      {
-        out << m(i, j)
-            << ( j == m.n_cols - 1 ? '\n' : sep);
+      for (size_t j = i; j < m.n_cols; j++) {
+        out << m(i, j) << (j == m.n_cols - 1 ? '\n' : sep);
       }
     }
-  }
-  else
-  {
-    for (size_t i = 0; i < m.n_rows - 1; i++)
-    {
-      for (size_t j = 0; j < i; j++)
-      {
+  } else {
+    for (size_t i = 0; i < m.n_rows - 1; i++) {
+      for (size_t j = 0; j < i; j++) {
         out << sep;
       }
-      for (size_t j = i + 1; j < m.n_cols; j++)
-      {
-        out << m(i, j)
-            << ( j == m.n_cols - 1 ? '\n' : sep);
+      for (size_t j = i + 1; j < m.n_cols; j++) {
+        out << m(i, j) << (j == m.n_cols - 1 ? '\n' : sep);
       }
     }
   }
 }
 
-void write_aracne(mat_t& m, std::vector<std::string>& g,
-                  std::ostream& out, char sep)
+void
+write_aracne(mat_t& m, std::vector<std::string>& g, std::ostream& out, char sep)
 {
   sep = (sep == '\0' ? '\t' : sep);
-  for (size_t i = 0; i < m.n_rows; i++)
-  {
+  for (size_t i = 0; i < m.n_rows; i++) {
     out << g[i] << sep;
-    for (size_t j = 0; j < m.n_cols; j++)
-    {
+    for (size_t j = 0; j < m.n_cols; j++) {
       out << g[j] << sep;
-      out << m(i, j)
-          << (j == m.n_cols - 1 ? '\n' : sep);
+      out << m(i, j) << (j == m.n_cols - 1 ? '\n' : sep);
     }
   }
 }
 
-int convert(int argc, char ** argv)
+int
+convert(int argc, char** argv)
 {
   LOG_INIT_CLOG();
 
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " convert";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   seidr_conv_param_t param;
@@ -300,124 +279,115 @@ int convert(int argc, char ** argv)
   po::options_description umbrella("Convert different text based formats");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message");
 
   po::options_description iopt("Input Options");
-  iopt.add_options()
-  ("infile,i", po::value<std::string>(&param.infile)->default_value("-"),
-   "Input file name ['-' for stdin]")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "Input gene file name")
-  ("from,q",
-   po::value<std::string>(&param.in_format)->required(),
-   "Input file format [edge-list, sym-mat, low-tri, up-tri, low-tri-diag, "
-   "up-tri-diag, aracne]")
-  ("in-separator,s",
-   po::value<std::string>(&param.in_sep)->default_value("\0", "\\t"),
-   "Input separator");
+  iopt.add_options()("infile,i",
+                     po::value<std::string>(&param.infile)->default_value("-"),
+                     "Input file name ['-' for stdin]")(
+    "genes,g",
+    po::value<std::string>(&param.gene_file)->required(),
+    "Input gene file name")(
+    "from,q",
+    po::value<std::string>(&param.in_format)->required(),
+    "Input file format [edge-list, sym-mat, low-tri, up-tri, low-tri-diag, "
+    "up-tri-diag, aracne]")(
+    "in-separator,s",
+    po::value<std::string>(&param.in_sep)->default_value("\0", "\\t"),
+    "Input separator");
 
   po::options_description oopt("Output Options");
-  oopt.add_options()
-  ("outfile,o", po::value<std::string>(&param.outfile)->default_value("-"),
-   "Output file name ['-' for stdout]")
-  ("to,t",
-   po::value<std::string>(&param.out_format)->required(),
-   "Output file format [edge-list, sym-mat, low-tri, up-tri, low-tri-diag, "
-   "up-tri-diag, aracne]")
-  ("out-separator,S",
-   po::value<std::string>(&param.out_sep)->default_value("\0", "\\t"),
-   "Output separator");
+  oopt.add_options()("outfile,o",
+                     po::value<std::string>(&param.outfile)->default_value("-"),
+                     "Output file name ['-' for stdout]")(
+    "to,t",
+    po::value<std::string>(&param.out_format)->required(),
+    "Output file format [edge-list, sym-mat, low-tri, up-tri, low-tri-diag, "
+    "up-tri-diag, aracne]")(
+    "out-separator,S",
+    po::value<std::string>(&param.out_sep)->default_value("\0", "\\t"),
+    "Output separator");
 
   po::options_description fopt("Format Options");
-  fopt.add_options()
-  ("fill,F", po::value<std::string>(&param.fill)->default_value("NaN"),
-   "Fill value for missing data (Number, NaN, Inf, -Inf)")
-  ("precision,p", po::value<uint16_t>(&param.prec)->default_value(8),
-   "Number of decimals to print");
+  fopt.add_options()("fill,F",
+                     po::value<std::string>(&param.fill)->default_value("NaN"),
+                     "Fill value for missing data (Number, NaN, Inf, -Inf)")(
+    "precision,p",
+    po::value<uint16_t>(&param.prec)->default_value(8),
+    "Number of decimals to print");
 
   umbrella.add(iopt).add(oopt).add(fopt).add(opt);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).run(), vm);
+  po::store(po::command_line_parser(argc, args).options(umbrella).run(), vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 22;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
-    if (param.infile != "-")
-    {
+  try {
+    if (param.infile != "-") {
       param.infile = to_absolute(param.infile);
       assert_exists(param.infile);
       assert_can_read(param.infile);
     }
 
-    if (param.outfile != "-")
-    {
+    if (param.outfile != "-") {
       param.outfile = to_absolute(param.outfile);
-      if (! param.force)
-      {
+      if (!param.force) {
         assert_no_overwrite(param.outfile);
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-    assert_arg_constraint<std::string>({"edge-list", "sym-mat", "low-tri",
-                                       "up-tri", "low-tri-diag", "up-tri-diag",
-                                       "aracne"}, param.in_format);
-    assert_arg_constraint<std::string>({"edge-list", "sym-mat", "low-tri",
-                                       "up-tri", "low-tri-diag", "up-tri-diag",
-                                       "aracne"}, param.out_format);
-  }
-  catch (std::exception& e)
-  {
+    assert_arg_constraint<std::string>({ "edge-list",
+                                         "sym-mat",
+                                         "low-tri",
+                                         "up-tri",
+                                         "low-tri-diag",
+                                         "up-tri-diag",
+                                         "aracne" },
+                                       param.in_format);
+    assert_arg_constraint<std::string>({ "edge-list",
+                                         "sym-mat",
+                                         "low-tri",
+                                         "up-tri",
+                                         "low-tri-diag",
+                                         "up-tri-diag",
+                                         "aracne" },
+                                       param.out_format);
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
   std::vector<std::string> genes = read_genes(param.gene_file, '\n', '\t');
   seidr_score_t fi;
-  try
-  {
-    if (param.fill == "Inf")
-    {
+  try {
+    if (param.fill == "Inf") {
       fi = arma::datum::inf;
-    }
-    else if (param.fill == "-Inf")
-    {
+    } else if (param.fill == "-Inf") {
       fi = -arma::datum::inf;
-    }
-    else if (param.fill == "NaN")
-    {
+    } else if (param.fill == "NaN") {
       fi = arma::datum::nan;
-    }
-    else
-    {
+    } else {
 #ifdef SEIDR_SCORE_DOUBLE
       fi = std::stod(param.fill);
 #else
       fi = std::stof(param.fill);
 #endif
     }
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << "--fill must be 'Inf', '-Inf', 'NaN', or a number\n";
   }
 
@@ -426,9 +396,8 @@ int convert(int argc, char ** argv)
   gm.fill(fi);
 
   std::map<std::string, size_t> gene_map;
-  for (size_t i = 0; i < genes.size(); i++)
-  {
-    gene_map[ genes[i] ] = i;
+  for (size_t i = 0; i < genes.size(); i++) {
+    gene_map[genes[i]] = i;
   }
 
   std::shared_ptr<std::istream> in_stream;
@@ -444,7 +413,7 @@ int convert(int argc, char ** argv)
     out_stream.reset(new std::ofstream(param.outfile.c_str()));
 
   out_stream->precision(param.prec);
-  out_stream->setf( std::ios::fixed, std:: ios::floatfield );
+  out_stream->setf(std::ios::fixed, std::ios::floatfield);
 
   // Generic reading/writing if no specialized function is available
   if (param.in_format == "edge-list")
@@ -467,8 +436,7 @@ int convert(int argc, char ** argv)
 
   else if (param.in_format == "aracne")
     parse_aracne(gm, gene_map, *in_stream, param.in_sep[0]);
-  else
-  {
+  else {
     throw std::runtime_error("Unknown input format");
   }
 
@@ -494,8 +462,7 @@ int convert(int argc, char ** argv)
   else if (param.out_format == "aracne")
     write_aracne(gm, genes, *out_stream, param.out_sep[0]);
 
-  else
-  {
+  else {
     throw std::runtime_error("Unknown output format");
   }
 

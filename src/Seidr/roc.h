@@ -34,5 +34,5 @@ struct seidr_roc_param_t
   bool all;
 };
 
-int roc(int argc, char * argv[]);
-
+int
+roc(int argc, char* argv[]);

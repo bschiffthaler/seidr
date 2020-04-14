@@ -19,80 +19,85 @@
 //
 
 // Seir
-#include <common.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
 #include <aggregate.h>
+#include <common.h>
+#include <fs.h>
 #include <parallel_control.h>
 // Parallel includes
 #if defined(SEIDR_PSTL)
-#include <pstl/execution>
 #include <pstl/algorithm>
+#include <pstl/execution>
 #else
 #include <algorithm>
 #endif
 // External
-#include <vector>
-#include <cmath>
-#include <functional>
-#include <string>
-#include <fstream>
-#include <forward_list>
 #include <algorithm>
-#include <stdexcept>
-#include <cerrno>
-#include <map>
-#include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/numeric/conversion/cast.hpp>
 #include <boost/dynamic_bitset.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/program_options.hpp>
+#include <cerrno>
+#include <cmath>
+#include <forward_list>
+#include <fstream>
+#include <functional>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace po = boost::program_options;
 using boost::lexical_cast;
 using boost::numeric_cast;
 namespace fs = boost::filesystem;
 
-struct aggr_rank_t {
+struct aggr_rank_t
+{
   double score = 0;
   double rank = 0;
   uint64_t index = 0;
 };
 
-bool ev_score_sort(aggr_rank_t a, aggr_rank_t b) { return (a.score < b.score);}
-bool ev_index_sort(aggr_rank_t a, aggr_rank_t b) { return (a.index < b.index);}
+bool
+ev_score_sort(aggr_rank_t a, aggr_rank_t b)
+{
+  return (a.score < b.score);
+}
+bool
+ev_index_sort(aggr_rank_t a, aggr_rank_t b)
+{
+  return (a.index < b.index);
+}
 
-uint8_t majority_dir_vote(std::vector<uint8_t>& flags)
+uint8_t
+majority_dir_vote(std::vector<uint8_t>& flags)
 {
   uint8_t ret = 0;
   uint16_t ab = 0;
   uint16_t ba = 0;
-  for (auto& flag : flags)
-  {
+  for (auto& flag : flags) {
     // Ignore non-directional data
-    if (! EDGE_IS_DIRECT(flag)) continue;
-    if (EDGE_IS_AB(flag))
-    {
+    if (!EDGE_IS_DIRECT(flag))
+      continue;
+    if (EDGE_IS_AB(flag)) {
       ab++;
-    }
-    else
-    {
+    } else {
       ba++;
     }
   }
-  if (ab > (2 * ba))
-  {
+  if (ab > (2 * ba)) {
     EDGE_SET_AB(ret);
-  }
-  else if (ba > (2 * ab))
-  {
+  } else if (ba > (2 * ab)) {
     EDGE_SET_BA(ret);
   }
   return ret;
 }
 
-void rank_vector(std::vector<aggr_rank_t>& ev)
+void
+rank_vector(std::vector<aggr_rank_t>& ev)
 {
   logger log(std::cerr, "rank_vector");
   SORTWCOMP(ev.begin(), ev.end(), ev_score_sort);
@@ -102,19 +107,15 @@ void rank_vector(std::vector<aggr_rank_t>& ev)
   double prev = it->score;
   uint64_t start = 0;
   double rank;
-  while (it != ev.end())
-  {
-    it++; pos++;
-    if (it == ev.end() || ! almost_equal(it->score, prev))
-    {
-      rank = ( lexical_cast<double>(pos) + 1 +
-               lexical_cast<double>(start) ) / 2;
-      for (size_t i = start; i < pos; i++)
-      {
+  while (it != ev.end()) {
+    it++;
+    pos++;
+    if (it == ev.end() || !almost_equal(it->score, prev)) {
+      rank = (lexical_cast<double>(pos) + 1 + lexical_cast<double>(start)) / 2;
+      for (size_t i = start; i < pos; i++) {
         ev[i].rank = rank;
       }
-      if (it != ev.end())
-      {
+      if (it != ev.end()) {
         start = pos;
         prev = it->score;
       }
@@ -123,20 +124,19 @@ void rank_vector(std::vector<aggr_rank_t>& ev)
   SORTWCOMP(ev.begin(), ev.end(), ev_index_sort);
 }
 
-void aggr_top1(std::vector<SeidrFileHeader>& header_vec,
-               std::vector<SeidrFileEdge>& v,
-               SeidrFileEdge& result,
-               std::vector<uint8_t>& existing,
-               std::vector<uint8_t>& flags,
-               double& rank,
-               uint64_t& ex_sum,
-               bool& keep_di)
+void
+aggr_top1(std::vector<SeidrFileHeader>& header_vec,
+          std::vector<SeidrFileEdge>& v,
+          SeidrFileEdge& result,
+          std::vector<uint8_t>& existing,
+          std::vector<uint8_t>& flags,
+          double& rank,
+          uint64_t& ex_sum,
+          bool& keep_di)
 {
   uint16_t index = 0;
-  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++)
-  {
-    if (existing[index_b] && result.scores[index_b].r < rank)
-    {
+  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++) {
+    if (existing[index_b] && result.scores[index_b].r < rank) {
       rank = result.scores[index_b].r;
       index = index_b;
     }
@@ -149,54 +149,44 @@ void aggr_top1(std::vector<SeidrFileHeader>& header_vec,
 
   result.supp_int.push_back(numeric_cast<uint16_t>(index));
 
-  if (keep_di)
-  {
-    for (auto& flag : flags)
-    {
+  if (keep_di) {
+    for (auto& flag : flags) {
       result.supp_int.push_back(numeric_cast<uint16_t>(flag));
     }
   }
 
-  if (ex_sum > 0)
-  {
+  if (ex_sum > 0) {
     EDGE_SET_EXISTING(result.attr.flag);
-    if (EDGE_IS_DIRECT(v[index].attr.flag))
-    {
-      if (EDGE_IS_AB(v[index].attr.flag))
-      {
+    if (EDGE_IS_DIRECT(v[index].attr.flag)) {
+      if (EDGE_IS_AB(v[index].attr.flag)) {
         EDGE_SET_AB(result.attr.flag);
-      }
-      else
-      {
+      } else {
         EDGE_SET_BA(result.attr.flag);
       }
     }
   }
 }
 
-void aggr_top2(std::vector<SeidrFileHeader>& header_vec,
-               std::vector<SeidrFileEdge>& v,
-               SeidrFileEdge& result,
-               std::vector<uint8_t>& existing,
-               std::vector<uint8_t>& flags,
-               double& rank,
-               uint64_t& ex_sum,
-               bool& keep_di)
+void
+aggr_top2(std::vector<SeidrFileHeader>& header_vec,
+          std::vector<SeidrFileEdge>& v,
+          SeidrFileEdge& result,
+          std::vector<uint8_t>& existing,
+          std::vector<uint8_t>& flags,
+          double& rank,
+          uint64_t& ex_sum,
+          bool& keep_di)
 {
 
   uint16_t index1 = 0;
   uint16_t index2 = 0;
   double r1 = rank;
   double r2 = rank;
-  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++)
-  {
-    if (existing[index_b] && result.scores[index_b].r < r1)
-    {
+  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++) {
+    if (existing[index_b] && result.scores[index_b].r < r1) {
       r1 = result.scores[index_b].r;
       index1 = index_b;
-    }
-    else if (existing[index_b] && result.scores[index_b].r < r2)
-    {
+    } else if (existing[index_b] && result.scores[index_b].r < r2) {
       r2 = result.scores[index_b].r;
       index2 = index_b;
     }
@@ -210,47 +200,41 @@ void aggr_top2(std::vector<SeidrFileHeader>& header_vec,
   result.supp_int.push_back(numeric_cast<uint16_t>(index1));
   result.supp_int.push_back(numeric_cast<uint16_t>(index2));
 
-  if (keep_di)
-  {
-    for (auto& flag : flags)
-    {
+  if (keep_di) {
+    for (auto& flag : flags) {
       result.supp_int.push_back(numeric_cast<uint16_t>(flag));
     }
   }
 
-  if (ex_sum > 0)
-  {
+  if (ex_sum > 0) {
     EDGE_SET_EXISTING(result.attr.flag);
-    if (EDGE_IS_DIRECT(v[index1].attr.flag) && EDGE_IS_DIRECT(v[index2].attr.flag))
-    {
-      if (EDGE_IS_AB(v[index1].attr.flag) && EDGE_IS_AB(v[index2].attr.flag))
-      {
+    if (EDGE_IS_DIRECT(v[index1].attr.flag) &&
+        EDGE_IS_DIRECT(v[index2].attr.flag)) {
+      if (EDGE_IS_AB(v[index1].attr.flag) && EDGE_IS_AB(v[index2].attr.flag)) {
         EDGE_SET_AB(result.attr.flag);
-      }
-      else if (EDGE_IS_BA(v[index1].attr.flag) && EDGE_IS_BA(v[index2].attr.flag))
-      {
+      } else if (EDGE_IS_BA(v[index1].attr.flag) &&
+                 EDGE_IS_BA(v[index2].attr.flag)) {
         EDGE_SET_BA(result.attr.flag);
       }
     }
   }
 }
 
-void aggr_borda(std::vector<SeidrFileHeader>& header_vec,
-                std::vector<SeidrFileEdge>& v,
-                SeidrFileEdge& result,
-                std::vector<uint8_t>& existing,
-                std::vector<uint8_t>& flags,
-                double& rank,
-                uint64_t& ex_sum,
-                bool& keep_di)
+void
+aggr_borda(std::vector<SeidrFileHeader>& header_vec,
+           std::vector<SeidrFileEdge>& v,
+           SeidrFileEdge& result,
+           std::vector<uint8_t>& existing,
+           std::vector<uint8_t>& flags,
+           double& rank,
+           uint64_t& ex_sum,
+           bool& keep_di)
 {
   uint16_t index = 0;
   double sum = 0;
   double cnt = 0;
-  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++)
-  {
-    if (existing[index_b])
-    {
+  for (uint16_t index_b = 0; index_b < result.scores.size(); index_b++) {
+    if (existing[index_b]) {
       sum += result.scores[index_b].r;
       cnt++;
     }
@@ -261,65 +245,52 @@ void aggr_borda(std::vector<SeidrFileHeader>& header_vec,
   es.s = 0;
   result.scores.push_back(es);
 
-  if (keep_di)
-  {
-    for (auto& flag : flags)
-    {
+  if (keep_di) {
+    for (auto& flag : flags) {
       result.supp_int.push_back(numeric_cast<uint16_t>(flag));
     }
   }
 
-  if (ex_sum > 0)
-  {
+  if (ex_sum > 0) {
     EDGE_SET_EXISTING(result.attr.flag);
-    if (EDGE_IS_DIRECT(v[index].attr.flag))
-    {
-      if (EDGE_IS_AB(v[index].attr.flag))
-      {
+    if (EDGE_IS_DIRECT(v[index].attr.flag)) {
+      if (EDGE_IS_AB(v[index].attr.flag)) {
         EDGE_SET_AB(result.attr.flag);
-      }
-      else
-      {
+      } else {
         EDGE_SET_BA(result.attr.flag);
       }
     }
   }
 }
 
-void aggr_irp(std::vector<SeidrFileHeader>& header_vec,
-              std::vector<SeidrFileEdge>& v,
-              SeidrFileEdge& result,
-              std::vector<uint8_t>& existing,
-              std::vector<uint8_t>& flags,
-              double& rank,
-              uint64_t& ex_sum,
-              bool& keep_di)
+void
+aggr_irp(std::vector<SeidrFileHeader>& header_vec,
+         std::vector<SeidrFileEdge>& v,
+         SeidrFileEdge& result,
+         std::vector<uint8_t>& existing,
+         std::vector<uint8_t>& flags,
+         double& rank,
+         uint64_t& ex_sum,
+         bool& keep_di)
 {
-  //uint16_t index = 0;
+  // uint16_t index = 0;
   double r;
   double nodes = header_vec[0].attr.nodes;
   double nmax = log10((nodes * (nodes - 1)) / 2);
   uint16_t cnt = 0;
-  if (existing[0])
-  {
+  if (existing[0]) {
     // As LHS and RHS are logs multiplication of both
     // becomes a sum
     r = 1 + log10(result.scores[0].r);
     cnt++;
-  }
-  else
-  {
+  } else {
     r = 1 + nmax;
   }
-  for (uint16_t index_b = 1; index_b < result.scores.size(); index_b++)
-  {
-    if (existing[index_b])
-    {
+  for (uint16_t index_b = 1; index_b < result.scores.size(); index_b++) {
+    if (existing[index_b]) {
       r += (1 + log10(result.scores[index_b].r));
       cnt++;
-    }
-    else
-    {
+    } else {
       r += (1 + nmax);
     }
   }
@@ -329,43 +300,38 @@ void aggr_irp(std::vector<SeidrFileHeader>& header_vec,
   es.s = 0;
   result.scores.push_back(es);
 
-  if (keep_di)
-  {
-    for (auto& flag : flags)
-    {
+  if (keep_di) {
+    for (auto& flag : flags) {
       result.supp_int.push_back(numeric_cast<uint16_t>(flag));
     }
   }
 
-  if (cnt > 0)
-  {
+  if (cnt > 0) {
     uint8_t dir = majority_dir_vote(flags);
     EDGE_SET_EXISTING(result.attr.flag);
-    if (EDGE_IS_AB(dir))
-    {
+    if (EDGE_IS_AB(dir)) {
       EDGE_SET_AB(result.attr.flag);
-    }
-    else if (EDGE_IS_BA(dir))
-    {
+    } else if (EDGE_IS_BA(dir)) {
       EDGE_SET_BA(result.attr.flag);
     }
   }
 }
 
-
-SeidrFileEdge calc_score(std::vector<SeidrFileHeader>& header_vec,
-                         std::vector<SeidrFileEdge>& v,
-                         std::vector<uint8_t>& get_next,
-                         uint32_t i, uint64_t j,
-                         std::function<void(std::vector<SeidrFileHeader>&,
-                             std::vector<SeidrFileEdge>&,
-                             SeidrFileEdge&,
-                             std::vector<uint8_t>&,
-                             std::vector<uint8_t>&,
-                             double&,
-                             uint64_t&,
-                             bool&)> aggr_fun,
-                         bool& keep_di)
+SeidrFileEdge
+calc_score(std::vector<SeidrFileHeader>& header_vec,
+           std::vector<SeidrFileEdge>& v,
+           std::vector<uint8_t>& get_next,
+           uint32_t i,
+           uint64_t j,
+           std::function<void(std::vector<SeidrFileHeader>&,
+                              std::vector<SeidrFileEdge>&,
+                              SeidrFileEdge&,
+                              std::vector<uint8_t>&,
+                              std::vector<uint8_t>&,
+                              double&,
+                              uint64_t&,
+                              bool&)> aggr_fun,
+           bool& keep_di)
 {
   SeidrFileEdge result;
   result.index.i = i;
@@ -378,15 +344,11 @@ SeidrFileEdge calc_score(std::vector<SeidrFileHeader>& header_vec,
   edge_score dummy;
   dummy.r = std::numeric_limits<double>::quiet_NaN();
   dummy.s = std::numeric_limits<double>::quiet_NaN();
-  for (auto& e : v)
-  {
+  for (auto& e : v) {
     flags.push_back(e.attr.flag);
-    if (e.index.i == i && e.index.j == j)
-    {
-      if (EDGE_EXISTS(e.attr.flag))
-      {
-        for (auto& s : e.scores)
-        {
+    if (e.index.i == i && e.index.j == j) {
+      if (EDGE_EXISTS(e.attr.flag)) {
+        for (auto& s : e.scores) {
           existing.push_back(1);
           ex_sum += 1;
           result.scores.push_back(s);
@@ -397,9 +359,7 @@ SeidrFileEdge calc_score(std::vector<SeidrFileHeader>& header_vec,
           result.supp_int.push_back(s);
         for (auto& s : e.supp_flt)
           result.supp_flt.push_back(s);
-      }
-      else
-      {
+      } else {
         existing.push_back(0);
         result.scores.push_back(dummy);
         for (uint16_t a = 0; a < header_vec[index_a].attr.nsupp_str; a++)
@@ -410,13 +370,11 @@ SeidrFileEdge calc_score(std::vector<SeidrFileHeader>& header_vec,
           result.supp_flt.push_back(0);
       }
       get_next[index_a] = 1;
-    }
-    else
-      // Storage is sparse and rank file is ahead of current edge
-      // We fill the edge with dummy data
+    } else
+    // Storage is sparse and rank file is ahead of current edge
+    // We fill the edge with dummy data
     {
-      for (uint16_t a = 0; a < header_vec[index_a].attr.nalgs; a++)
-      {
+      for (uint16_t a = 0; a < header_vec[index_a].attr.nalgs; a++) {
         result.scores.push_back(dummy);
         existing.push_back(0);
       }
@@ -438,7 +396,8 @@ SeidrFileEdge calc_score(std::vector<SeidrFileHeader>& header_vec,
   return result;
 }
 
-int aggregate(int argc, char * argv[])
+int
+aggregate(int argc, char* argv[])
 {
 
   logger log(std::cerr, "aggregate");
@@ -448,51 +407,50 @@ int aggregate(int argc, char * argv[])
 
   // We ignore the first argument, the function name
 #ifndef TEST_BUILD
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string a0(argv[0]);
   a0 += " aggregate";
-  const char * a1 = a0.c_str();
+  const char* a1 = a0.c_str();
   args[0] = a1;
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 #else
-  char ** args = argv;
+  char** args = argv;
 #endif
-
 
   po::options_description umbrella("Aggregate multiple SeidrFiles.");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o",
-   po::value<std::string>(&param.out_file)->default_value("aggregated.sf"),
-   "Output file name")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir)->default_value("", "auto"),
-   "Directory to store temporary data");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.out_file)->default_value("aggregated.sf"),
+    "Output file name")(
+    "tempdir,T",
+    po::value<std::string>(&param.tempdir)->default_value("", "auto"),
+    "Directory to store temporary data");
 
   po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()
-  ("threads,O", po::value<int>(&param.nthreads)->
-   default_value(GET_MAX_PSTL_THREADS()),
-   "Number of OpenMP threads for parallel sorting");
+  ompopt.add_options()(
+    "threads,O",
+    po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
+    "Number of OpenMP threads for parallel sorting");
 
   po::options_description agropt("Aggregate Options");
-  agropt.add_options()
-  ("method,m",
-   po::value<std::string>(&param.method)->default_value("irp"),
-   "Method to aggregate networks [top1, top2, borda, irp]")
-  ("keep,k", po::bool_switch(&param.keep_di)->default_value(false),
-   "Keep directionality information");
+  agropt.add_options()(
+    "method,m",
+    po::value<std::string>(&param.method)->default_value("irp"),
+    "Method to aggregate networks [top1, top2, borda, irp]")(
+    "keep,k",
+    po::bool_switch(&param.keep_di)->default_value(false),
+    "Keep directionality information");
 
   po::options_description req("Required Options");
-  req.add_options()
-  ("in-file",
-   po::value<std::vector<std::string>>(&param.infs),
-   "Input files");
+  req.add_options()(
+    "in-file", po::value<std::vector<std::string>>(&param.infs), "Input files");
 
   umbrella.add(req).add(agropt).add(ompopt).add(opt);
 
@@ -500,49 +458,41 @@ int aggregate(int argc, char * argv[])
   p.add("in-file", -1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     set_pstl_threads(param.nthreads);
     log(LOG_INFO) << param.out_file << '\n';
     param.out_file = to_absolute(param.out_file);
 
-    if (! param.force)
-    {
+    if (!param.force) {
       assert_no_overwrite(param.out_file);
     }
 
     assert_dir_is_writeable(dirname(param.out_file));
 
-    for (size_t i = 0; i < param.infs.size(); i++)
-    {
+    for (size_t i = 0; i < param.infs.size(); i++) {
       param.infs[i] = to_canonical(param.infs[i]);
       assert_can_read(param.infs[i]);
       log(LOG_INFO) << "Have file " << param.infs[i] << '\n';
     }
-    assert_arg_constraint<std::string>({"top1", "top2", "borda", "irp"},
+    assert_arg_constraint<std::string>({ "top1", "top2", "borda", "irp" },
                                        param.method);
-  }
-  catch (std::runtime_error& except)
-  {
+  } catch (std::runtime_error& except) {
     log(LOG_ERR) << except.what() << '\n';
     return 1;
   }
@@ -552,8 +502,7 @@ int aggregate(int argc, char * argv[])
 
   log(LOG_INFO) << "Getting headers\n";
   uint32_t counter = 0;
-  for (auto& f : param.infs)
-  {
+  for (auto& f : param.infs) {
     // Create a SeidrFile from input string and call bgzf_open()
     infile_vec.push_back(SeidrFile(f.c_str()));
     infile_vec[counter].open("r");
@@ -570,18 +519,15 @@ int aggregate(int argc, char * argv[])
   h.attr.nodes = header_vec[0].attr.nodes;
   h.attr.dense = 1;
   h.attr.nalgs = infile_vec.size();
-  for (auto& hh : header_vec)
-  {
+  for (auto& hh : header_vec) {
     h.attr.nsupp += hh.attr.nsupp;
     h.attr.nsupp_str += hh.attr.nsupp_str;
     h.attr.nsupp_int += hh.attr.nsupp_int;
     h.attr.nsupp_flt += hh.attr.nsupp_flt;
-    for (auto s : hh.supp)
-    {
+    for (auto s : hh.supp) {
       h.supp.push_back(s);
     }
-    for (auto a : hh.algs)
-    {
+    for (auto a : hh.algs) {
       h.algs.push_back(a);
     }
   }
@@ -591,31 +537,26 @@ int aggregate(int argc, char * argv[])
   h.algs.push_back(param.method);
   h.attr.nalgs += 1;
 
-  if (param.method == "top1")
-  {
+  if (param.method == "top1") {
     h.attr.nsupp += 1;
     h.attr.nsupp_int += 1;
     h.supp.push_back("T");
   }
 
-  if (param.method == "top2")
-  {
+  if (param.method == "top2") {
     h.attr.nsupp += 2;
     h.attr.nsupp_int += 2;
     h.supp.push_back("T1");
     h.supp.push_back("T2");
   }
 
-  if (param.keep_di)
-  {
+  if (param.keep_di) {
     h.attr.nsupp += h.attr.nalgs - 1;
     h.attr.nsupp_int += h.attr.nalgs - 1;
-    for (uint16_t i = 1; i < h.attr.nalgs; i++)
-    {
+    for (uint16_t i = 1; i < h.attr.nalgs; i++) {
       h.supp.push_back("D" + std::to_string(i));
     }
   }
-
 
   log(LOG_INFO) << "Aggregating using method: " << param.method << '\n';
 
@@ -637,7 +578,8 @@ int aggregate(int argc, char * argv[])
   v.resize(counter);
   get_next.resize(counter);
   edges_read.resize(counter);
-  for (auto& e : edges_read) e = 0;
+  for (auto& e : edges_read)
+    e = 0;
   // Define aggregation method
   std::function<void(std::vector<SeidrFileHeader>&,
                      std::vector<SeidrFileEdge>&,
@@ -646,7 +588,8 @@ int aggregate(int argc, char * argv[])
                      std::vector<uint8_t>&,
                      double&,
                      uint64_t&,
-                     bool&)> aggr_fun;
+                     bool&)>
+    aggr_fun;
   if (param.method == "top1")
     aggr_fun = aggr_top1;
   else if (param.method == "borda")
@@ -662,44 +605,34 @@ int aggregate(int argc, char * argv[])
     x = 1;
   uint64_t index = 0;
   std::vector<aggr_rank_t> rvec;
-  for (uint64_t i = 1; i < h.attr.nodes; i++)
-  {
-    for (uint64_t j = 0; j < i; j++)
-    {
-      for (uint32_t k = 0; k < counter; k++)
-      {
-        if (get_next[k])
-        {
+  for (uint64_t i = 1; i < h.attr.nodes; i++) {
+    for (uint64_t j = 0; j < i; j++) {
+      for (uint32_t k = 0; k < counter; k++) {
+        if (get_next[k]) {
           edges_read[k]++;
           // If the last edge in a sparse network was read, do not attempt a
           // file read
-          if (! header_vec[k].attr.dense &&
-              edges_read[k] > header_vec[k].attr.edges)
-          {
+          if (!header_vec[k].attr.dense &&
+              edges_read[k] > header_vec[k].attr.edges) {
             get_next[k] = 0;
             SeidrFileEdge e;
             e.index.i = std::numeric_limits<uint32_t>::infinity();
             e.index.j = std::numeric_limits<uint32_t>::infinity();
             v[k] = e;
-          }
-          else
-          {
+          } else {
             SeidrFileEdge e;
             e.unserialize(infile_vec[k], header_vec[k]);
-            if (header_vec[k].attr.dense)
-            {
+            if (header_vec[k].attr.dense) {
               e.index.i = i;
               e.index.j = j;
             }
             v[k] = e;
           }
         }
-
       }
-      SeidrFileEdge res = calc_score(header_vec, v, get_next, i, j, aggr_fun,
-                                     param.keep_di);
-      if (EDGE_EXISTS(res.attr.flag))
-      {
+      SeidrFileEdge res =
+        calc_score(header_vec, v, get_next, i, j, aggr_fun, param.keep_di);
+      if (EDGE_EXISTS(res.attr.flag)) {
         h.attr.edges++;
         aggr_rank_t r;
         r.index = index;
@@ -716,7 +649,8 @@ int aggregate(int argc, char * argv[])
         log(LOG_INFO) << "Processed " << index << " edges\n";
     }
   }
-  log(LOG_INFO) << "Done aggregating. Ranking and standardizing aggregated edges\n";
+  log(LOG_INFO)
+    << "Done aggregating. Ranking and standardizing aggregated edges\n";
   // call bgzf_close() on all open files
   for (auto& f : infile_vec)
     f.close();
@@ -741,28 +675,20 @@ int aggregate(int argc, char * argv[])
 
   // Serialize all edges
   index = 0;
-  for (uint64_t i = 1; i < h.attr.nodes; i++)
-  {
-    for (uint64_t j = 0; j < i; j++)
-    {
+  for (uint64_t i = 1; i < h.attr.nodes; i++) {
+    for (uint64_t j = 0; j < i; j++) {
       SeidrFileEdge e;
       e.unserialize(tmp, ha);
-      if (EDGE_EXISTS(e.attr.flag))
-      {
-        log(LOG_DEBUG) << rvec[index].index << ", "
-                       << e.scores[counter].r << ", "
-                       << rvec[index].score << ", "
-                       << index << '\n';
+      if (EDGE_EXISTS(e.attr.flag)) {
+        log(LOG_DEBUG) << rvec[index].index << ", " << e.scores[counter].r
+                       << ", " << rvec[index].score << ", " << index << '\n';
         e.scores[counter].s = unity_stand(min, max, e.scores[counter].r);
         e.scores[counter].r = rvec[index].rank;
         index++;
       }
-      if (h.attr.dense)
-      {
+      if (h.attr.dense) {
         e.serialize(out, h);
-      }
-      else if (EDGE_EXISTS(e.attr.flag))
-      {
+      } else if (EDGE_EXISTS(e.attr.flag)) {
         e.index.i = i;
         e.index.j = j;
         e.serialize(out, h);
@@ -780,7 +706,8 @@ int aggregate(int argc, char * argv[])
 }
 
 #ifdef TEST_BUILD
-int main(int argc, char *argv[])
+int
+main(int argc, char* argv[])
 {
   aggregate(argc, argv);
   return 0;

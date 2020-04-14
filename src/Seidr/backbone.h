@@ -31,5 +31,5 @@ struct seidr_backbone_param_t
   bool force;
 };
 
-int backbone(int argc, char * argv[]);
-
+int
+backbone(int argc, char* argv[]);

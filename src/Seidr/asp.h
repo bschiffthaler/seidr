@@ -31,4 +31,5 @@ struct seidr_asp_param_t
   bool absolute;
 };
 
-int asp(int argc, char * argv[]);
+int
+asp(int argc, char* argv[]);

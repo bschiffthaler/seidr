@@ -19,35 +19,35 @@
 //
 
 // Seidr
-#include <common.h>
-#include <import.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
+#include <import.h>
 #include <parallel_control.h>
 // External
 #include <cmath>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 
 // Parallel includes
 #if defined(SEIDR_PSTL)
-#include <tbb/task_scheduler_init.h>
-#include <pstl/execution>
 #include <pstl/algorithm>
+#include <pstl/execution>
+#include <tbb/task_scheduler_init.h>
 #else
 #include <algorithm>
 #endif
 
-#include <map>
 #include <armadillo>
-#include <memory>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/program_options.hpp>
+#include <map>
+#include <memory>
 
 namespace po = boost::program_options;
 using boost::lexical_cast;
@@ -55,71 +55,65 @@ using boost::numeric_cast;
 typedef std::map<std::string, uint32_t> stringmap;
 typedef std::pair<uint32_t, uint32_t> inx_t;
 
-seidr_score_t parse_score_field(const std::string & field, const uint64_t & l)
+seidr_score_t
+parse_score_field(const std::string& field, const uint64_t& l)
 {
-  try
-  {
+  try {
 #ifndef SEIDR_SCORE_DOUBLE
     return std::stod(field);
 #else
     return std::stod(field);
 #endif
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     std::stringstream ss;
-    ss << "Exception in line: [" << l << "], tried to parse numeric: ["
-       << field << "]. Check file input format. Exception: " << e.what();
+    ss << "Exception in line: [" << l << "], tried to parse numeric: [" << field
+       << "]. Check file input format. Exception: " << e.what();
     throw std::runtime_error(ss.str());
   }
 }
 
-read_logger& read_logger::operator++()
+read_logger&
+read_logger::operator++()
 {
   _i++;
-  if (_i % _n == 0)
-  {
+  if (_i % _n == 0) {
     _l(LOG_INFO) << "Read " << _i << " edges\n";
   }
   return *this;
 }
 
-read_logger read_logger::operator++(int)
+read_logger
+read_logger::operator++(int)
 {
   read_logger tmp = *this;
   ++*this;
   return tmp;
 }
 
-void lt_map::reserve(uint64_t n)
+void
+lt_map::reserve(uint64_t n)
 {
   //_ev = std::vector<edge>(n);
   _shadow = std::vector<shadow_t>(n);
   // Make sure default ctor is called
-  for (auto& i : _shadow)
-  {
+  for (auto& i : _shadow) {
     i = shadow_t();
   }
 }
 
-void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
-                    bool& drop)
+void
+lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev, bool& drop)
 {
   // Always work in lower triangle
-  if (inx.first < inx.second)
-  {
+  if (inx.first < inx.second) {
     uint32_t tmp = inx.first;
     inx.first = inx.second;
     inx.second = tmp;
     // Keep track of edge direction
     ee.d = 2;
-  }
-  else if (ee.d != 3)
-  {
+  } else if (ee.d != 3) {
     ee.d = 1;
-  }
-  else
-  {
+  } else {
     ee.d = 0;
   }
   edge e;
@@ -130,18 +124,14 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
 
   uint64_t shadow_offset = _hasher(e);
   // Check if edge already exists
-  shadow_t * ptr = &_shadow[shadow_offset];
+  shadow_t* ptr = &_shadow[shadow_offset];
   // If not, insert edge and do nothing else
-  if (! ptr->found)
-  {
-    if (drop && (! almost_equal(e.w, 0)))
-    {
+  if (!ptr->found) {
+    if (drop && (!almost_equal(e.w, 0))) {
       _ev.push_back(e);
       ptr->offset = _ev.size() - 1;
       ptr->found = 1;
-    }
-    else if (! drop)
-    {
+    } else if (!drop) {
       _ev.push_back(e);
       ptr->offset = _ev.size() - 1;
       ptr->found = 1;
@@ -149,33 +139,24 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
   }
   // If there is a symmetric edge present, check if current edge has a better
   // score and insert if it has.
-  else if ( !drop || (drop && ! almost_equal(e.w, 0)))
-  {
+  else if (!drop || (drop && !almost_equal(e.w, 0))) {
     // In reverse mode, bigger is better
-    edge * ev_ptr = &_ev[ptr->offset];
-    if (rev)
-    {
-      if (e.w > ev_ptr->w)
-      {
+    edge* ev_ptr = &_ev[ptr->offset];
+    if (rev) {
+      if (e.w > ev_ptr->w) {
         ev_ptr->w = e.w;
         ev_ptr->d = e.d;
-      }
-      else if (almost_equal(e.w, ev_ptr->w))
-      {
+      } else if (almost_equal(e.w, ev_ptr->w)) {
         // If A->B == B<-A, set to undirected.
         ev_ptr->d = 0;
       }
     }
     // In default mode, lower is better
-    else
-    {
-      if (e.w < ev_ptr->w)
-      {
+    else {
+      if (e.w < ev_ptr->w) {
         ev_ptr->w = e.w;
         ev_ptr->d = e.d;
-      }
-      else if (almost_equal(e.w, ev_ptr->w))
-      {
+      } else if (almost_equal(e.w, ev_ptr->w)) {
         // If A->B == B<-A, set to undirected.
         ev_ptr->d = 0;
       }
@@ -184,7 +165,8 @@ void lt_map::insert(inx_t& inx, reduced_edge& ee, bool& rev,
 }
 
 // Convert lower triangular map to vector of edges
-std::vector<edge>& lt_map::to_vec()
+std::vector<edge>&
+lt_map::to_vec()
 {
   // std::vector<const edge*> ret;
   // for (auto it = _ev.begin(); it != _ev.end(); it++)
@@ -197,13 +179,30 @@ std::vector<edge>& lt_map::to_vec()
 }
 
 /**
-* A comparison to rank scores in ascending or descending order
-*/
-bool ascending(const edge a, const edge b) { return (a.w < b.w);}
-bool descending(const edge a, const edge b) { return (a.w > b.w);}
-bool abs_ascending(const edge a, const edge b) { return (fabs(a.w) < fabs(b.w));}
-bool abs_descending(const edge a, const edge b) { return (fabs(a.w) > fabs(b.w));}
-bool lt(const edge a, const edge b)
+ * A comparison to rank scores in ascending or descending order
+ */
+bool
+ascending(const edge a, const edge b)
+{
+  return (a.w < b.w);
+}
+bool
+descending(const edge a, const edge b)
+{
+  return (a.w > b.w);
+}
+bool
+abs_ascending(const edge a, const edge b)
+{
+  return (fabs(a.w) < fabs(b.w));
+}
+bool
+abs_descending(const edge a, const edge b)
+{
+  return (fabs(a.w) > fabs(b.w));
+}
+bool
+lt(const edge a, const edge b)
 {
   if (a.i < b.i)
     return true;
@@ -212,31 +211,30 @@ bool lt(const edge a, const edge b)
   return false;
 }
 /**
-* A function to replace the scores in a vector with the
-* ranks they assume in the entire set.
-*
-* @param a A vector iterator pointing to the start of the vector.
-* @param b A vector iterator pointing to the end of the vector.
-* @param reverse Boolean indicator to check if the vector should
-*                be sorted in descending order.
-*/
-void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
+ * A function to replace the scores in a vector with the
+ * ranks they assume in the entire set.
+ *
+ * @param a A vector iterator pointing to the start of the vector.
+ * @param b A vector iterator pointing to the end of the vector.
+ * @param reverse Boolean indicator to check if the vector should
+ *                be sorted in descending order.
+ */
+void
+rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
 {
-//Sorting
+  // Sorting
   logger log(std::cerr, "rank_vector");
 
   // Do nothing on empty dataset
-  if (ev.size() == 0) return;
+  if (ev.size() == 0)
+    return;
 
-  if (reverse)
-  {
+  if (reverse) {
     if (absolute)
       SORTWCOMP(ev.begin(), ev.end(), abs_descending);
     else
       SORTWCOMP(ev.begin(), ev.end(), descending);
-  }
-  else
-  {
+  } else {
     if (absolute)
       SORTWCOMP(ev.begin(), ev.end(), abs_ascending);
     else
@@ -247,21 +245,19 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
   seidr_score_t prev = it->w;
   uint64_t start = 0;
   seidr_score_t rank;
-  while (it != ev.end())
-  {
-    it++; pos++;
-    if (it == ev.end() || it->w != prev)
-    {
-      rank = ( lexical_cast<seidr_score_t>(pos) + 1 +
-               lexical_cast<seidr_score_t>(start) ) / 2;
-      for (uint64_t i = start; i < pos; i++)
-      {
-        //edge e = ev[i];
-        //e.r = rank;
+  while (it != ev.end()) {
+    it++;
+    pos++;
+    if (it == ev.end() || it->w != prev) {
+      rank = (lexical_cast<seidr_score_t>(pos) + 1 +
+              lexical_cast<seidr_score_t>(start)) /
+             2;
+      for (uint64_t i = start; i < pos; i++) {
+        // edge e = ev[i];
+        // e.r = rank;
         ev[i].r = rank;
       }
-      if (it != ev.end())
-      {
+      if (it != ev.end()) {
         start = pos;
         prev = it->w;
       }
@@ -270,15 +266,16 @@ void rank_vector(std::vector<edge>& ev, bool reverse, bool absolute)
   SORTWCOMP(ev.begin(), ev.end(), lt);
 }
 
-
 /**
-* Creating a binary ranked file from an edge list input.
-*
-* @param el_file The input edge list.
-* @param gene_file The gene names.
-* @return int 0 if the function succeeded, an error code otherwise.
-*/
-int import(int argc, char * argv[]) {
+ * Creating a binary ranked file from an edge list input.
+ *
+ * @param el_file The input edge list.
+ * @param gene_file The gene names.
+ * @return int 0 if the function succeeded, an error code otherwise.
+ */
+int
+import(int argc, char* argv[])
+{
 
   logger log(std::cerr, "import");
 
@@ -286,82 +283,82 @@ int import(int argc, char * argv[]) {
 
   std::vector<std::string> genes;
 
-// Variables used by the function
+  // Variables used by the function
   seidr_import_param_t param;
 
-// We ignore the first argument
-  const char * args[argc - 1];
+  // We ignore the first argument
+  const char* args[argc - 1];
   std::string p(argv[0]);
   p += " import";
   args[0] = p.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
-
-  po::options_description
-  umbrella("Convert various text based network representations to "
-           "SeidrFiles");
+  po::options_description umbrella(
+    "Convert various text based network representations to "
+    "SeidrFiles");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message");
 
   po::options_description ropt("Ranking Options");
-  ropt.add_options()
-  ("absolute,A", po::bool_switch(&param.absolute)->default_value(false),
-   "Rank on absolute of scores")
-  ("reverse,r", po::bool_switch(&param.rev)->default_value(false),
-   "Rank scores in descending order (highest first)")
-  ("drop-zero,z", po::bool_switch(&param.drop_zero)->default_value(false),
-   "Drop edges with a weight of zero from the network")
-  ("undirected,u", po::bool_switch(&param.force_undirected)->default_value(false),
-   "Force all edges to be interpreted as undirected");
+  ropt.add_options()("absolute,A",
+                     po::bool_switch(&param.absolute)->default_value(false),
+                     "Rank on absolute of scores")(
+    "reverse,r",
+    po::bool_switch(&param.rev)->default_value(false),
+    "Rank scores in descending order (highest first)")(
+    "drop-zero,z",
+    po::bool_switch(&param.drop_zero)->default_value(false),
+    "Drop edges with a weight of zero from the network")(
+    "undirected,u",
+    po::bool_switch(&param.force_undirected)->default_value(false),
+    "Force all edges to be interpreted as undirected");
 
   po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()
-  ("threads,O", po::value<int>(&param.nthreads)->
-   default_value(GET_MAX_PSTL_THREADS()),
-   "Number of OpenMP threads for parallel sorting");
+  ompopt.add_options()(
+    "threads,O",
+    po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
+    "Number of OpenMP threads for parallel sorting");
 
   po::options_description req("Required");
-  req.add_options()
-  ("infile,i", po::value<std::string>(&param.el_file)->required(),
-   "Input file name ['-' for stdin]")
-  ("format,F", po::value<std::string>(&param.format)->required(),
-   "The input file format [el, lm, m, ara]")
-  ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-   "Gene file for input")
-  ("outfile,o", po::value<std::string>(&param.out_file)->required(),
-   "Output file name")
-  ("name,n", po::value<std::string>(&param.name)->required(),
-   "Import name (algorithm name)");
+  req.add_options()("infile,i",
+                    po::value<std::string>(&param.el_file)->required(),
+                    "Input file name ['-' for stdin]")(
+    "format,F",
+    po::value<std::string>(&param.format)->required(),
+    "The input file format [el, lm, m, ara]")(
+    "genes,g",
+    po::value<std::string>(&param.gene_file)->required(),
+    "Gene file for input")("outfile,o",
+                           po::value<std::string>(&param.out_file)->required(),
+                           "Output file name")(
+    "name,n",
+    po::value<std::string>(&param.name)->required(),
+    "Import name (algorithm name)");
 
   umbrella.add(req).add(ropt).add(ompopt).add(opt);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).run(), vm);
+  po::store(po::command_line_parser(argc, args).options(umbrella).run(), vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
 
     set_pstl_threads(param.nthreads);
 
@@ -376,8 +373,7 @@ int import(int argc, char * argv[]) {
     else
       throw std::runtime_error("Unknown input format: " + param.format);
 
-    if (param.el_file != "-")
-    {
+    if (param.el_file != "-") {
       param.el_file = to_absolute(param.el_file);
       assert_exists(param.el_file);
       assert_can_read(param.el_file);
@@ -388,15 +384,13 @@ int import(int argc, char * argv[]) {
     assert_can_read(param.gene_file);
 
     param.out_file = to_absolute(param.out_file);
-    if (! param.force)
-    {
+    if (!param.force) {
       assert_no_overwrite(param.out_file);
     }
     assert_dir_is_writeable(dirname(param.out_file));
-    assert_arg_constraint<std::string>({"el", "lm", "m", "ara"}, param.format);
-  }
-  catch (std::exception& except)
-  {
+    assert_arg_constraint<std::string>({ "el", "lm", "m", "ara" },
+                                       param.format);
+  } catch (std::exception& except) {
     log(LOG_ERR) << except.what() << '\n';
     return errno;
   }
@@ -405,8 +399,7 @@ int import(int argc, char * argv[]) {
   stringmap g_map;
 
   size_t i = 0;
-  for (std::string& s : genes)
-  {
+  for (std::string& s : genes) {
     g_map.insert(std::pair<std::string, size_t>(s, i++));
   }
 
@@ -420,54 +413,48 @@ int import(int argc, char * argv[]) {
   log(LOG_INFO) << "Populating matrix\n";
   std::shared_ptr<std::istream> ifs;
 
-  if (param.el_file == "-")
-  {
+  if (param.el_file == "-") {
     ifs.reset(&(std::cin), [](...) {});
-  }
-  else
-  {
+  } else {
     ifs.reset(new std::ifstream(param.el_file.c_str(), std::ifstream::in));
   }
 
   uint64_t lno = 0;
 
-  if (param.is_edge_list)
-  {
-    try
-    {
-//    std::istream ifs = *in_stream;
-      if (! (*ifs).good())
-      {
-        throw std::runtime_error("Error opening edge list. Check permissions/spelling.");
+  if (param.is_edge_list) {
+    try {
+      //    std::istream ifs = *in_stream;
+      if (!(*ifs).good()) {
+        throw std::runtime_error(
+          "Error opening edge list. Check permissions/spelling.");
       }
       seidr_score_t v = 0; // value
       std::string gi;
       std::string gj;
 
-      for (std::string row; std::getline((*ifs), row, '\n');)
-      {
+      for (std::string row; std::getline((*ifs), row, '\n');) {
         lno++;
         std::istringstream fl(row);
         size_t x = 0;
-        for (std::string field; std::getline(fl, field, '\t');)
-        {
-          if (x == 0) gi = field;
-          if (x == 1) gj = field;
-          if (x == 2) v = parse_score_field(field, lno);
+        for (std::string field; std::getline(fl, field, '\t');) {
+          if (x == 0)
+            gi = field;
+          if (x == 1)
+            gj = field;
+          if (x == 2)
+            v = parse_score_field(field, lno);
           x++;
         }
         reduced_edge e;
         inx_t inx;
-        try
-        {
+        try {
           inx.first = g_map.at(gi);
           inx.second = g_map.at(gj);
-        }
-        catch(std::exception& e)
-        {
+        } catch (std::exception& e) {
           std::stringstream ss;
-          ss << "Cannot find key pair: [" << gi << ", " << gj 
-             << "] in gene map. These should be gene names in an edge-list formatted "
+          ss << "Cannot find key pair: [" << gi << ", " << gj
+             << "] in gene map. These should be gene names in an edge-list "
+                "formatted "
              << "file.";
           throw std::runtime_error(ss.str());
         }
@@ -475,34 +462,27 @@ int import(int argc, char * argv[]) {
         X.insert(inx, e, param.rev, param.drop_zero);
         pr++;
       }
-      if ((*ifs).bad())
-      {
+      if ((*ifs).bad()) {
         throw std::runtime_error("Error reading edge list.");
       }
-//(*ifs).close();
-    }
-    catch (std::runtime_error& except)
-    {
+      //(*ifs).close();
+    } catch (std::runtime_error& except) {
       log(LOG_ERR) << "[Runtime error]: " << except.what() << '\n';
       return errno;
     }
-  }
-  else if (param.is_lm)
-  {
-//Lower triangular matrix, no diagonal
-//      std::istream ifs = *in_stream;
-    if (! (*ifs).good())
-    {
-      throw std::runtime_error("Error opening edge list. Check permissions/spelling.");
+  } else if (param.is_lm) {
+    // Lower triangular matrix, no diagonal
+    //      std::istream ifs = *in_stream;
+    if (!(*ifs).good()) {
+      throw std::runtime_error(
+        "Error opening edge list. Check permissions/spelling.");
     }
-    for (uint32_t i = 1; i < genes.size(); i++)
-    {
+    for (uint32_t i = 1; i < genes.size(); i++) {
       std::string line;
       std::getline((*ifs), line);
       lno++;
       std::stringstream ss(line);
-      for (uint32_t j = 0; j < i; j++)
-      {
+      for (uint32_t j = 0; j < i; j++) {
         std::string col;
         ss >> col;
         seidr_score_t x = parse_score_field(col, lno);
@@ -515,24 +495,21 @@ int import(int argc, char * argv[]) {
         pr++;
       }
     }
-  }
-  else if (param.is_full_matrix)
-  {
-    if (! (*ifs).good())
-    {
-      throw std::runtime_error("Error opening edge list. Check permissions/spelling.");
+  } else if (param.is_full_matrix) {
+    if (!(*ifs).good()) {
+      throw std::runtime_error(
+        "Error opening edge list. Check permissions/spelling.");
     }
-    for (uint32_t i = 0; i < genes.size(); i++)
-    {
+    for (uint32_t i = 0; i < genes.size(); i++) {
       std::string line;
       std::getline((*ifs), line);
       lno++;
       std::stringstream ss(line);
-      for (uint32_t j = 0; j < genes.size(); j++)
-      {
+      for (uint32_t j = 0; j < genes.size(); j++) {
         std::string col;
         ss >> col;
-        if (i == j) continue;
+        if (i == j)
+          continue;
         seidr_score_t x = parse_score_field(col, lno);
         reduced_edge e;
         inx_t inx;
@@ -543,20 +520,18 @@ int import(int argc, char * argv[]) {
         pr++;
       }
     }
-  }
-  else if (param.is_aracne)
-  {
-//ARACNE code
-//      std::istream ifs = *in_stream;
-    if (! (*ifs).good())
-    {
-      throw std::runtime_error("Error opening edge list. Check permissions/spelling.");
+  } else if (param.is_aracne) {
+    // ARACNE code
+    //      std::istream ifs = *in_stream;
+    if (!(*ifs).good()) {
+      throw std::runtime_error(
+        "Error opening edge list. Check permissions/spelling.");
     }
     std::string line;
-    while (std::getline( (*ifs), line))
-    {
+    while (std::getline((*ifs), line)) {
       lno++;
-      if (line.at(0) == '>') continue; //comments
+      if (line.at(0) == '>')
+        continue; // comments
       std::stringstream ss(line);
       std::string gi;
       ss >> gi;
@@ -566,15 +541,11 @@ int import(int argc, char * argv[]) {
       seidr_score_t x;
       std::string col;
       std::string target;
-      while (ss.good())
-      {
+      while (ss.good()) {
         ss >> col;
-        if (tmp % 2 == 1)
-        {
+        if (tmp % 2 == 1) {
           target = col;
-        }
-        else if (tmp % 2 == 0)
-        {
+        } else if (tmp % 2 == 0) {
           j = g_map.at(target);
           x = parse_score_field(col, lno);
           reduced_edge e;
@@ -588,14 +559,12 @@ int import(int argc, char * argv[]) {
         tmp++;
       }
     }
-  }
-  else
-  {
-//Shouldn't happen...
+  } else {
+    // Shouldn't happen...
     throw std::runtime_error("Unknown file format.");
   }
 
-  //log(LOG_INFO) << "Read " << pr << " edges\n";
+  // log(LOG_INFO) << "Read " << pr << " edges\n";
 
   log(LOG_INFO) << "Swapping min/max edges to lower triangle\n";
   std::vector<edge>& vs = X.to_vec();
@@ -603,13 +572,10 @@ int import(int argc, char * argv[]) {
   log(LOG_INFO) << "Computing ranks\n";
   rank_vector(vs, param.rev, param.absolute);
 
+  log(LOG_INFO) << "Writing data: " << genes.size() << " nodes, " << vs.size()
+                << " edges\n";
 
-  log(LOG_INFO) << "Writing data: "
-                << genes.size() << " nodes, "
-                << vs.size()  << " edges\n";
-
-  try
-  {
+  try {
     uint64_t cnt = 0;
     uint8_t dense = 0;
     double nn = genes.size();
@@ -628,68 +594,55 @@ int import(int argc, char * argv[]) {
     h.version_from_char(_XSTR(VERSION));
     h.cmd_from_args(argv, argc);
 
-
-    for (auto it = genes.begin(); it != genes.end(); it++)
-    {
+    for (auto it = genes.begin(); it != genes.end(); it++) {
       h.nodes.push_back(*it);
     }
 
-    std::vector<std::string> method = {param.name};
+    std::vector<std::string> method = { param.name };
     h.algs = method;
     h.serialize(ostr);
 
-// Main data. di and dj track the lower triangular index
-// of the current edge and empty edges will be created
-// in case they are missing in the rank vector. In sparse
-// mode these are ignored
+    // Main data. di and dj track the lower triangular index
+    // of the current edge and empty edges will be created
+    // in case they are missing in the rank vector. In sparse
+    // mode these are ignored
     uint32_t di = 1;
     uint32_t dj = 0;
     uint64_t end = dense ? (genes.size() * (genes.size() - 1)) / 2 : vs.size();
-    for (size_t i = 0; i < end; i++)
-    {
+    for (size_t i = 0; i < end; i++) {
       SeidrFileEdge e;
 
-// Create an empty entry for missing edges in dense
-// storage mode
-      if (dense && i < vs.size())
-      {
-        while (vs[i].i != di || vs[i].j != dj)
-        {
+      // Create an empty entry for missing edges in dense
+      // storage mode
+      if (dense && i < vs.size()) {
+        while (vs[i].i != di || vs[i].j != dj) {
           SeidrFileEdge tmp;
           EDGE_SET_MISSING(tmp.attr.flag);
           tmp.serialize(ostr, h);
-          if (dj == di - 1)
-          {
+          if (dj == di - 1) {
             di++;
             dj = 0;
-          }
-          else
-          {
+          } else {
             dj++;
           }
         }
-// If i,j of the lower triangular index are euqal
-// to the current node, increment them to the next
-// node in the index for the next iteration
-        if (dj == di - 1)
-        {
+        // If i,j of the lower triangular index are euqal
+        // to the current node, increment them to the next
+        // node in the index for the next iteration
+        if (dj == di - 1) {
           di++;
           dj = 0;
-        }
-        else
-        {
+        } else {
           dj++;
         }
       }
 
-// Only relevant in sparse mode
-      if (! dense)
-      {
+      // Only relevant in sparse mode
+      if (!dense) {
         e.index.i = vs[i].i;
         e.index.j = vs[i].j;
       }
-      if (i < vs.size())
-      {
+      if (i < vs.size()) {
         edge_score s;
         s.s = vs[i].w;
         s.r = vs[i].r;
@@ -697,47 +650,40 @@ int import(int argc, char * argv[]) {
 
         EDGE_SET_EXISTING(e.attr.flag);
 
-        if (param.force_undirected)
-        {
+        if (param.force_undirected) {
           EDGE_SET_UNDIRECTED(e.attr.flag);
-        }
-        else
-        {
-          switch (vs[i].d)
-          {
-          case 0:
-            EDGE_SET_UNDIRECTED(e.attr.flag);
-            break;
-          case 1:
-            EDGE_SET_AB(e.attr.flag);
-            break;
-          case 2:
-            EDGE_SET_BA(e.attr.flag);
-            break;
-          default:
-            throw std::runtime_error("Unknown edge direction\n");
+        } else {
+          switch (vs[i].d) {
+            case 0:
+              EDGE_SET_UNDIRECTED(e.attr.flag);
+              break;
+            case 1:
+              EDGE_SET_AB(e.attr.flag);
+              break;
+            case 2:
+              EDGE_SET_BA(e.attr.flag);
+              break;
+            default:
+              throw std::runtime_error("Unknown edge direction\n");
           }
         }
         e.serialize(ostr, h);
         cnt++;
-        if (cnt % PRINTING_MOD == 0)
-        {
+        if (cnt % PRINTING_MOD == 0) {
           log(LOG_INFO) << cnt << " edges written ("
-                        << (numeric_cast<double>(cnt) / numeric_cast<double>(vs.size())) * 100.0
+                        << (numeric_cast<double>(cnt) /
+                            numeric_cast<double>(vs.size())) *
+                             100.0
                         << "%)\n";
         }
-      }
-      else
-      {
+      } else {
         SeidrFileEdge tmp;
         EDGE_SET_MISSING(tmp.attr.flag);
         tmp.serialize(ostr, h);
       }
     }
     ostr.close();
-  }
-  catch (std::runtime_error& except)
-  {
+  } catch (std::runtime_error& except) {
     log(LOG_ERR) << except.what() << '\n';
   }
 

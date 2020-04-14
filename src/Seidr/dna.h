@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include <common.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
 
-#include <vector>
 #include <set>
+#include <vector>
 
 struct seidr_dna_param_t
 {

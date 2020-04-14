@@ -35,4 +35,5 @@ struct seidr_threshold_param_t
   int nthreads;
 };
 
-int threshold(int argc, char ** argv);
+int
+threshold(int argc, char** argv);

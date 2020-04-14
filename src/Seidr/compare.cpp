@@ -19,20 +19,20 @@
 //
 
 // Seidr
+#include <BSlogger.hpp>
+#include <Serialize.h>
 #include <common.h>
 #include <compare.h>
-#include <Serialize.h>
 #include <fs.h>
-#include <BSlogger.hpp>
 // External
-#include <cerrno>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <set>
 #include <boost/numeric/conversion/cast.hpp>
+#include <cerrno>
+#include <fstream>
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include <boost/program_options.hpp>
 
@@ -42,37 +42,29 @@ cindex::cindex(SeidrFileHeader& a, SeidrFileHeader& b)
 {
   std::set<std::string> set_a;
   uint32_t ctr = 0;
-  for (auto& gene : a.nodes)
-  {
+  for (auto& gene : a.nodes) {
     map_a[gene] = ctr++;
     set_a.insert(gene);
     uni.insert(gene);
   }
   // reset counter
   ctr = 0;
-  for (auto& gene : b.nodes)
-  {
+  for (auto& gene : b.nodes) {
     map_b[gene] = ctr++;
-    if (set_a.find(gene) != set_a.end())
-    {
+    if (set_a.find(gene) != set_a.end()) {
       intersect.insert(gene);
-    }
-    else
-    {
+    } else {
       diff_b.insert(gene);
     }
     uni.insert(gene);
   }
-  for (auto& gene : a.nodes)
-  {
-    if (intersect.find(gene) == intersect.end())
-    {
+  for (auto& gene : a.nodes) {
+    if (intersect.find(gene) == intersect.end()) {
       diff_a.insert(gene);
     }
   }
   ctr = 0;
-  for (auto& gene : uni)
-  {
+  for (auto& gene : uni) {
     map_c[gene] = ctr++;
   }
   // Create vector of unique merged node names
@@ -85,8 +77,7 @@ cindex::cindex(SeidrFileHeader& a, SeidrFileHeader& b, std::string& file_orth)
   orth_mode = true;
   std::ifstream ifs_orth(file_orth, std::ios::in);
   std::string line;
-  while (std::getline(ifs_orth, line))
-  {
+  while (std::getline(ifs_orth, line)) {
     std::string left, right;
     std::stringstream ss(line);
     ss >> left;
@@ -97,8 +88,7 @@ cindex::cindex(SeidrFileHeader& a, SeidrFileHeader& b, std::string& file_orth)
 
   std::set<std::string> set_a;
   uint32_t ctr = 0;
-  for (auto& gene : a.nodes)
-  {
+  for (auto& gene : a.nodes) {
     map_a[gene] = ctr++;
     set_a.insert(gene);
     uni.insert(gene);
@@ -106,52 +96,42 @@ cindex::cindex(SeidrFileHeader& a, SeidrFileHeader& b, std::string& file_orth)
   // reset counter
   std::set<std::string> set_b;
   ctr = 0;
-  for (auto& gene : b.nodes)
-  {
+  for (auto& gene : b.nodes) {
     map_b[gene] = ctr++;
     set_b.insert(gene);
     uni.insert(gene);
   }
 
   ctr = 0;
-  for (auto& gene : uni)
-  {
+  for (auto& gene : uni) {
     auto ptr = dict_orth.find(gene);
-    if (ptr != dict_orth.end())
-    {
-      if (map_c.find(ptr->first) == map_c.end())
-      {
+    if (ptr != dict_orth.end()) {
+      if (map_c.find(ptr->first) == map_c.end()) {
         map_c[ptr->first] = ctr;
         map_c[ptr->second] = ctr;
         dict_index[ctr] = string_p(ptr->first, ptr->second);
         ctr++;
       }
-    }
-    else
-    {
+    } else {
       map_c[gene] = ctr;
       ctr++;
     }
   }
   // Create vector of unique merged node names
   node_uni.resize(ctr);
-  for (auto& n : map_c)
-  {
-    if (dict_index.find(n.second) != dict_index.end())
-    {
+  for (auto& n : map_c) {
+    if (dict_index.find(n.second) != dict_index.end()) {
       std::string s1 = dict_index[n.second].first;
       std::string s2 = dict_index[n.second].second;
       node_uni[n.second] = s1 + "," + s2;
-    }
-    else
-    {
+    } else {
       node_uni[n.second] = n.first;
     }
   }
 }
 
-
-uint32_p remap_index(SeidrFileEdge& e, SeidrFileHeader& h, cindex& index)
+uint32_p
+remap_index(SeidrFileEdge& e, SeidrFileHeader& h, cindex& index)
 {
   // Need to copy from SeidrFileEdge& e since we can't refer to fields of a
   // packed struct.
@@ -162,29 +142,30 @@ uint32_p remap_index(SeidrFileEdge& e, SeidrFileHeader& h, cindex& index)
   return p1r;
 }
 
-SeidrFileEdge create_edge(SeidrFileEdge& e1, SeidrFileHeader& h1,
-                          SeidrFileEdge& e2, SeidrFileHeader& h2, uint32_p& p,
-                          uint8_t score, uint32_t& ti1, uint32_t& ti2)
+SeidrFileEdge
+create_edge(SeidrFileEdge& e1,
+            SeidrFileHeader& h1,
+            SeidrFileEdge& e2,
+            SeidrFileHeader& h2,
+            uint32_p& p,
+            uint8_t score,
+            uint32_t& ti1,
+            uint32_t& ti2)
 {
   SeidrFileEdge e;
   e.index.i = p.first;
   e.index.j = p.second;
   e.supp_int.push_back(score);
-  e.supp_flt = {0, 0};
+  e.supp_flt = { 0, 0 };
   edge_score es;
-  if (score == 0)
-  {
+  if (score == 0) {
     es.r = e1.scores[ti1].r + e2.scores[ti2].r;
     e.supp_flt[0] = boost::numeric_cast<float>(e1.scores[ti1].r);
     e.supp_flt[1] = boost::numeric_cast<float>(e2.scores[ti2].r);
-  }
-  else if (score == 1)
-  {
+  } else if (score == 1) {
     es.r = e1.scores[ti1].r;
     e.supp_flt[0] = boost::numeric_cast<float>(e1.scores[ti1].r);
-  }
-  else
-  {
+  } else {
     es.r = e2.scores[ti2].r;
     e.supp_flt[1] = boost::numeric_cast<float>(e2.scores[ti2].r);
   }
@@ -193,45 +174,37 @@ SeidrFileEdge create_edge(SeidrFileEdge& e1, SeidrFileHeader& h1,
   return e;
 }
 
-void finalize(seidr_compare_param_t& param, SeidrFileHeader& h,
-              double min, double max)
+void
+finalize(seidr_compare_param_t& param,
+         SeidrFileHeader& h,
+         double min,
+         double max)
 {
   SeidrFile out(param.tempfile.c_str());
   out.open("r");
   SeidrFileHeader ho;
   ho.unserialize(out);
 
-  if (param.file_out == "-")
-  {
-    if (h.attr.dense)
-    {
+  if (param.file_out == "-") {
+    if (h.attr.dense) {
       throw std::runtime_error("Serializing dense output is not implemented");
-    }
-    else
-    {
-      for (uint64_t i = 0; i < h.attr.edges; i++)
-      {
+    } else {
+      for (uint64_t i = 0; i < h.attr.edges; i++) {
         SeidrFileEdge e;
         e.unserialize(out, ho);
         e.scores[0].s = unity_stand(min, max, e.scores[0].r);
         e.print(h);
       }
     }
-  }
-  else
-  {
+  } else {
     SeidrFile fin(param.file_out.c_str());
     fin.open("w");
     h.serialize(fin);
 
-    if (h.attr.dense)
-    {
+    if (h.attr.dense) {
       throw std::runtime_error("Serializing dense output is not implemented");
-    }
-    else
-    {
-      for (uint64_t i = 0; i < h.attr.edges; i++)
-      {
+    } else {
+      for (uint64_t i = 0; i < h.attr.edges; i++) {
         SeidrFileEdge e;
         e.unserialize(out, ho);
         e.scores[0].s = unity_stand(min, max, e.scores[0].r);
@@ -244,9 +217,12 @@ void finalize(seidr_compare_param_t& param, SeidrFileHeader& h,
   remove(param.tempfile);
 }
 
-void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
-                   SeidrFile& f2, SeidrFileHeader& h2,
-                   seidr_compare_param_t& param)
+void
+compare_nodes(SeidrFile& f1,
+              SeidrFileHeader& h1,
+              SeidrFile& f2,
+              SeidrFileHeader& h2,
+              seidr_compare_param_t& param)
 {
   cindex index;
   if (param.trans == "")
@@ -255,12 +231,9 @@ void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
     index = cindex(h1, h2, param.trans);
 
   std::shared_ptr<std::ostream> out;
-  if (param.file_out == "-")
-  {
+  if (param.file_out == "-") {
     out.reset(&std::cout, [](...) {});
-  }
-  else
-  {
+  } else {
     out.reset(new std::ofstream(param.file_out.c_str()));
   }
 
@@ -269,13 +242,13 @@ void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
   for (std::string& n : node_names)
     nm[n] = 3;
   f1.seek(0);
-  f1.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  f1.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     uint32_p re = index.reindex(h, e);
     nm[node_names[re.first]] = 1;
     nm[node_names[re.second]] = 1;
   });
   f2.seek(0);
-  f2.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  f2.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     uint32_p re = index.reindex(h, e);
     auto ptr = nm.find(node_names[re.first]);
     if (ptr->second == 1 || ptr->second == 0)
@@ -289,43 +262,44 @@ void compare_nodes(SeidrFile& f1, SeidrFileHeader& h1,
     else
       ptr->second = 2;
   });
-  for (auto& n : nm)
-  {
+  for (auto& n : nm) {
     (*out) << n.first << '\t' << n.second << '\n';
   }
   f1.close();
   f2.close();
 }
 
-void next_edge(SeidrFileEdge& e, SeidrFile& f, SeidrFileHeader& h,
-               uint64_t& i, uint64_t& j)
+void
+next_edge(SeidrFileEdge& e,
+          SeidrFile& f,
+          SeidrFileHeader& h,
+          uint64_t& i,
+          uint64_t& j)
 {
-  if (h.attr.dense)
-  {
+  if (h.attr.dense) {
     e.unserialize(f, h);
-    e.index.i = i; e.index.j = j;
-    if (j == (i - 1))
-    {
+    e.index.i = i;
+    e.index.j = j;
+    if (j == (i - 1)) {
       i++;
       j = 0;
-    }
-    else
-    {
+    } else {
       j++;
     }
-    if (! EDGE_EXISTS(e.attr.flag))
+    if (!EDGE_EXISTS(e.attr.flag))
       next_edge(e, f, h, i, j);
-  }
-  else
-  {
+  } else {
     e.unserialize(f, h);
   }
 }
 
-void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
-                SeidrFile& f2, SeidrFileHeader& h2,
-                SeidrFileHeader& h3,
-                seidr_compare_param_t& param)
+void
+compare_ss(SeidrFile& f1,
+           SeidrFileHeader& h1,
+           SeidrFile& f2,
+           SeidrFileHeader& h2,
+           SeidrFileHeader& h3,
+           seidr_compare_param_t& param)
 {
 
   SeidrFile out(param.tempfile.c_str());
@@ -367,8 +341,8 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   h3.attr.nsupp = 3;
   h3.attr.nsupp_flt = 2;
   h3.attr.nsupp_int = 1;
-  h3.supp = {"N", "A", "B"};
-  h3.algs = {"Merge"};
+  h3.supp = { "N", "A", "B" };
+  h3.algs = { "Merge" };
 
   h3.nodes = node_names;
 
@@ -377,11 +351,9 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   double min = std::numeric_limits<double>::infinity();
   double max = -std::numeric_limits<double>::infinity();
 
-  while (true)
-  {
+  while (true) {
     SeidrFileEdge e3;
-    if (p1r.first < p2r.first)
-    {
+    if (p1r.first < p2r.first) {
       e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       // Check if this was the last edge in the file
@@ -392,9 +364,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
       ctr1++;
       if (ctr1 == h1.attr.edges)
         break1 = true;
-    }
-    else if (p1r.first > p2r.first)
-    {
+    } else if (p1r.first > p2r.first) {
       e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
       // Check if this was the last edge in the file
@@ -405,11 +375,8 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
       ctr2++;
       if (ctr2 == h2.attr.edges)
         break2 = true;
-    }
-    else
-    {
-      if (p1r.second < p2r.second)
-      {
+    } else {
+      if (p1r.second < p2r.second) {
         e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
         // Check if this was the last edge in the file
@@ -420,9 +387,7 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
         ctr1++;
         if (ctr1 == h1.attr.edges)
           break1 = true;
-      }
-      else if (p1r.second > p2r.second)
-      {
+      } else if (p1r.second > p2r.second) {
         e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
         if (break2)
@@ -432,33 +397,24 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
         ctr2++;
         if (ctr2 == h2.attr.edges)
           break2 = true;
-      }
-      else
-      {
+      } else {
         e3 = create_edge(e1, h1, e2, h2, p1r, 0, param.tindex1, param.tindex2);
         e3.serialize(out, h3);
-        if (break1 && break2)
-        {
+        if (break1 && break2) {
           break;
-        }
-        else if (break1)
-        {
+        } else if (break1) {
           next_edge(e2, f2, h2, e2i, e2j);
           p2r = remap_index(e2, h2, index);
           ctr2++;
           ctr3++;
           break;
-        }
-        else if (break2)
-        {
+        } else if (break2) {
           next_edge(e1, f1, h1, e1i, e1j);
           p1r = remap_index(e1, h1, index);
           ctr1++;
           ctr3++;
           break;
-        }
-        else
-        {
+        } else {
           next_edge(e1, f1, h1, e1i, e1j);
           p1r = remap_index(e1, h1, index);
           next_edge(e2, f2, h2, e2i, e2j);
@@ -478,14 +434,11 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
     max = e3.scores[0].r > max ? e3.scores[0].r : max;
   }
   SeidrFileEdge e3;
-  if (break1 && !break2)
-  {
-    for (uint64_t i = ctr2 - 1; i < h2.attr.edges; i++)
-    {
+  if (break1 && !break2) {
+    for (uint64_t i = ctr2 - 1; i < h2.attr.edges; i++) {
       e3 = create_edge(e1, h1, e2, h2, p2r, 2, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
-      if (i < h2.attr.edges - 1)
-      {
+      if (i < h2.attr.edges - 1) {
         next_edge(e2, f2, h2, e2i, e2j);
         p2r = remap_index(e2, h2, index);
       }
@@ -493,15 +446,11 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
       max = e3.scores[0].r > max ? e3.scores[0].r : max;
       ctr2++;
     }
-  }
-  else if (break2 && !break1)
-  {
-    for (uint64_t i = ctr1 - 1; i < h1.attr.edges; i++)
-    {
+  } else if (break2 && !break1) {
+    for (uint64_t i = ctr1 - 1; i < h1.attr.edges; i++) {
       e3 = create_edge(e1, h1, e2, h2, p1r, 1, param.tindex1, param.tindex2);
       e3.serialize(out, h3);
-      if (i < h1.attr.edges - 1)
-      {
+      if (i < h1.attr.edges - 1) {
         next_edge(e1, f1, h1, e1i, e1j);
         p1r = remap_index(e1, h1, index);
       }
@@ -517,7 +466,9 @@ void compare_ss(SeidrFile& f1, SeidrFileHeader& h1,
   finalize(param, h3, min, max);
 }
 
-int compare(int argc, char * argv[]) {
+int
+compare(int argc, char* argv[])
+{
 
   logger log(std::cerr, "compare");
 
@@ -525,47 +476,50 @@ int compare(int argc, char * argv[]) {
   seidr_compare_param_t param;
 
   // We ignore the first argument
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " compare";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   po::options_description umbrella("Compare edges or nodes in two networks.");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o", po::value<std::string>(&param.file_out)->default_value("-"),
-   "Output file name ['-' for stdout]")
-  ("tempdir,T",
-   po::value<std::string>(&param.tempdir)->default_value("", "auto"),
-   "Directory to store temporary data");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.file_out)->default_value("-"),
+    "Output file name ['-' for stdout]")(
+    "tempdir,T",
+    po::value<std::string>(&param.tempdir)->default_value("", "auto"),
+    "Directory to store temporary data");
 
   po::options_description copt("Compare Options");
-  copt.add_options()
-  ("index-a,i",
-   po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
-   "Merge scores on this index for network A")
-  ("index-b,j",
-   po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
-   "Merge scores on this index for network B")
-  ("translate,t",
-   po::value<std::string>(&param.trans)->default_value(""),
-   "Translate node names in network A according to this table")
-  ("nodes,n", po::bool_switch(&param.node_mode)->default_value(false),
-   "Print overlap of nodes instead of edges");
-
+  copt.add_options()(
+    "index-a,i",
+    po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
+    "Merge scores on this index for network A")(
+    "index-b,j",
+    po::value<uint32_t>(&param.tindex1)->default_value(0, "last score"),
+    "Merge scores on this index for network B")(
+    "translate,t",
+    po::value<std::string>(&param.trans)->default_value(""),
+    "Translate node names in network A according to this table")(
+    "nodes,n",
+    po::bool_switch(&param.node_mode)->default_value(false),
+    "Print overlap of nodes instead of edges");
 
   po::options_description req("Required Options [can be positional]");
-  req.add_options()
-  ("network-1", po::value<std::string>(&param.net1)->required(),
-   "Input SeidrFile for network A")
-  ("network-2", po::value<std::string>(&param.net2)->required(),
-   "Input SeidrFile for network B");
+  req.add_options()("network-1",
+                    po::value<std::string>(&param.net1)->required(),
+                    "Input SeidrFile for network A")(
+    "network-2",
+    po::value<std::string>(&param.net2)->required(),
+    "Input SeidrFile for network B");
 
   umbrella.add(req).add(copt).add(opt);
 
@@ -574,45 +528,37 @@ int compare(int argc, char * argv[]) {
   p.add("network-2", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
-
 
   param.net1 = to_absolute(param.net1);
   param.net2 = to_absolute(param.net2);
 
   param.tempfile = tempfile(param.tempdir);
 
-  try
-  {
+  try {
     assert_exists(param.net1);
     assert_exists(param.net2);
     assert_can_read(param.net1);
     assert_can_read(param.net2);
-    if (! param.force && param.file_out != "-")
-    {
+    if (!param.force && param.file_out != "-") {
       assert_no_overwrite(param.file_out);
     }
     assert_dir_is_writeable(dirname(param.tempdir));
-  }
-  catch (std::runtime_error& e)
-  {
+  } catch (std::runtime_error& e) {
     log(LOG_ERR) << e.what() << '\n';
     return errno;
   }
@@ -633,12 +579,9 @@ int compare(int argc, char * argv[]) {
 
   make_tpos(param.tindex2, h2);
 
-  if (param.node_mode)
-  {
+  if (param.node_mode) {
     compare_nodes(n1, h1, n2, h2, param);
-  }
-  else
-  {
+  } else {
     SeidrFileHeader h3;
     h3.version_from_char(_XSTR(VERSION));
     h3.cmd_from_args(argv, argc);

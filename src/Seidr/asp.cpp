@@ -18,77 +18,78 @@
 // along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-#include <common.h>
-#include <asp.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <asp.h>
+#include <common.h>
+#include <fs.h>
 
 #undef DEBUG
 
-#include <networkit/graph/Graph.h>
-#include <networkit/distance/APSP.h>
-#include <vector>
-#include <string>
-#include <iostream>
-#include <fstream>
 #include <algorithm>
-#include <map>
-#include <cmath>
-#include <memory>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/program_options.hpp>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <networkit/distance/APSP.h>
+#include <networkit/graph/Graph.h>
+#include <string>
+#include <vector>
 
 namespace po = boost::program_options;
 
-int asp(int argc, char ** argv)
+int
+asp(int argc, char** argv)
 {
   logger log(std::cerr, "asp");
 
   seidr_asp_param_t param;
 
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " asp";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   po::options_description umbrella("Compute all shortest paths in the network");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("-"),
-   "Output file name ['-' for stdout]");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.outfile)->default_value("-"),
+    "Output file name ['-' for stdout]");
 
   po::options_description aspopt("ASP Options");
-  aspopt.add_options()
-  ("index,i",
-   po::value<uint32_t>(&param.tpos)->default_value(0, "last column"),
-   "Algorithm position in SeidrFile to use as weights")
-  ("use-rank,r", po::bool_switch(&param.trank)->default_value(false),
-   "Use rank as edge weight basis instead of score")
-  ("invert,I", po::bool_switch(&param.invert)->default_value(false),
-   "Invert scores (if higher scores are better)")
-  ("absolute,a", po::bool_switch(&param.absolute)->default_value(false),
-   "Use absolute weights.");
-
+  aspopt.add_options()(
+    "index,i",
+    po::value<uint32_t>(&param.tpos)->default_value(0, "last column"),
+    "Algorithm position in SeidrFile to use as weights")(
+    "use-rank,r",
+    po::bool_switch(&param.trank)->default_value(false),
+    "Use rank as edge weight basis instead of score")(
+    "invert,I",
+    po::bool_switch(&param.invert)->default_value(false),
+    "Invert scores (if higher scores are better)")(
+    "absolute,a",
+    po::bool_switch(&param.absolute)->default_value(false),
+    "Use absolute weights.");
 
   po::options_description fopt("Formatting Options");
-  fopt.add_options()
-  ("precision,p",
-   po::value<uint16_t>(&param.precision)->default_value(8),
-   "Number of decimals to print");
+  fopt.add_options()("precision,p",
+                     po::value<uint16_t>(&param.precision)->default_value(8),
+                     "Number of decimals to print");
 
   po::options_description req("Required Options [can be positional]");
-  req.add_options()
-  ("in-file",
-   po::value<std::string>(&param.infile),
-   "Input SeidrFile");
+  req.add_options()(
+    "in-file", po::value<std::string>(&param.infile), "Input SeidrFile");
 
   umbrella.add(req).add(aspopt).add(fopt).add(opt);
 
@@ -96,32 +97,26 @@ int asp(int argc, char ** argv)
   p.add("in-file", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     assert_exists(param.infile);
     assert_can_read(param.infile);
-  }
-  catch (std::runtime_error& e)
-  {
+  } catch (std::runtime_error& e) {
     log(LOG_ERR) << e.what() << '\n';
     return errno;
   }
@@ -137,14 +132,12 @@ int asp(int argc, char ** argv)
   log(LOG_INFO) << "Starting analysis\n";
 
   log(LOG_INFO) << "Reading network\n";
-  std::vector<MiniEdge> edges =
-    read_network_minimal(h, rf, -std::numeric_limits<double>::infinity(),
-                         param.tpos, param.trank);
+  std::vector<MiniEdge> edges = read_network_minimal(
+    h, rf, -std::numeric_limits<double>::infinity(), param.tpos, param.trank);
   log(LOG_INFO) << "Read " << edges.size() << " edges\n";
 
   NetworKit::Graph g(h.attr.nodes, true, false);
-  for (uint64_t i = 0; i < edges.size(); i++)
-  {
+  for (uint64_t i = 0; i < edges.size(); i++) {
     double weight = edges[i].s;
     if (almost_equal(weight, 0))
       weight = 1e-8;
@@ -158,19 +151,14 @@ int asp(int argc, char ** argv)
 
   std::shared_ptr<std::ostream> out;
 
-  if (param.outfile == "-")
-  {
-    out.reset(&std::cout, [](...){});
-  }
-  else
-  {
+  if (param.outfile == "-") {
+    out.reset(&std::cout, [](...) {});
+  } else {
     out.reset(new std::ofstream(param.outfile.c_str()));
   }
 
-  for (uint64_t i = 1; i < h.attr.nodes; i++)
-  {
-    for (uint64_t j = 0; j < i; j++)
-    {
+  for (uint64_t i = 1; i < h.attr.nodes; i++) {
+    for (uint64_t j = 0; j < i; j++) {
       (*out) << apsp.getDistance(i, j) << ((j == i - 1) ? '\n' : '\t');
     }
   }

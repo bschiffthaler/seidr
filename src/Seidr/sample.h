@@ -20,7 +20,8 @@
 #pragma once
 #include <string>
 
-struct seidr_sample_param_t {
+struct seidr_sample_param_t
+{
   std::string el_file;
   uint64_t nedges;
   double prop;
@@ -30,4 +31,5 @@ struct seidr_sample_param_t {
   std::string outfile;
 };
 
-int sample(int argc, char * argv[]);
+int
+sample(int argc, char* argv[]);

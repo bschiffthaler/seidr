@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include <vector>
 #include <armadillo>
 #include <string>
 #include <svm.h>
+#include <vector>
 
-#include <boost/archive/xml_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
 
 #define SVM_FULL 0
 #define SVM_PARTIAL 1
@@ -38,28 +38,28 @@ struct seidr_svm_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive & ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version)
   {
-    ar & BOOST_SERIALIZATION_NVP(infile);
-    ar & BOOST_SERIALIZATION_NVP(gene_file);
-    ar & BOOST_SERIALIZATION_NVP(targets_file);
-    ar & BOOST_SERIALIZATION_NVP(do_scale);
-    ar & BOOST_SERIALIZATION_NVP(force);
-    ar & BOOST_SERIALIZATION_NVP(row_delim);
-    ar & BOOST_SERIALIZATION_NVP(field_delim);
-    ar & BOOST_SERIALIZATION_NVP(bs);
-    ar & BOOST_SERIALIZATION_NVP(mode);
-    ar & BOOST_SERIALIZATION_NVP(outfile);
-    ar & BOOST_SERIALIZATION_NVP(tempdir);
-    ar & BOOST_SERIALIZATION_NVP(min_sample_size);
-    ar & BOOST_SERIALIZATION_NVP(max_sample_size);
-    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_min);
-    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_max);
-    ar & BOOST_SERIALIZATION_NVP(ensemble_size);
-    ar & BOOST_SERIALIZATION_NVP(verbosity);
-    ar & BOOST_SERIALIZATION_NVP(svm_type);
-    ar & BOOST_SERIALIZATION_NVP(kernel);
-    ar & BOOST_SERIALIZATION_NVP(nthreads);
+    ar& BOOST_SERIALIZATION_NVP(infile);
+    ar& BOOST_SERIALIZATION_NVP(gene_file);
+    ar& BOOST_SERIALIZATION_NVP(targets_file);
+    ar& BOOST_SERIALIZATION_NVP(do_scale);
+    ar& BOOST_SERIALIZATION_NVP(force);
+    ar& BOOST_SERIALIZATION_NVP(row_delim);
+    ar& BOOST_SERIALIZATION_NVP(field_delim);
+    ar& BOOST_SERIALIZATION_NVP(bs);
+    ar& BOOST_SERIALIZATION_NVP(mode);
+    ar& BOOST_SERIALIZATION_NVP(outfile);
+    ar& BOOST_SERIALIZATION_NVP(tempdir);
+    ar& BOOST_SERIALIZATION_NVP(min_sample_size);
+    ar& BOOST_SERIALIZATION_NVP(max_sample_size);
+    ar& BOOST_SERIALIZATION_NVP(predictor_sample_size_min);
+    ar& BOOST_SERIALIZATION_NVP(predictor_sample_size_max);
+    ar& BOOST_SERIALIZATION_NVP(ensemble_size);
+    ar& BOOST_SERIALIZATION_NVP(verbosity);
+    ar& BOOST_SERIALIZATION_NVP(svm_type);
+    ar& BOOST_SERIALIZATION_NVP(kernel);
+    ar& BOOST_SERIALIZATION_NVP(nthreads);
   }
   std::string infile;
   std::string gene_file;
@@ -87,21 +87,24 @@ struct seidr_svm_param_t
   std::vector<uint64_t> good_idx;
 };
 
-void svm(const arma::mat& geneMatrix,
+void
+svm(const arma::mat& geneMatrix,
+    const std::vector<std::string>& genes,
+    const std::vector<arma::uword>& uvec,
+    const std::string& tmpdir,
+    svm_parameter& param,
+    const arma::uword& min_sample_size,
+    const arma::uword& max_sample_size,
+    const arma::uword& predictor_sample_size_min,
+    const arma::uword& predictor_sample_size_max,
+    const arma::uword& ensemble_size,
+    seidr_mpi_svm* self);
+void
+svm_full(const arma::mat& GM,
          const std::vector<std::string>& genes,
-         const std::vector<arma::uword>& uvec,
-         const std::string& tmpdir,
-         svm_parameter& param,
-         const arma::uword& min_sample_size,
-         const arma::uword& max_sample_size,
-         const arma::uword& predictor_sample_size_min,
-         const arma::uword& predictor_sample_size_max,
-         const arma::uword& ensemble_size,
-         seidr_mpi_svm * self);
-void svm_full(const arma::mat& GM,
-              const std::vector<std::string>& genes, 
-              seidr_svm_param_t& param);
-void svm_partial(const arma::mat& GM,
-                 const std::vector<std::string>& genes,
-                 const std::vector<std::string>& targets,
-                 seidr_svm_param_t& param);
+         seidr_svm_param_t& param);
+void
+svm_partial(const arma::mat& GM,
+            const std::vector<std::string>& genes,
+            const std::vector<std::string>& targets,
+            seidr_svm_param_t& param);

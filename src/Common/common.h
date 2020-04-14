@@ -21,16 +21,16 @@
 
 #include <Serialize.h>
 
-#include <iostream>
-#include <armadillo>
-#include <vector>
-#include <string>
-#include <fstream>
 #include <algorithm>
+#include <armadillo>
+#include <fstream>
+#include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 
-#include <boost/tokenizer.hpp>
 #include <boost/program_options.hpp>
+#include <boost/tokenizer.hpp>
 
 namespace po = boost::program_options;
 
@@ -39,41 +39,44 @@ namespace po = boost::program_options;
 #define SFLT_EPSILON 0.000000001
 #define ORDER_WEIGHT 0
 
-#define SEIDR_MALLOC(type,n) (type *)malloc((n)*sizeof(type))
+#define SEIDR_MALLOC(type, n) (type*)malloc((n) * sizeof(type))
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
 #define _AT __FILE__ ":" _XSTR(__LINE__)
-#define _BUG(x) throw std::runtime_error("Looks like you have encountered "\
-"a bug.\nPlease report this message and steps to reproduce is to:\n"\
-"https://github.com/bschiffthaler/seidr/issues\n"\
-"Error message: " x)
+#define _BUG(x)                                                                \
+  throw std::runtime_error(                                                    \
+    "Looks like you have encountered "                                         \
+    "a bug.\nPlease report this message and steps to reproduce is to:\n"       \
+    "https://github.com/bschiffthaler/seidr/issues\n"                          \
+    "Error message: " x)
 
 #if defined(SEIDR_PSTL)
-  #define SORT(start, end) \
-    std::sort(pstl::execution::par, start, end)
-  #define SORTWCOMP(start, end, comp) \
-    std::sort(pstl::execution::par, start, end, comp)
-  #define SET_NUM_PSTL_THREADS(x) \
-    tbb::global_control(tbb::global_control::max_allowed_parallelism, x);
-  #define GET_MAX_PSTL_THREADS() \
-    tbb::task_scheduler_init::default_num_threads()
+#define SORT(start, end) std::sort(pstl::execution::par, start, end)
+#define SORTWCOMP(start, end, comp)                                            \
+  std::sort(pstl::execution::par, start, end, comp)
+#define SET_NUM_PSTL_THREADS(x)                                                \
+  tbb::global_control(tbb::global_control::max_allowed_parallelism, x);
+#define GET_MAX_PSTL_THREADS() tbb::task_scheduler_init::default_num_threads()
 #else
-  #define SORT(start, end) std::sort(start, end)
-  #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
-  #define SET_NUM_PSTL_THREADS(x)
-  #define GET_MAX_PSTL_THREADS() 1
-  #define INIT_TBB_CONTROL() int tbb_control = -1;
+#define SORT(start, end) std::sort(start, end)
+#define SORTWCOMP(start, end, comp) std::sort(start, end, comp)
+#define SET_NUM_PSTL_THREADS(x)
+#define GET_MAX_PSTL_THREADS() 1
+#define INIT_TBB_CONTROL() int tbb_control = -1;
 #endif
 
 #ifdef SEIDR_WITH_MPI
-    #define SEIDR_MPI_BARRIER() MPI_Barrier(MPI_COMM_WORLD);
-    #define SEIDR_MPI_FINALIZE() MPI_Finalize();
-    #define SEIDR_MPI_INIT() MPI_Init(&argc, &argv); int rank = 0; MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#define SEIDR_MPI_BARRIER() MPI_Barrier(MPI_COMM_WORLD);
+#define SEIDR_MPI_FINALIZE() MPI_Finalize();
+#define SEIDR_MPI_INIT()                                                       \
+  MPI_Init(&argc, &argv);                                                      \
+  int rank = 0;                                                                \
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #else
-    #define SEIDR_MPI_BARRIER() nullptr;
-    #define SEIDR_MPI_FINALIZE() nullptr;
-    #define SEIDR_MPI_INIT() int rank = 0;
+#define SEIDR_MPI_BARRIER() nullptr;
+#define SEIDR_MPI_FINALIZE() nullptr;
+#define SEIDR_MPI_INIT() int rank = 0;
 #endif
 
 typedef double seidr_score_t;
@@ -85,96 +88,112 @@ typedef arma::mat seidr_mat_t;
 #endif
 
 typedef arma::uword seidr_uword_t;
-typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
 
 // Set difference for a single number
-arma::uvec get_i(arma::uword ind, size_t s);
+arma::uvec
+get_i(arma::uword ind, size_t s);
 
 // Read gene names
-std::vector<std::string> read_genes(const std::string& inputs,
-                                    char row_delim = '\n', char field_delim = '\t');
+std::vector<std::string>
+read_genes(const std::string& inputs,
+           char row_delim = '\n',
+           char field_delim = '\t');
 
 // Check if value is in sorted range
-template <typename T>
-bool in_sorted_range(const T& query, const std::vector<T>& subject)
+template<typename T>
+bool
+in_sorted_range(const T& query, const std::vector<T>& subject)
 {
   return std::binary_search(subject.cbegin(), subject.cend(), query);
 }
 
-bool is_gzip(const std::string& input);
+bool
+is_gzip(const std::string& input);
 
 bool almost_equal(seidr_score_t, seidr_score_t);
 
-seidr_score_t unity_stand(seidr_score_t xmin, seidr_score_t xmax, seidr_score_t xi);
+seidr_score_t
+unity_stand(seidr_score_t xmin, seidr_score_t xmax, seidr_score_t xi);
 
-void scale(arma::mat& x);
+void
+scale(arma::mat& x);
 
 static const std::string version = _XSTR(SEIDR_VERSION);
 
-template <typename T>
-inline void SWAP(T &x, T &y)
+template<typename T>
+inline void
+SWAP(T& x, T& y)
 {
   T tmp = x;
-  x = y; y = tmp;
+  x = y;
+  y = tmp;
 }
 
-std::vector<std::string> tokenize_delim(const std::string& nodes,
-                                        const std::string& delim);
+std::vector<std::string>
+tokenize_delim(const std::string& nodes, const std::string& delim);
 
-void merge_files(const std::string& outfile,
-                 std::string tempdir, bool targeted, int id,
-                 const std::vector<std::string>& genes);
+void
+merge_files(const std::string& outfile,
+            std::string tempdir,
+            bool targeted,
+            int id,
+            const std::vector<std::string>& genes);
 
-bool any_const_expr(arma::mat& inp);
+bool
+any_const_expr(arma::mat& inp);
 
-void verify_matrix(arma::mat& inp);
-void verify_matrix(arma::mat& inp, std::vector<std::string>& genes);
+void
+verify_matrix(arma::mat& inp);
+void
+verify_matrix(arma::mat& inp, std::vector<std::string>& genes);
 
 template<typename T>
-void assert_in_range(const T& num, const T& min, const T& max,
-                     const std::string& nam = "")
+void
+assert_in_range(const T& num,
+                const T& min,
+                const T& max,
+                const std::string& nam = "")
 {
-  if (num < min || num > max)
-  {
-    if (! nam.empty())
-    {
+  if (num < min || num > max) {
+    if (!nam.empty()) {
       throw std::runtime_error("Value of " + nam + " (=" + std::to_string(num) +
                                ") not in allowed range of "
-                               "[" + std::to_string(min) + "," +
-                               std::to_string(max) + "]");
-    }
-    else
-    {
+                               "[" +
+                               std::to_string(min) + "," + std::to_string(max) +
+                               "]");
+    } else {
       throw std::runtime_error("Value (=" + std::to_string(num) +
                                ") not in allowed range of "
-                               "[" + std::to_string(min) + "," +
-                               std::to_string(max) + "]");
+                               "[" +
+                               std::to_string(min) + "," + std::to_string(max) +
+                               "]");
     }
   }
 }
 
-void assert_mutually_exclusive(const po::variables_map& vm,
-                               const std::vector<std::string> targets);
+void
+assert_mutually_exclusive(const po::variables_map& vm,
+                          const std::vector<std::string> targets);
 
-std::string str_join(const std::vector<std::string>& source,
-                     const std::string& delim);
+std::string
+str_join(const std::vector<std::string>& source, const std::string& delim);
 
-void make_tpos(uint32_t& tpos, const SeidrFileHeader& h);
+void
+make_tpos(uint32_t& tpos, const SeidrFileHeader& h);
 
 template<typename T>
-void assert_arg_constraint(std::vector<T> allowed, T arg)
+void
+assert_arg_constraint(std::vector<T> allowed, T arg)
 {
   auto hit = std::find(allowed.begin(), allowed.end(), arg);
-  if (hit == allowed.end())
-  {
+  if (hit == allowed.end()) {
     std::stringstream ss;
     ss << "Argument '" << arg << "' is not allowed. Allowed values are ";
     ss << '[';
-    for (uint64_t i = 0; i < allowed.size(); i++)
-    {
+    for (uint64_t i = 0; i < allowed.size(); i++) {
       ss << "'" << allowed[i] << "'";
-      if (i < (allowed.size() - 1))
-      {
+      if (i < (allowed.size() - 1)) {
         ss << ',';
       }
     }
@@ -183,6 +202,7 @@ void assert_arg_constraint(std::vector<T> allowed, T arg)
   }
 }
 
-uint64_t get_mpi_nthread();
-uint64_t guess_batch_size(uint64_t const & set_size,
-                          uint64_t const & task_n);
+uint64_t
+get_mpi_nthread();
+uint64_t
+guess_batch_size(uint64_t const& set_size, uint64_t const& task_n);

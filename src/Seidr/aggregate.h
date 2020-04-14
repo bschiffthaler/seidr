@@ -31,5 +31,5 @@ struct seidr_aggregate_param_t
   int nthreads;
 };
 
-int aggregate(int argc, char * argv[]);
-
+int
+aggregate(int argc, char* argv[]);

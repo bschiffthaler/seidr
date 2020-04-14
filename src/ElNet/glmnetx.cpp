@@ -19,8 +19,8 @@
 //
 
 // Seidr
-#include <glmnetx.h>
 #include <common.h>
+#include <glmnetx.h>
 // External
 #include <armadillo>
 #include <boost/numeric/conversion/cast.hpp>
@@ -29,16 +29,21 @@
 
 using boost::numeric_cast;
 
-glm glmnet(arma::mat& X, arma::vec& Y, int64_t nsteps, double fmin)
+glm
+glmnet(arma::mat& X, arma::vec& Y, int64_t nsteps, double fmin)
 {
   glm ret(X, Y, nsteps, fmin);
   return ret;
 }
 
-glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
-         double _alpha, arma::vec _ulam) :
-  lmu(0),
-  beta_success(false)
+glm::glm(arma::mat _X,
+         arma::vec _Y,
+         int64_t _nlam,
+         double _flmin,
+         double _alpha,
+         arma::vec _ulam)
+  : lmu(0)
+  , beta_success(false)
 {
   X = std::move(_X);
   Y = std::move(_Y);
@@ -62,34 +67,29 @@ glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
   arma::mat x = X;
   arma::vec y = Y;
 
-  double * xptr = x.memptr();
-  double * yptr = y.memptr();
+  double* xptr = x.memptr();
+  double* yptr = y.memptr();
 
   auto wptr = new double[nobs]();
-  for (int64_t i = 0; i < nobs; i++)
-  {
+  for (int64_t i = 0; i < nobs; i++) {
     wptr[i] = 1.0;
   }
 
   auto vpptr = new double[nvars]();
-  for (int64_t i = 0; i < nvars; i++)
-  {
+  for (int64_t i = 0; i < nvars; i++) {
     vpptr[i] = 1.0;
   }
 
   auto clptr = new double[2 * nvars]();
-  for (int64_t i = 0; i < 2 * nvars; i++)
-  {
+  for (int64_t i = 0; i < 2 * nvars; i++) {
     clptr[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
   }
 
   auto ulamptr = new double[1];
 
-  if (flmin >= 1)
-  {
+  if (flmin >= 1) {
     ulamptr = new double[_ulam.n_elem];
-    for (arma::uword i = 0; i < _ulam.n_elem; i++)
-    {
+    for (arma::uword i = 0; i < _ulam.n_elem; i++) {
       ulamptr[i] = _ulam(i);
     }
     nlam = numeric_cast<int64_t>(_ulam.n_elem);
@@ -103,10 +103,34 @@ glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
   auto almptr = new double[nlam]();
 
   // Run ElNet optimization
-  elnet_(&ka, &alpha, &nobs, &nvars, xptr, yptr, wptr,
-         &jd, vpptr, clptr, &ne, &nx, &nlam, &flmin, ulamptr, &thresh, &isd,
-         &intr, &maxit, &lmu, a0ptr, captr, iaptr,
-         ninptr, rsqptr, almptr, &nlp, &jerr);
+  elnet_(&ka,
+         &alpha,
+         &nobs,
+         &nvars,
+         xptr,
+         yptr,
+         wptr,
+         &jd,
+         vpptr,
+         clptr,
+         &ne,
+         &nx,
+         &nlam,
+         &flmin,
+         ulamptr,
+         &thresh,
+         &isd,
+         &intr,
+         &maxit,
+         &lmu,
+         a0ptr,
+         captr,
+         iaptr,
+         ninptr,
+         rsqptr,
+         almptr,
+         &nlp,
+         &jerr);
 
   // Create arma vectors from aux memory while at the same time
   // truncating data to reflect actual number of lambdas (solutions)
@@ -115,21 +139,18 @@ glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
   a0 = arma::vec(a0ptr, u_lmu);
   ca = arma::vec(captr, u_nx * u_lmu);
   ia = arma::uvec(u_nx);
-  for (arma::uword i = 0; i < u_nx; i++)
-  {
+  for (arma::uword i = 0; i < u_nx; i++) {
     ia[i] = numeric_cast<arma::uword>(iaptr[i]);
   }
   nin = arma::uvec(u_lmu);
-  for (arma::uword i = 0; i < u_lmu; i++)
-  {
+  for (arma::uword i = 0; i < u_lmu; i++) {
     nin[i] = numeric_cast<arma::uword>(ninptr[i]);
   }
   rsq = arma::vec(rsqptr, u_lmu);
   alm = arma::vec(almptr, u_lmu);
 
   // Fix lambda return
-  if (nlam > 1 && flmin < 1)
-  {
+  if (nlam > 1 && flmin < 1) {
     arma::mat lalm = arma::log(alm);
     alm(0) = exp(2 * lalm(1) - lalm(2));
   }
@@ -145,10 +166,11 @@ glm::glm(arma::mat _X, arma::vec _Y, int64_t _nlam, double _flmin,
   delete[] rsqptr;
   delete[] almptr;
   delete[] ulamptr;
-
 }
 
-void glm::calculate_beta() {
+void
+glm::calculate_beta()
+{
   // Setup return struct
   beta = arma::mat(nvars, nlam, arma::fill::zeros);
   sort_order = arma::uvec(1);
@@ -156,8 +178,7 @@ void glm::calculate_beta() {
   // Create safe unsigned variables to compare to
   arma::uword u_lmu = 0, u_nx = 0, u_ninmax = 0, u_nlam = 0;
 
-  try
-  {
+  try {
     u_lmu = boost::numeric_cast<arma::uword>(lmu);
     u_nx = boost::numeric_cast<arma::uword>(nx);
     u_nlam = boost::numeric_cast<arma::uword>(nlam);
@@ -165,14 +186,11 @@ void glm::calculate_beta() {
     // any lambda
     int ninmax = arma::max(nin);
     u_ninmax = boost::numeric_cast<arma::uword>(ninmax);
-  }
-  catch (boost::numeric::bad_numeric_cast& e)
-  {
+  } catch (boost::numeric::bad_numeric_cast& e) {
     throw std::runtime_error(e.what());
   }
 
-  if (u_ninmax > 0 && u_lmu > 0)
-  {
+  if (u_ninmax > 0 && u_lmu > 0) {
     // Zero out noise arising from precision issues
     // ca( arma::find(ca < 1e-7) ).fill(0);
 
@@ -187,8 +205,7 @@ void glm::calculate_beta() {
     // from the row indices of coefficients and for the
     // lambda columns excluding the first
     arma::uvec arma_ia(u_ninmax, arma::fill::zeros);
-    for (arma::uword i = 0; i < u_ninmax; i++)
-    {
+    for (arma::uword i = 0; i < u_ninmax; i++) {
       arma_ia(i) = ia(i) - 1;
     }
     // Create final full coefficient matrix
@@ -197,14 +214,14 @@ void glm::calculate_beta() {
     beta.set_size(nx, lmu);
     beta.rows(arma_ia) = cx;
     sort_order = arma_ia;
-    if (u_lmu == u_nlam)
-    {
+    if (u_lmu == u_nlam) {
       beta_success = true;
     }
   }
 }
 
-arma::mat glm::predict(arma::mat& newx)
+arma::mat
+glm::predict(arma::mat& newx)
 {
   calculate_beta();
 
@@ -214,14 +231,15 @@ arma::mat glm::predict(arma::mat& newx)
   nbeta.rows(1, nbeta.n_rows - 1) = beta;
 
   // Create new data matrix with intercept = 1 as first column
-  arma::mat icep_newx(newx.n_rows, newx.n_cols + 1,  arma::fill::zeros);
+  arma::mat icep_newx(newx.n_rows, newx.n_cols + 1, arma::fill::zeros);
   icep_newx.col(0).fill(1);
   icep_newx.cols(1, icep_newx.n_cols - 1) = newx;
 
   return icep_newx * nbeta;
 }
 
-arma::mat glm::predict(arma::mat& newx, arma::vec& s)
+arma::mat
+glm::predict(arma::mat& newx, arma::vec& s)
 {
   calculate_beta();
 
@@ -236,33 +254,31 @@ arma::mat glm::predict(arma::mat& newx, arma::vec& s)
   arma::mat dl = arma::diagmat(ip.frac, 0);
 
   arma::vec fr = ip.frac;
-  fr.transform([](double x) {return 1 - x;});
+  fr.transform([](double x) { return 1 - x; });
   arma::mat dr = arma::diagmat(fr, 0);
 
   nbeta = nbeta.cols(ip.left) * dl + nbeta.cols(ip.right) * dr;
 
   // Create new data matrix with intercept = 1 as first column
-  arma::mat icep_newx(newx.n_rows, newx.n_cols + 1,  arma::fill::zeros);
+  arma::mat icep_newx(newx.n_rows, newx.n_cols + 1, arma::fill::zeros);
   icep_newx.col(0).fill(1);
   icep_newx.cols(1, icep_newx.n_cols - 1) = newx;
 
   return icep_newx * nbeta;
 }
 
-lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s)
+lambda_interp_t
+lambda_interp(arma::vec lambda, arma::vec s)
 {
   lambda_interp_t ret;
-  if (lambda.size() == 1)
-  {
+  if (lambda.size() == 1) {
     arma::uvec left(s.size(), arma::fill::ones);
     ret.left = left;
     arma::uvec right(s.size(), arma::fill::ones);
     ret.right = right;
     arma::vec frac(s.size(), arma::fill::ones);
     ret.frac = frac;
-  }
-  else
-  {
+  } else {
     double maxlam = arma::max(lambda);
     double minlam = arma::min(lambda);
 
@@ -274,13 +290,9 @@ lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s)
     double x0 = lambda(0);
     double x1 = lambda(k - 1);
 
-    sfrac.transform([&](double v) {
-      return (x0 - v) / (x0 - x1);
-    });
+    sfrac.transform([&](double v) { return (x0 - v) / (x0 - x1); });
 
-    lambda.transform([&](double v) {
-      return (x0 - v) / (x0 - x1);
-    });
+    lambda.transform([&](double v) { return (x0 - v) / (x0 - x1); });
 
     arma::vec y(lambda.size());
     arma::vec yy;
@@ -293,19 +305,12 @@ lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s)
     arma::uvec l = arma::conv_to<arma::uvec>::from(arma::floor(yy));
     arma::uvec r = arma::conv_to<arma::uvec>::from(arma::ceil(yy));
 
-    for (arma::uword i = 0; i < sfrac.size(); i++)
-    {
-      if (l(i) == r(i))
-      {
+    for (arma::uword i = 0; i < sfrac.size(); i++) {
+      if (l(i) == r(i)) {
         sfrac(i) = 1;
+      } else {
+        sfrac(i) = (sfrac(i) - lambda(r(i))) / (lambda(l(i)) - lambda(r(i)));
       }
-      else
-      {
-        sfrac(i) =
-          ( sfrac(i) - lambda(r(i)) ) /
-          ( lambda(l(i)) - lambda(r(i)) );
-      }
-
     }
 
     ret.left = l;
@@ -316,13 +321,13 @@ lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s)
   return ret;
 }
 
-glm_cv_t glm::k_fold_cv(arma::uword k)
+glm_cv_t
+glm::k_fold_cv(arma::uword k)
 {
   // Create sampling vector
   arma::uvec foldid(X.n_rows);
   arma::uword i = 0, j = 0;
-  while (i < X.n_rows)
-  {
+  while (i < X.n_rows) {
     foldid(i) = j;
     i++;
     j = (j == k - 1) ? 0 : (j + 1);
@@ -335,8 +340,7 @@ glm_cv_t glm::k_fold_cv(arma::uword k)
 
   // Train CV models
   arma::vec minlams(k, arma::fill::zeros);
-  for (arma::uword i = 0; i < k; i++)
-  {
+  for (arma::uword i = 0; i < k; i++) {
     arma::uvec nwhich = arma::find(foldid != i);
     arma::vec y_sub = Y.elem(nwhich);
     arma::mat x_sub = X.rows(nwhich);
@@ -353,37 +357,34 @@ glm_cv_t glm::k_fold_cv(arma::uword k)
   arma::vec s = alm(which_lam);
 
   arma::uvec snlam(which_lam.n_elem, arma::fill::zeros);
-  for (arma::uword i = 0; i < which_lam.n_elem; i++)
-  {
+  for (arma::uword i = 0; i < which_lam.n_elem; i++) {
     snlam(i) = (i);
   }
 
-  for (arma::uword i = 0; i < k; i++)
-  {
+  for (arma::uword i = 0; i < k; i++) {
     arma::uvec which = arma::find(foldid == i);
     arma::mat x_sub = X.rows(which);
     arma::mat pred = outlist[i].predict(x_sub, s);
-    //outlist[i].alm.print();
-    //std::cout << "----\n";
+    // outlist[i].alm.print();
+    // std::cout << "----\n";
     predmat.submat(which, snlam) = pred;
   }
 
-  //foldid.print();
+  // foldid.print();
 
   arma::vec cvm(which_lam.n_elem, arma::fill::zeros);
   arma::vec cvsd(which_lam.n_elem, arma::fill::zeros);
 
-  for (arma::uword i = 0; i < which_lam.n_elem; i++)
-  {
+  for (arma::uword i = 0; i < which_lam.n_elem; i++) {
     arma::vec this_col = predmat.col(i);
     arma::vec mse_col = Y - this_col;
-    mse_col.transform([](double x) {return x * x;});
+    mse_col.transform([](double x) { return x * x; });
     double mean = arma::mean(mse_col);
-    //this_col.transform([&](double x){ return pow(x - mean, 2); });
-    //double sd = arma::mean(this_col) / (N - 1);
-    //sd = sqrt(sd);
+    // this_col.transform([&](double x){ return pow(x - mean, 2); });
+    // double sd = arma::mean(this_col) / (N - 1);
+    // sd = sqrt(sd);
     cvm(i) = mean;
-    //cvsd(i) = sd;
+    // cvsd(i) = sd;
   }
 
   double cvmin = arma::min(cvm);
@@ -404,7 +405,6 @@ glm_cv_t glm::k_fold_cv(arma::uword k)
 
   return ret;
 }
-
 
 /*
 int main(int argc, char**argv)

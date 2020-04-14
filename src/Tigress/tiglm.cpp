@@ -20,42 +20,44 @@
 
 // Seidr
 #include <common.h>
-#include <tiglm.h>
 #include <glmnet2.h>
+#include <tiglm.h>
 #ifdef SEIDR_WITH_MPI
-  #include <mpiomp.h>
+#include <mpiomp.h>
 #else
-  #include <mpi_dummy.h>
+#include <mpi_dummy.h>
 #endif
 // External
-#include <iostream>
-#include <random>
-#include <string>
-#include <fstream>
 #include <armadillo>
-#include <cmath>
 #include <boost/filesystem.hpp>
 #include <boost/numeric/conversion/cast.hpp>
+#include <cmath>
+#include <fstream>
+#include <iostream>
 #include <map>
+#include <random>
+#include <string>
 
 std::default_random_engine generator;
 std::uniform_real_distribution<double> distribution(0.2, 1.0);
 
 namespace fs = boost::filesystem;
 
-class seidr_mpi_tigress : public seidr_mpi_omp {
+class seidr_mpi_tigress : public seidr_mpi_omp
+{
 public:
   using seidr_mpi_omp::seidr_mpi_omp;
   void entrypoint();
   void finalize();
-  void set_nboot(seidr_uword_t x) {_nboot = x;}
-  void set_fmin(double x) {_fmin = x;}
-  void set_nsteps(seidr_uword_t x) {_nsteps = x;}
-  seidr_uword_t get_nboot() {return _nboot;}
-  double get_fmin() {return _fmin;}
-  seidr_uword_t set_nsteps() {return _nsteps;}
-  void set_targeted(bool x) {_targeted = x;}
-  void set_allow_low_var(bool x) {_allow_low_var = x;}
+  void set_nboot(seidr_uword_t x) { _nboot = x; }
+  void set_fmin(double x) { _fmin = x; }
+  void set_nsteps(seidr_uword_t x) { _nsteps = x; }
+  seidr_uword_t get_nboot() { return _nboot; }
+  double get_fmin() { return _fmin; }
+  seidr_uword_t set_nsteps() { return _nsteps; }
+  void set_targeted(bool x) { _targeted = x; }
+  void set_allow_low_var(bool x) { _allow_low_var = x; }
+
 private:
   seidr_uword_t _nboot = 0;
   seidr_uword_t _nsteps = 0;
@@ -64,27 +66,34 @@ private:
   bool _allow_low_var = false;
 };
 
-void seidr_mpi_tigress::entrypoint()
+void
+seidr_mpi_tigress::entrypoint()
 {
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
-  while (! _my_indices.empty())
-  {
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
+  while (!_my_indices.empty()) {
     std::vector<arma::uword> uvec;
-    for (auto i : _my_indices)
-    {
+    for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
-    tiglm(_data, _genes, uvec, _tempdir, _nboot, _fmin, _nsteps,
-          _allow_low_var, this);
+    while (check_logs(LOG_NAME "@" + mpi_get_host()))
+      ; // NOLINT
+    tiglm(_data,
+          _genes,
+          uvec,
+          _tempdir,
+          _nboot,
+          _fmin,
+          _nsteps,
+          _allow_low_var,
+          this);
     get_more_work();
   }
 }
 
-void seidr_mpi_tigress::finalize()
+void
+seidr_mpi_tigress::finalize()
 {
-  merge_files(_outfile, _tempdir,
-              _targeted, _id, _genes);
+  merge_files(_outfile, _tempdir, _targeted, _id, _genes);
 }
 
 /*
@@ -93,7 +102,8 @@ in half at random. This function takes a sample size and outputs
 a std::vector containing two arma::uvec vectors which hold the
 randomized indices of the matrix rows.
 */
-std::vector<arma::uvec> shuffle(unsigned int n)
+std::vector<arma::uvec>
+shuffle(unsigned int n)
 {
   arma::uvec samples(n);
   unsigned int nA;
@@ -101,7 +111,7 @@ std::vector<arma::uvec> shuffle(unsigned int n)
 
   // Determine if sample size is even or uneven to get the right
   // size for the uvec objects
-  if ( n % 2 == 0 ) {
+  if (n % 2 == 0) {
     nA = n / 2;
     nB = n / 2;
   } else {
@@ -113,60 +123,60 @@ std::vector<arma::uvec> shuffle(unsigned int n)
   arma::uvec resB(nB);
   std::vector<arma::uvec> final;
 
-  for (unsigned int i = 0; i < n; i++) samples[i] = i;
+  for (unsigned int i = 0; i < n; i++)
+    samples[i] = i;
 
   arma::uvec samplesS = arma::shuffle(samples);
 
   for (unsigned int i = 0; i < n; i++) {
-    if (i < nA) resA[i] = samplesS[i];
-    if (i >= nA) resB[i - nA] = samplesS[i];
+    if (i < nA)
+      resA[i] = samplesS[i];
+    if (i >= nA)
+      resB[i - nA] = samplesS[i];
   }
 
   final.push_back(resA);
   final.push_back(resB);
   return final;
-
 }
 
-void tiglm(const arma::mat& geneMatrix,
-           const std::vector<std::string>& genes,
-           const std::vector<arma::uword>& pred,
-           const std::string& tmpdir,
-           const seidr_uword_t& boot,
-           const double& fmin,
-           const seidr_uword_t& nsteps,
-           const bool& allow_low_var,
-           seidr_mpi_tigress * self)
+void
+tiglm(const arma::mat& geneMatrix,
+      const std::vector<std::string>& genes,
+      const std::vector<arma::uword>& pred,
+      const std::string& tmpdir,
+      const seidr_uword_t& boot,
+      const double& fmin,
+      const seidr_uword_t& nsteps,
+      const bool& allow_low_var,
+      seidr_mpi_tigress* self)
 {
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
   size_t ng = geneMatrix.n_cols - 1;
   size_t ns = geneMatrix.n_rows;
   double ns_d = geneMatrix.n_rows;
 
   size_t n_good = ceil(sqrt(ns_d / 2));
-  if (allow_low_var)
-  {
+  if (allow_low_var) {
     n_good = 1;
   }
 
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
 
-  if (! ofs)
-  {
+  if (!ofs) {
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 
-  #pragma omp parallel for schedule(dynamic)
-  for (uint64_t i = 0; i < pred.size(); i++)
-  {
+#pragma omp parallel for schedule(dynamic)
+  for (uint64_t i = 0; i < pred.size(); i++) {
     arma::uvec indices = get_i(pred[i], ng + 1);
     arma::mat cum = arma::zeros<arma::mat>(ng, nsteps);
 
     arma::mat response = geneMatrix.cols(indices);
     arma::vec predictor = geneMatrix.col(pred[i]);
 
-    size_t iter  = 0;
+    size_t iter = 0;
     size_t nboot = 0;
     /* This int is incremented if the random shuffle produced a vector
        with all 0s. If that happens too often, we skip the gene and
@@ -175,23 +185,24 @@ void tiglm(const arma::mat& geneMatrix,
 
     arma::vec randV(ng, 1);
 
-    std::seed_seq sseq{3, 1, 4, 1, 5, 9, 2, 6, 5};
+    std::seed_seq sseq{ 3, 1, 4, 1, 5, 9, 2, 6, 5 };
     generator.seed(sseq);
     arma::arma_rng::set_seed(314159265);
 
     while (iter < boot) {
 
 #ifdef DEBUG
-      #pragma omp critical
+#pragma omp critical
       {
         log << "Iter: " << iter << '\n';
         log.send(LOG_DEBUG);
-        while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+        while (self->check_logs(LOG_NAME "@" + mpi_get_host()))
+          ; // NOLINT
       }
 #endif
 
       // Shuffle the samples
-      std::vector<arma::uvec > split = shuffle(ns);
+      std::vector<arma::uvec> split = shuffle(ns);
       arma::vec yA = predictor(split[0]);
       arma::vec yB = predictor(split[1]);
 
@@ -201,21 +212,21 @@ void tiglm(const arma::mat& geneMatrix,
       // If any of the vectors have less than two usable values, try again
       if (syA.n_elem < n_good || syB.n_elem < n_good) {
 #ifdef DEBUG
-        #pragma omp critical
+#pragma omp critical
         {
-          log << "Have to shuffle: A=" << syA.n_elem
-          << " B=" << syB.n_elem << '\n';
+          log << "Have to shuffle: A=" << syA.n_elem << " B=" << syB.n_elem
+              << '\n';
           log.send(LOG_DEBUG);
-          while (self->check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+          while (self->check_logs(LOG_NAME "@" + mpi_get_host()))
+            ; // NOLINT
         }
 #endif
         nboot++;
-        if (nboot > 1000)
-        {
-          #pragma omp critical
+        if (nboot > 1000) {
+#pragma omp critical
           {
             log << genes[pred[i]]
-            << " encountered too many reshuffles... skipping.\n";
+                << " encountered too many reshuffles... skipping.\n";
             log.send(LOG_WARN);
           }
           cum.fill(0);
@@ -224,7 +235,7 @@ void tiglm(const arma::mat& geneMatrix,
         continue;
       }
 
-      randV.imbue( [&]() { return distribution(generator); } );
+      randV.imbue([&]() { return distribution(generator); });
       arma::mat rw = response.t();
       for (unsigned int y = 0; y < ns; y++) {
         rw.col(y) % randV;
@@ -237,59 +248,48 @@ void tiglm(const arma::mat& geneMatrix,
       glm pathA = glmnet(xA, yA, nsteps, fmin);
       glm pathB = glmnet(xB, yB, nsteps, fmin);
 
-      if (pathA.success && pathB.success)
-      {
+      if (pathA.success && pathB.success) {
         cum += arma::sign(arma::abs(pathA.beta));
         cum += arma::sign(arma::abs(pathB.beta));
         iter++;
       }
     }
     double d_nsteps = 0;
-    try
-    {
+    try {
       d_nsteps = boost::numeric_cast<double>(nsteps);
-    }
-    catch (boost::numeric::bad_numeric_cast& e)
-    {
+    } catch (boost::numeric::bad_numeric_cast& e) {
       throw std::runtime_error(e.what());
     }
 
     cum = arma::cumsum(cum.t()) / (boot * 2) / d_nsteps;
 
-    #pragma omp critical
+#pragma omp critical
     {
       self->increment_pbar();
       arma::uword xi = pred[i];
       ofs << xi << '\n';
       arma::rowvec fin = cum.row(nsteps - 1);
       for (arma::uword s = 0; s < indices.n_elem; s++) {
-        if (s == xi && s < (indices.n_elem - 1))
-        {
+        if (s == xi && s < (indices.n_elem - 1)) {
           ofs << 0 << '\t' << fin(s) << '\t';
-        }
-        else if (xi == s && s == (indices.n_elem - 1))
-        {
+        } else if (xi == s && s == (indices.n_elem - 1)) {
           ofs << 0 << '\t' << fin(s) << '\n';
-        }
-        else if (xi > s && s == (indices.n_elem - 1))
-        {
+        } else if (xi > s && s == (indices.n_elem - 1)) {
           ofs << fin(s) << '\t' << 0 << '\n';
-        }
-        else
-        {
-          ofs << fin(s) <<
-              (s == (indices.n_elem - 1) ? '\n' : '\t');
+        } else {
+          ofs << fin(s) << (s == (indices.n_elem - 1) ? '\n' : '\t');
         }
       }
     }
   }
 }
 
-void tiglm_full(const arma::mat& GM,
-                const std::vector<std::string>& genes,
-                const seidr_tigress_param_t& param)
+void
+tiglm_full(const arma::mat& GM,
+           const std::vector<std::string>& genes,
+           const seidr_tigress_param_t& param)
 {
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
   fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
@@ -297,23 +297,18 @@ void tiglm_full(const arma::mat& GM,
   fs::path d_out(p_out.parent_path());
 
   std::vector<uint64_t> uvec;
-  for (uint64_t i = 0; i < GM.n_cols; i++)
-  {
-    if (param.resuming)
-    {
-      if (! in_sorted_range<uint64_t>(i, param.good_idx))
-      {
+  for (uint64_t i = 0; i < GM.n_cols; i++) {
+    if (param.resuming) {
+      if (!in_sorted_range<uint64_t>(i, param.good_idx)) {
         uvec.push_back(i);
       }
-    }
-    else
-    {
+    } else {
       uvec.push_back(i);
     }
   }
 
-  seidr_mpi_tigress mpi(param.bs, GM, uvec, genes, param.tempdir,
-                        param.outfile);
+  seidr_mpi_tigress mpi(
+    param.bs, GM, uvec, genes, param.tempdir, param.outfile);
   mpi.set_nboot(param.boot);
   mpi.set_fmin(param.fmin);
   mpi.set_nsteps(param.nsteps);
@@ -323,28 +318,31 @@ void tiglm_full(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
-  #pragma omp critical
+#pragma omp critical
   {
-    if (mpi.rank() == 0)
-    {
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    if (mpi.rank() == 0) {
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
     }
   }
 
   SEIDR_MPI_FINALIZE();
 }
 
-void tiglm_partial(const arma::mat& GM,
-                   const std::vector<std::string>& genes,
-                   const std::vector<std::string>& targets,
-                   const seidr_tigress_param_t& param) {
+void
+tiglm_partial(const arma::mat& GM,
+              const std::vector<std::string>& genes,
+              const std::vector<std::string>& targets,
+              const seidr_tigress_param_t& param)
+{
 
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
   fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
@@ -354,34 +352,26 @@ void tiglm_partial(const arma::mat& GM,
   std::vector<uint64_t> positions;
   for (uint64_t i = 0; i < targets.size(); i++) {
     uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
-    if (pos >= genes.size())
-    {
-      log << "Gene " << targets[i]
-          << " was not found in the expression set "
+    if (pos >= genes.size()) {
+      log << "Gene " << targets[i] << " was not found in the expression set "
           << "and will therefore not be considered."
           << " Please check that your expression set and "
-          << "its column names (gene file) contain an entry for "
-          << targets[i] << ".\n";
+          << "its column names (gene file) contain an entry for " << targets[i]
+          << ".\n";
       log.log(LOG_WARN);
-    }
-    else
-    {
-      if (param.resuming)
-      {
-        if (! in_sorted_range<uint64_t>(pos, param.good_idx))
-        {
+    } else {
+      if (param.resuming) {
+        if (!in_sorted_range<uint64_t>(pos, param.good_idx)) {
           positions.push_back(pos);
         }
-      }
-      else
-      {
+      } else {
         positions.push_back(pos);
       }
     }
   }
 
-  seidr_mpi_tigress mpi(param.bs, GM, positions, genes, param.tempdir,
-                        param.outfile);
+  seidr_mpi_tigress mpi(
+    param.bs, GM, positions, genes, param.tempdir, param.outfile);
   mpi.set_nboot(param.boot);
   mpi.set_fmin(param.fmin);
   mpi.set_nsteps(param.nsteps);
@@ -392,16 +382,17 @@ void tiglm_partial(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
-  #pragma omp critical
+#pragma omp critical
   {
-    if (mpi.rank() == 0)
-    {
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    if (mpi.rank() == 0) {
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
     }
   }
 

@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include<cstdint>
-#include<string>
-
+#include <cstdint>
+#include <string>
 
 struct seidr_top_param_t
 {
@@ -30,7 +29,7 @@ struct seidr_top_param_t
   uint64_t ntop;
   uint32_t tpos;
   bool force;
-
 };
 
-int top(int argc, char ** argv);
+int
+top(int argc, char** argv);

@@ -27,4 +27,5 @@ struct seidr_index_param_t
   std::string outfile;
 };
 
-int index(int argc, char ** argv);
+int
+index(int argc, char** argv);

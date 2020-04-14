@@ -19,33 +19,33 @@
 //
 
 // Calculate pairwise tau scores for nodes in two networks
-// Mostly from SciPy https://github.com/scipy/scipy/blob/v0.15.1/scipy/stats/stats.py#L2827
-// and https://www.geeksforgeeks.org/merge-sort/
+// Mostly from SciPy
+// https://github.com/scipy/scipy/blob/v0.15.1/scipy/stats/stats.py#L2827 and
+// https://www.geeksforgeeks.org/merge-sort/
 
 // Seidr
-#include <common.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
 #include <tau.h>
 // External
-#include <armadillo>
 #include <algorithm>
-#include <map>
-#include <vector>
-#include <set>
+#include <armadillo>
 #include <boost/program_options.hpp>
+#include <map>
+#include <set>
+#include <vector>
 namespace po = boost::program_options;
 
-uint64_t ties(const arma::vec& arr)
+uint64_t
+ties(const arma::vec& arr)
 {
   uint64_t ret = 0;
   uint64_t l = 0;
 
-  for (uint64_t i = 1; i < arr.n_elem; i++)
-  {
-    if (! (almost_equal(arr(l), arr(i))))
-    {
+  for (uint64_t i = 1; i < arr.n_elem; i++) {
+    if (!(almost_equal(arr(l), arr(i)))) {
       ret += ((i - l) * (i - l - 1)) / 2;
       l = i;
     }
@@ -56,18 +56,17 @@ uint64_t ties(const arma::vec& arr)
   return ret;
 }
 
-uint64_t joint_ties(const std::vector<std::pair<double, double>>& arr)
+uint64_t
+joint_ties(const std::vector<std::pair<double, double>>& arr)
 {
 
   uint64_t ret = 0;
   uint64_t l = 0;
 
-  for (uint64_t i = 1; i < arr.size(); i++)
-  {
-    if ((( ! almost_equal(arr[l].first, arr[i].first) ) ||
-         ( ! almost_equal(arr[l].second, arr[i].second))))
-  {
-    ret += ((i - l) * (i - l - 1)) / 2;
+  for (uint64_t i = 1; i < arr.size(); i++) {
+    if (((!almost_equal(arr[l].first, arr[i].first)) ||
+         (!almost_equal(arr[l].second, arr[i].second)))) {
+      ret += ((i - l) * (i - l - 1)) / 2;
       l = i;
     }
   }
@@ -77,17 +76,18 @@ uint64_t joint_ties(const std::vector<std::pair<double, double>>& arr)
   return ret;
 }
 
-bool comp_pd(const std::pair<double, double>& lhs,
-             const std::pair<double, double>& rhs)
+bool
+comp_pd(const std::pair<double, double>& lhs,
+        const std::pair<double, double>& rhs)
 {
-  if (almost_equal(lhs.first, rhs.first))
-  {
+  if (almost_equal(lhs.first, rhs.first)) {
     return lhs.second < rhs.second;
   }
   return lhs.first < rhs.first;
 }
 
-uint64_t merge(arma::vec& arr, arma::uword l, arma::uword m, arma::uword r)
+uint64_t
+merge(arma::vec& arr, arma::uword l, arma::uword m, arma::uword r)
 {
 
   uint64_t swaps = 0;
@@ -107,29 +107,23 @@ uint64_t merge(arma::vec& arr, arma::uword l, arma::uword m, arma::uword r)
   arma::uword j = 0;
   arma::uword k = l;
 
-  while (i < n1 && j < n2)
-  {
-    if (L(i) <= R(j))
-    {
+  while (i < n1 && j < n2) {
+    if (L(i) <= R(j)) {
       arr(k) = L(i);
       i++;
-    }
-    else
-    {
+    } else {
       arr(k) = R(j);
       j++;
       swaps = swaps + m - i + 1 - l;
     }
     k++;
   }
-  while (i < n1)
-  {
+  while (i < n1) {
     arr(k) = L(i);
     i++;
     k++;
   }
-  while (j < n2)
-  {
+  while (j < n2) {
     arr(k) = R(j);
     j++;
     k++;
@@ -137,11 +131,11 @@ uint64_t merge(arma::vec& arr, arma::uword l, arma::uword m, arma::uword r)
   return swaps;
 }
 
-uint64_t  mergeSort(arma::vec& arr, arma::uword l, arma::uword r)
+uint64_t
+mergeSort(arma::vec& arr, arma::uword l, arma::uword r)
 {
   uint64_t swaps = 0;
-  if (l < r)
-  {
+  if (l < r) {
     int m = l + (r - l) / 2;
     swaps = mergeSort(arr, l, m);
     swaps += mergeSort(arr, m + 1, r);
@@ -150,11 +144,11 @@ uint64_t  mergeSort(arma::vec& arr, arma::uword l, arma::uword r)
   return swaps;
 }
 
-double k_tau_ms(const arma::vec& x, const arma::vec& y)
+double
+k_tau_ms(const arma::vec& x, const arma::vec& y)
 {
   std::vector<std::pair<double, double>> pairs;
-  for (arma::uword i = 0; i < x.n_elem; i++)
-  {
+  for (arma::uword i = 0; i < x.n_elem; i++) {
     pairs.push_back(std::pair<double, double>(x(i), y(i)));
   }
   // First sort by x, sort ties in x by y, using almost_equals for first pair
@@ -162,8 +156,7 @@ double k_tau_ms(const arma::vec& x, const arma::vec& y)
   // Now mergesort y only, keeping track of the number of swaps
   arma::vec xtmp(pairs.size());
   arma::vec ytmp(pairs.size());
-  for (uint64_t i = 0; i < pairs.size(); i++)
-  {
+  for (uint64_t i = 0; i < pairs.size(); i++) {
     xtmp(i) = pairs[i].first;
     ytmp(i) = pairs[i].second;
   }
@@ -185,24 +178,24 @@ double k_tau_ms(const arma::vec& x, const arma::vec& y)
   double td = t;
   double swapsd = swaps;
 
-
   double denom = exp(0.5 * (log(ltrid - ud) + log(ltrid - vd)));
   double tau = ((ltrid - (vd + ud - td)) - 2.0 * swapsd) / denom;
 
   return tau;
 }
 
-void get_tau(const seidr_param_tau_t& param)
+void
+get_tau(const seidr_param_tau_t& param)
 {
   uint32_t si1 = param.tpos_a;
   uint32_t si2 = param.tpos_b;
 
   std::shared_ptr<std::ostream> out;
   if (param.out_file == "-")
-    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
   else
-    out = std::shared_ptr<std::ostream>
-          (new std::ofstream(param.out_file.c_str()));
+    out =
+      std::shared_ptr<std::ostream>(new std::ofstream(param.out_file.c_str()));
 
   SeidrFile sf1(param.network_a.c_str());
   SeidrFile sf2(param.network_b.c_str());
@@ -218,12 +211,10 @@ void get_tau(const seidr_param_tau_t& param)
 
   std::map<std::string, uint32_t> node_union;
 
-  for (auto node : h1.nodes)
-  {
+  for (auto node : h1.nodes) {
     node_union[node] = 0;
   }
-  for (auto node : h2.nodes)
-  {
+  for (auto node : h2.nodes) {
     node_union[node] = 0;
   }
 
@@ -232,8 +223,7 @@ void get_tau(const seidr_param_tau_t& param)
     colheader.push_back(n.first);
 
   uint32_t ctr = 0;
-  for (auto& node : node_union)
-  {
+  for (auto& node : node_union) {
     node.second = ctr++;
   }
 
@@ -243,7 +233,7 @@ void get_tau(const seidr_param_tau_t& param)
   sf1.seek(0);
   sf2.seek(0);
 
-  sf1.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  sf1.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     std::string& i = h.nodes[e.index.i];
     std::string& j = h.nodes[e.index.j];
     double v = e.scores[si1].s;
@@ -251,7 +241,7 @@ void get_tau(const seidr_param_tau_t& param)
     rm1(node_union[j], node_union[i]) = v;
   });
 
-  sf2.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  sf2.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     std::string& i = h.nodes[e.index.i];
     std::string& j = h.nodes[e.index.j];
     double v = e.scores[si2].s;
@@ -262,36 +252,34 @@ void get_tau(const seidr_param_tau_t& param)
   sf1.close();
   sf2.close();
 
-  for (arma::uword i = 0; i < node_union.size(); i++)
-  {
-  	arma::vec x(rm1.n_rows - 1);
-  	arma::vec y(rm2.n_rows - 1);
-  	arma::uword idx = 0;
-  	for (arma::uword j = 0; j < rm1.n_rows; j++)
-  	{
-  		if (i != j)
-  		{
-  			x(idx) = rm1(j,i);
-  			y(idx) = rm2(j,i);
-  			idx++;
-  		}
-  	}
-  	double tau = k_tau_ms(x, y);
-  	std::cout << colheader[i] << '\t' << tau << '\n';
+  for (arma::uword i = 0; i < node_union.size(); i++) {
+    arma::vec x(rm1.n_rows - 1);
+    arma::vec y(rm2.n_rows - 1);
+    arma::uword idx = 0;
+    for (arma::uword j = 0; j < rm1.n_rows; j++) {
+      if (i != j) {
+        x(idx) = rm1(j, i);
+        y(idx) = rm2(j, i);
+        idx++;
+      }
+    }
+    double tau = k_tau_ms(x, y);
+    std::cout << colheader[i] << '\t' << tau << '\n';
   }
 }
 
-void get_tau_cs(const seidr_param_tau_t& param)
+void
+get_tau_cs(const seidr_param_tau_t& param)
 {
   uint32_t si1 = param.tpos_a;
   uint32_t si2 = param.tpos_b;
 
   std::shared_ptr<std::ostream> out;
   if (param.out_file == "-")
-    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
+    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
   else
-    out = std::shared_ptr<std::ostream>
-          (new std::ofstream(param.out_file.c_str()));
+    out =
+      std::shared_ptr<std::ostream>(new std::ofstream(param.out_file.c_str()));
 
   SeidrFile sf1(param.network_a.c_str());
   SeidrFile sf2(param.network_b.c_str());
@@ -310,46 +298,39 @@ void get_tau_cs(const seidr_param_tau_t& param)
 
   std::ifstream dict_file(param.dict.c_str());
   std::string line;
-  while (std::getline(dict_file, line))
-  {
-  	std::stringstream ss(line);
-  	std::string lhs;
-  	std::string rhs;
-  	ss >> lhs;
-  	ss >> rhs;
-  	a_to_b[lhs].insert(rhs);
-  	b_to_a[rhs].insert(lhs);
+  while (std::getline(dict_file, line)) {
+    std::stringstream ss(line);
+    std::string lhs;
+    std::string rhs;
+    ss >> lhs;
+    ss >> rhs;
+    a_to_b[lhs].insert(rhs);
+    b_to_a[rhs].insert(lhs);
   }
 
   std::map<std::string, uint32_t> node_union;
 
-  for (auto node : h1.nodes)
-  {
-  	// No orthologs
-  	if (a_to_b.find(node) == a_to_b.end())
-    	node_union[node] = 0;
+  for (auto node : h1.nodes) {
+    // No orthologs
+    if (a_to_b.find(node) == a_to_b.end())
+      node_union[node] = 0;
   }
-  for (auto node : h2.nodes)
-  {
-  	// No orthologs
-  	if (b_to_a.find(node) == b_to_a.end())
-    	node_union[node] = 0;
+  for (auto node : h2.nodes) {
+    // No orthologs
+    if (b_to_a.find(node) == b_to_a.end())
+      node_union[node] = 0;
   }
-  // Add orthologs 
-  for (auto& ortho_source : a_to_b)
-  {
-  	for (auto& ortho_target : ortho_source.second)
-  	{
-  		node_union[ ortho_source.first + "," + ortho_target ] = 0;
-  	}
+  // Add orthologs
+  for (auto& ortho_source : a_to_b) {
+    for (auto& ortho_target : ortho_source.second) {
+      node_union[ortho_source.first + "," + ortho_target] = 0;
+    }
   }
   // Add orthologs from second net inversing the order of IDs
-  for (auto& ortho_source : b_to_a)
-  {
-  	for (auto& ortho_target : ortho_source.second)
-  	{
-  		node_union[ ortho_target + "," + ortho_source.first ] = 0;
-  	}
+  for (auto& ortho_source : b_to_a) {
+    for (auto& ortho_target : ortho_source.second) {
+      node_union[ortho_target + "," + ortho_source.first] = 0;
+    }
   }
 
   std::vector<std::string> colheader;
@@ -366,121 +347,98 @@ void get_tau_cs(const seidr_param_tau_t& param)
   sf1.seek(0);
   sf2.seek(0);
 
-  sf1.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  sf1.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     std::string i = h.nodes[e.index.i];
     std::string j = h.nodes[e.index.j];
     double v = e.scores[si1].s;
 
     auto ptr_i = a_to_b.find(i);
-		auto ptr_j = a_to_b.find(j);
+    auto ptr_j = a_to_b.find(j);
 
-    if (ptr_i == a_to_b.end() && ptr_j == a_to_b.end())
-    {
-    	rm1(node_union[i], node_union[j]) = v;
-    	rm1(node_union[j], node_union[i]) = v;
-  	}
-  	else if (ptr_i != a_to_b.end() && ptr_j != a_to_b.end()) 
-  	{
-  		for (auto si : ptr_i->second)
-  		{
-  			for (auto sj : ptr_j -> second)
-  			{
-  				auto xi = ptr_i->first + "," + si;
-  				auto xj = ptr_j->first + "," + sj;
-  				rm1(node_union.at(xi), node_union.at(xj)) = v;
-    			rm1(node_union.at(xj), node_union.at(xi)) = v;
-  			}
-  		}
-  	}
-  	else if (ptr_i != a_to_b.end())
-  	{
-  		for (auto si : ptr_i->second)
-  		{
-  			auto xi = ptr_i->first + "," + si;
-  			rm1(node_union.at(xi), node_union.at(j)) = v;
-    		rm1(node_union.at(j), node_union.at(xi)) = v;
-			}
-  	}
-  	else if (ptr_j != a_to_b.end())
-  	{
-  		for (auto sj : ptr_j->second)
-  		{
-  			auto xj = ptr_j->first + "," + sj;
-  			rm1(node_union.at(i), node_union.at(xj)) = v;
-    		rm1(node_union.at(xj), node_union.at(i)) = v;
-			}
-  	}
+    if (ptr_i == a_to_b.end() && ptr_j == a_to_b.end()) {
+      rm1(node_union[i], node_union[j]) = v;
+      rm1(node_union[j], node_union[i]) = v;
+    } else if (ptr_i != a_to_b.end() && ptr_j != a_to_b.end()) {
+      for (auto si : ptr_i->second) {
+        for (auto sj : ptr_j->second) {
+          auto xi = ptr_i->first + "," + si;
+          auto xj = ptr_j->first + "," + sj;
+          rm1(node_union.at(xi), node_union.at(xj)) = v;
+          rm1(node_union.at(xj), node_union.at(xi)) = v;
+        }
+      }
+    } else if (ptr_i != a_to_b.end()) {
+      for (auto si : ptr_i->second) {
+        auto xi = ptr_i->first + "," + si;
+        rm1(node_union.at(xi), node_union.at(j)) = v;
+        rm1(node_union.at(j), node_union.at(xi)) = v;
+      }
+    } else if (ptr_j != a_to_b.end()) {
+      for (auto sj : ptr_j->second) {
+        auto xj = ptr_j->first + "," + sj;
+        rm1(node_union.at(i), node_union.at(xj)) = v;
+        rm1(node_union.at(xj), node_union.at(i)) = v;
+      }
+    }
   });
 
-  sf2.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  sf2.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     std::string& i = h.nodes[e.index.i];
     std::string& j = h.nodes[e.index.j];
     double v = e.scores[si2].s;
 
     auto ptr_i = b_to_a.find(i);
-		auto ptr_j = b_to_a.find(j);
+    auto ptr_j = b_to_a.find(j);
 
-    if (ptr_i == a_to_b.end() && ptr_j == a_to_b.end())
-    {
-    	rm2(node_union[i], node_union[j]) = v;
-    	rm2(node_union[j], node_union[i]) = v;
-  	}
-  	else if (ptr_i != a_to_b.end() && ptr_j != a_to_b.end()) 
-  	{
-  		for (auto si : ptr_i->second)
-  		{
-  			for (auto sj : ptr_j -> second)
-  			{
-  				auto xi = si + "," + ptr_i->first;
-  				auto xj = sj + "," + ptr_j->first;
-  				rm2(node_union.at(xi), node_union.at(xj)) = v;
-    			rm2(node_union.at(xj), node_union.at(xi)) = v;
-  			}
-  		}
-  	}
-  	else if (ptr_i != a_to_b.end())
-  	{
-  		for (auto si : ptr_i->second)
-  		{
-  			auto xi = si + "," + ptr_i->first;
-  			rm2(node_union.at(xi), node_union.at(j)) = v;
-    		rm2(node_union.at(j), node_union.at(xi)) = v;
-			}
-  	}
-  	else if (ptr_j != a_to_b.end())
-  	{
-  		for (auto sj : ptr_j->second)
-  		{
-  			auto xj = sj + "," + ptr_j->first;
-  			rm2(node_union.at(i), node_union.at(xj)) = v;
-    		rm2(node_union.at(xj), node_union.at(i)) = v;
-			}
-  	}
+    if (ptr_i == a_to_b.end() && ptr_j == a_to_b.end()) {
+      rm2(node_union[i], node_union[j]) = v;
+      rm2(node_union[j], node_union[i]) = v;
+    } else if (ptr_i != a_to_b.end() && ptr_j != a_to_b.end()) {
+      for (auto si : ptr_i->second) {
+        for (auto sj : ptr_j->second) {
+          auto xi = si + "," + ptr_i->first;
+          auto xj = sj + "," + ptr_j->first;
+          rm2(node_union.at(xi), node_union.at(xj)) = v;
+          rm2(node_union.at(xj), node_union.at(xi)) = v;
+        }
+      }
+    } else if (ptr_i != a_to_b.end()) {
+      for (auto si : ptr_i->second) {
+        auto xi = si + "," + ptr_i->first;
+        rm2(node_union.at(xi), node_union.at(j)) = v;
+        rm2(node_union.at(j), node_union.at(xi)) = v;
+      }
+    } else if (ptr_j != a_to_b.end()) {
+      for (auto sj : ptr_j->second) {
+        auto xj = sj + "," + ptr_j->first;
+        rm2(node_union.at(i), node_union.at(xj)) = v;
+        rm2(node_union.at(xj), node_union.at(i)) = v;
+      }
+    }
   });
 
   sf1.close();
   sf2.close();
 
-  for (arma::uword i = 0; i < node_union.size(); i++)
-  {
-  	arma::vec x(rm1.n_rows - 1);
-  	arma::vec y(rm2.n_rows - 1);
-  	arma::uword idx = 0;
-  	for (arma::uword j = 0; j < rm1.n_rows; j++)
-  	{
-  		if (i != j)
-  		{
-  			x(idx) = rm1(j,i);
-  			y(idx) = rm2(j,i);
-  			idx++;
-  		}
-  	}
-  	double tau = k_tau_ms(x, y);
-  	std::cout << colheader[i] << '\t' << tau << '\n';
+  for (arma::uword i = 0; i < node_union.size(); i++) {
+    arma::vec x(rm1.n_rows - 1);
+    arma::vec y(rm2.n_rows - 1);
+    arma::uword idx = 0;
+    for (arma::uword j = 0; j < rm1.n_rows; j++) {
+      if (i != j) {
+        x(idx) = rm1(j, i);
+        y(idx) = rm2(j, i);
+        idx++;
+      }
+    }
+    double tau = k_tau_ms(x, y);
+    std::cout << colheader[i] << '\t' << tau << '\n';
   }
 }
 
-int tau(int argc, char * argv[]) {
+int
+tau(int argc, char* argv[])
+{
 
   LOG_INIT_CERR();
 
@@ -488,38 +446,43 @@ int tau(int argc, char * argv[]) {
   seidr_param_tau_t param;
 
   // We ignore the first argument
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " tau";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   po::options_description umbrella;
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("help,h", "Show this help message")
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("out-file,o", po::value<std::string>(&param.out_file)->default_value("-"),
-   "Output file name ['-' for stdout]");
+  opt.add_options()("help,h", "Show this help message")(
+    "force,f",
+    po::bool_switch(&param.force)->default_value(false),
+    "Force overwrite output file if it exists")(
+    "out-file,o",
+    po::value<std::string>(&param.out_file)->default_value("-"),
+    "Output file name ['-' for stdout]");
 
   po::options_description topt("Tau Options");
-  topt.add_options()
-  ("dict,d", po::value<std::string>(&param.dict)->default_value(""),
-   "Dictionary of orthologies")
-  ("index-a,a", po::value<uint32_t>(&param.tpos_a)->default_value(0),
-   "Score index to use for first network")
-  ("index-b,b", po::value<uint32_t>(&param.tpos_b)->default_value(0),
-   "Score index to use for second network");
+  topt.add_options()("dict,d",
+                     po::value<std::string>(&param.dict)->default_value(""),
+                     "Dictionary of orthologies")(
+    "index-a,a",
+    po::value<uint32_t>(&param.tpos_a)->default_value(0),
+    "Score index to use for first network")(
+    "index-b,b",
+    po::value<uint32_t>(&param.tpos_b)->default_value(0),
+    "Score index to use for second network");
 
   po::options_description req("Required");
-  req.add_options()
-  ("net-a", po::value<std::string>(&param.network_a)->required(),
-   "First input SeidrFile")
-  ("net-b", po::value<std::string>(&param.network_b)->required(),
-   "Second input SeidrFile");
+  req.add_options()("net-a",
+                    po::value<std::string>(&param.network_a)->required(),
+                    "First input SeidrFile")(
+    "net-b",
+    po::value<std::string>(&param.network_b)->required(),
+    "Second input SeidrFile");
 
   umbrella.add(req).add(topt).add(opt);
 
@@ -528,27 +491,23 @@ int tau(int argc, char * argv[]) {
   p.add("net-b", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 22;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     param.network_a = to_absolute(param.network_a);
     assert_exists(param.network_a);
     assert_can_read(param.network_a);
@@ -557,26 +516,22 @@ int tau(int argc, char * argv[]) {
     assert_exists(param.network_b);
     assert_can_read(param.network_b);
 
-    if (param.out_file != "-")
-    {
+    if (param.out_file != "-") {
       param.out_file = to_absolute(param.out_file);
-      if (! param.force)
-      {
+      if (!param.force) {
         assert_no_overwrite(param.out_file);
       }
       assert_dir_is_writeable(dirname(param.out_file));
     }
-  }
-  catch (std::runtime_error& except)
-  {
+  } catch (std::runtime_error& except) {
     log(LOG_ERR) << except.what() << '\n';
     return 1;
   }
 
   if (param.dict == "")
-  	get_tau(param);
+    get_tau(param);
   else
-  	get_tau_cs(param);
+    get_tau_cs(param);
 
   return 0;
 }

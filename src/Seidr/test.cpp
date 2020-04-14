@@ -19,21 +19,23 @@
 //
 
 // Seidr
-#include <common.h>
-#include <test.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
+#include <test.h>
 // External
 #include <cerrno>
+#include <fstream>
 #include <iostream>
 #include <memory>
-#include <vector>
-#include <string>
 #include <sstream>
-#include <fstream>
+#include <string>
+#include <vector>
 
-int test(int argc, char * argv[]) {
+int
+test(int argc, char* argv[])
+{
 
   // logger log(std::cerr, "test");
 

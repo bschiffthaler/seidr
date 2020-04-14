@@ -19,47 +19,67 @@
 //
 
 // Seidr
-#include <narromi_fun.h>
-#include <common.h>
 #include <IP_LPT2.h>
+#include <common.h>
+#include <narromi_fun.h>
 #include <stats_fun.h>
 #ifdef SEIDR_WITH_MPI
-  #include <mpiomp.h>
+#include <mpiomp.h>
 #else
-  #include <mpi_dummy.h>
+#include <mpi_dummy.h>
 #endif
 #include <fs.h>
 // External
 #include <armadillo>
-#include <vector>
+#include <boost/filesystem.hpp>
+#include <ctime>
 #include <fstream>
+#include <map>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <ctime>
-#include <boost/filesystem.hpp>
-#include <map>
+#include <vector>
 
 namespace fs = boost::filesystem;
 
-NaResult::NaResult(arma::vec sig, arma::vec nv,
-                   arma::uvec re, arma::uword i) {
-  s = sig; n = nv; r = re; I = i;
+NaResult::NaResult(arma::vec sig, arma::vec nv, arma::uvec re, arma::uword i)
+{
+  s = sig;
+  n = nv;
+  r = re;
+  I = i;
 }
-arma::vec NaResult::sig() { return s; }
-arma::vec NaResult::nv() { return n; }
-arma::uvec NaResult::re() { return r; }
-arma::uword NaResult::i() { return I; }
+arma::vec
+NaResult::sig()
+{
+  return s;
+}
+arma::vec
+NaResult::nv()
+{
+  return n;
+}
+arma::uvec
+NaResult::re()
+{
+  return r;
+}
+arma::uword
+NaResult::i()
+{
+  return I;
+}
 
-
-class seidr_mpi_narromi : public seidr_mpi_omp {
+class seidr_mpi_narromi : public seidr_mpi_omp
+{
 public:
   using seidr_mpi_omp::seidr_mpi_omp;
   void entrypoint();
   void finalize();
-  void set_algorithm(std::string a) {_algorithm = a;}
-  void set_alpha(double a) {_alpha = a;}
-  void set_t(double t) {_t = t;}
-  void set_targeted(bool x) {_targeted = x;}
+  void set_algorithm(std::string a) { _algorithm = a; }
+  void set_alpha(double a) { _alpha = a; }
+  void set_t(double t) { _t = t; }
+  void set_targeted(bool x) { _targeted = x; }
+
 private:
   std::string _algorithm = "simplex";
   double _alpha = 0;
@@ -67,26 +87,26 @@ private:
   bool _targeted = false;
 };
 
-void seidr_mpi_narromi::entrypoint()
+void
+seidr_mpi_narromi::entrypoint()
 {
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
-  while (! _my_indices.empty())
-  {
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
+  while (!_my_indices.empty()) {
     std::vector<arma::uword> uvec;
-    for (auto i : _my_indices)
-    {
+    for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    while (check_logs(LOG_NAME "@" + mpi_get_host()))
+      ; // NOLINT
     narromi_thread(_data, _algorithm, _alpha, _t, uvec, _genes, _tempdir, this);
     get_more_work();
   }
 }
 
-void seidr_mpi_narromi::finalize()
+void
+seidr_mpi_narromi::finalize()
 {
-  merge_files(_outfile, _tempdir,
-              _targeted, _id, _genes);
+  merge_files(_outfile, _tempdir, _targeted, _id, _genes);
 }
 
 /* Linear programming optimisation loop.
@@ -95,15 +115,17 @@ std::pair<arma::vec, arma::vec>
 reoptim(const arma::mat& X,
         const arma::rowvec& Y,
         const std::string& al,
-        const double& alpha) {
+        const double& alpha)
+{
 
   arma::mat J = lp_ipt(X, Y, al);
   arma::vec Js(J.n_cols);
   arma::vec Jv(J.n_cols);
 
-  Js.zeros(); Jv.zeros();
+  Js.zeros();
+  Jv.zeros();
 
-  arma::uvec index   = arma::find(arma::abs(J) >= alpha);
+  arma::uvec index = arma::find(arma::abs(J) >= alpha);
   arma::uvec index_c = arma::find(arma::abs(J) < alpha);
 
   Js(index) = J(index);
@@ -111,23 +133,25 @@ reoptim(const arma::mat& X,
 
   while (index_c.n_elem > 0) {
     arma::mat J1 = lp_ipt(X.rows(index), Y, al);
-    arma::uvec index1   = arma::find(arma::abs(J1) >= alpha);
+    arma::uvec index1 = arma::find(arma::abs(J1) >= alpha);
     arma::uvec index1_c = arma::find(arma::abs(J1) < alpha);
-    index_c     = index(index1_c);
-    index       = index(index1);
-    Js(index)   = J1(index1);
+    index_c = index(index1_c);
+    index = index(index1);
+    Js(index) = J1(index1);
     Js(index_c).zeros();
     Jv(index_c) = J1(index1_c);
   }
 
   Jv = Js + Jv;
 
-  return std::pair<arma::vec, arma::vec> (Js, Jv);
+  return std::pair<arma::vec, arma::vec>(Js, Jv);
 }
 
 /* Significance calculation function */
 
-arma::vec get_sig(arma::vec z) {
+arma::vec
+get_sig(arma::vec z)
+{
   z = (z - arma::min(z)) / (arma::max(z) - arma::min(z));
   z = 0.5 * log2((1 + z) / (1 - z));
   // Set max values to second highest values
@@ -142,30 +166,33 @@ arma::vec get_sig(arma::vec z) {
 
 // Run narromi algorithm for one gene against a set
 // of genes
-NaResult narromi(const arma::mat& GM,
-                 const std::string& al,
-                 const double& alpha,
-                 const double& t,
-                 const arma::uword& i) {
+NaResult
+narromi(const arma::mat& GM,
+        const std::string& al,
+        const double& alpha,
+        const double& t,
+        const arma::uword& i)
+{
 
   arma::uvec response = get_i(i, GM.n_cols);
   arma::mat X = GM.cols(response);
   arma::vec Y = GM.col(i);
   arma::vec net(X.n_cols, arma::fill::zeros);
-  arma::vec fmi       = fullMI(X, Y);
+  arma::vec fmi = fullMI(X, Y);
   arma::vec net_value = fmi;
-  arma::uvec index    = find(arma::abs(fmi) >= alpha);
-  arma::mat X1        = X.cols(index);
+  arma::uvec index = find(arma::abs(fmi) >= alpha);
+  arma::mat X1 = X.cols(index);
 
   std::pair<arma::vec, arma::vec> J = reoptim(X1.t(), Y.t(), al, alpha);
 
   for (size_t i = 0; i < index.n_elem; i++) {
-    net(index)        = J.first;
-    net_value(index)  = J.second;
+    net(index) = J.first;
+    net_value(index) = J.second;
   }
 
   arma::vec net_value1 = net_value;
-  net_value = arma::sign(net_value) % (arma::abs(net_value) * t + fmi * (1 - t));
+  net_value =
+    arma::sign(net_value) % (arma::abs(net_value) * t + fmi * (1 - t));
   arma::vec z = arma::abs(net_value1);
   arma::vec sig1 = get_sig(z);
 
@@ -175,39 +202,35 @@ NaResult narromi(const arma::mat& GM,
   arma::vec sig = arma::sqrt(arma::pow(sig1, 2) + arma::pow(sig2, 2));
 
   return NaResult(sig, net_value, response, i);
-
 }
 
 /* Run narromi algorithm on a full expression set in an all vs.
 all style comparison.
  */
-void full_narromi(const arma::mat& GM,
-                  const std::vector<std::string>& genes,
-                  const seidr_narromi_param_t& param) {
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+void
+full_narromi(const arma::mat& GM,
+             const std::vector<std::string>& genes,
+             const seidr_narromi_param_t& param)
+{
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
   fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
   std::vector<uint64_t> uvec;
-  for (uint64_t i = 0; i < GM.n_cols; i++)
-  {
-    if (param.resuming)
-    {
-      if (! in_sorted_range<uint64_t>(i, param.good_idx))
-      {
+  for (uint64_t i = 0; i < GM.n_cols; i++) {
+    if (param.resuming) {
+      if (!in_sorted_range<uint64_t>(i, param.good_idx)) {
         uvec.push_back(i);
       }
-    }
-    else
-    {
+    } else {
       uvec.push_back(i);
     }
   }
 
-  seidr_mpi_narromi mpi(param.bs, GM, uvec, genes, param.tempdir,
-                        param.outfile);
+  seidr_mpi_narromi mpi(
+    param.bs, GM, uvec, genes, param.tempdir, param.outfile);
   mpi.set_alpha(param.alpha);
   mpi.set_t(param.t);
   mpi.set_algorithm(param.al);
@@ -215,16 +238,17 @@ void full_narromi(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
-  #pragma omp critical
+#pragma omp critical
   {
-    if (mpi.rank() == 0)
-    {
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    if (mpi.rank() == 0) {
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
     }
   }
 
@@ -235,49 +259,44 @@ void full_narromi(const arma::mat& GM,
 genes of interest.
 */
 
-void partial_narromi(const arma::mat& GM,
-                     const std::vector<std::string>& genes,
-                     const std::vector<std::string>& targets,
-                     const seidr_narromi_param_t& param) {
+void
+partial_narromi(const arma::mat& GM,
+                const std::vector<std::string>& genes,
+                const std::vector<std::string>& targets,
+                const seidr_narromi_param_t& param)
+{
 
   fs::path p_out(param.outfile);
   p_out = fs::absolute(p_out);
 
   fs::path d_out(p_out.parent_path());
 
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
   std::vector<uint64_t> positions;
-  for (uint64_t i = 0; i < targets.size(); i++)
-  {
+  for (uint64_t i = 0; i < targets.size(); i++) {
     uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
-    if (pos >= genes.size())
-    {
+    if (pos >= genes.size()) {
       log << "\nWarning: Gene " << targets[i]
           << " was not found in the expression set "
           << "and will therefore not be considered. "
           << "Please check that your expression set and "
-          << "its column (gene) names contain an entry for " << targets[i] << ".\n";
+          << "its column (gene) names contain an entry for " << targets[i]
+          << ".\n";
       log.log(LOG_WARN);
-    }
-    else
-    {
-      if (param.resuming)
-      {
-        if (! in_sorted_range<uint64_t>(pos, param.good_idx))
-        {
+    } else {
+      if (param.resuming) {
+        if (!in_sorted_range<uint64_t>(pos, param.good_idx)) {
           positions.push_back(pos);
         }
-      }
-      else
-      {
+      } else {
         positions.push_back(pos);
       }
     }
   }
 
-  seidr_mpi_narromi mpi(param.bs, GM, positions, genes, param.tempdir,
-                        param.outfile);
+  seidr_mpi_narromi mpi(
+    param.bs, GM, positions, genes, param.tempdir, param.outfile);
   mpi.set_alpha(param.alpha);
   mpi.set_t(param.t);
   mpi.set_algorithm(param.al);
@@ -286,45 +305,46 @@ void partial_narromi(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER(); // NOLINT
   mpi.remove_queue_file();
-  #pragma omp critical
+#pragma omp critical
   {
-    if (mpi.rank() == 0)
-    {
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+    if (mpi.rank() == 0) {
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME"@" + mpi_get_host())); // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
+        ; // NOLINT
     }
   }
 
   SEIDR_MPI_FINALIZE();
 }
 
-void narromi_thread(const arma::mat& gene_matrix,
-                    const std::string& al,
-                    const double& alpha,
-                    const double& t,
-                    const std::vector<arma::uword>& ind,
-                    const std::vector<std::string>& genes,
-                    const std::string tmpdir,
-                    seidr_mpi_narromi * self) {
+void
+narromi_thread(const arma::mat& gene_matrix,
+               const std::string& al,
+               const double& alpha,
+               const double& t,
+               const std::vector<arma::uword>& ind,
+               const std::vector<std::string>& genes,
+               const std::string tmpdir,
+               seidr_mpi_narromi* self)
+{
   std::clock_t start;
   size_t tot = gene_matrix.n_cols - 1;
-  seidr_mpi_logger log(LOG_NAME"@" + mpi_get_host());
+  seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str());
 
-  if (! ofs)
-  {
+  if (!ofs) {
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 
-  #pragma omp parallel for schedule(dynamic)
-  for (size_t x = 0; x < ind.size(); x++) 
-  {
+#pragma omp parallel for schedule(dynamic)
+  for (size_t x = 0; x < ind.size(); x++) {
     start = std::clock();
     arma::uword i = ind[x];
     NaResult nr = narromi(gene_matrix, al, alpha, t, i);
@@ -332,27 +352,19 @@ void narromi_thread(const arma::mat& gene_matrix,
     arma::vec si = nr.sig();
     arma::vec nv = nr.nv();
 
-    #pragma omp critical
+#pragma omp critical
     {
       self->increment_pbar();
       ofs << i << '\n';
       for (arma::uword j = 0; j < tot; j++) {
-        if (j == i && j < (tot - 1))
-        {
+        if (j == i && j < (tot - 1)) {
           ofs << 0 << '\t' << nv(j) << '\t';
-        }
-        else if (i == j && j == (tot - 1))
-        {
+        } else if (i == j && j == (tot - 1)) {
           ofs << 0 << '\t' << nv(j) << '\n';
-        }
-        else if (i > j && j == (tot - 1))
-        {
+        } else if (i > j && j == (tot - 1)) {
           ofs << nv(j) << '\t' << 0 << '\n';
-        }
-        else
-        {
-          ofs << nv(j) <<
-              (j == (tot - 1) ? '\n' : '\t');
+        } else {
+          ofs << nv(j) << (j == (tot - 1) ? '\n' : '\t');
         }
       }
     }

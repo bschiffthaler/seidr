@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include <vector>
 #include <armadillo>
 #include <string>
+#include <vector>
 
-#include <boost/archive/xml_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
 
 #define EL_FULL 0
 #define EL_PARTIAL 1
@@ -37,29 +37,29 @@ struct seidr_elnet_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive & ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version)
   {
-    ar & BOOST_SERIALIZATION_NVP(infile);
-    ar & BOOST_SERIALIZATION_NVP(gene_file);
-    ar & BOOST_SERIALIZATION_NVP(targets_file);
-    ar & BOOST_SERIALIZATION_NVP(do_scale);
-    ar & BOOST_SERIALIZATION_NVP(force);
-    ar & BOOST_SERIALIZATION_NVP(row_delim);
-    ar & BOOST_SERIALIZATION_NVP(field_delim);
-    ar & BOOST_SERIALIZATION_NVP(bs);
-    ar & BOOST_SERIALIZATION_NVP(mode);
-    ar & BOOST_SERIALIZATION_NVP(outfile);
-    ar & BOOST_SERIALIZATION_NVP(tempdir);
-    ar & BOOST_SERIALIZATION_NVP(min_sample_size);
-    ar & BOOST_SERIALIZATION_NVP(max_sample_size);
-    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_min);
-    ar & BOOST_SERIALIZATION_NVP(predictor_sample_size_max);
-    ar & BOOST_SERIALIZATION_NVP(ensemble_size);
-    ar & BOOST_SERIALIZATION_NVP(verbosity);
-    ar & BOOST_SERIALIZATION_NVP(alpha);
-    ar & BOOST_SERIALIZATION_NVP(flmin);
-    ar & BOOST_SERIALIZATION_NVP(nlam);
-    ar & BOOST_SERIALIZATION_NVP(nthreads);
+    ar& BOOST_SERIALIZATION_NVP(infile);
+    ar& BOOST_SERIALIZATION_NVP(gene_file);
+    ar& BOOST_SERIALIZATION_NVP(targets_file);
+    ar& BOOST_SERIALIZATION_NVP(do_scale);
+    ar& BOOST_SERIALIZATION_NVP(force);
+    ar& BOOST_SERIALIZATION_NVP(row_delim);
+    ar& BOOST_SERIALIZATION_NVP(field_delim);
+    ar& BOOST_SERIALIZATION_NVP(bs);
+    ar& BOOST_SERIALIZATION_NVP(mode);
+    ar& BOOST_SERIALIZATION_NVP(outfile);
+    ar& BOOST_SERIALIZATION_NVP(tempdir);
+    ar& BOOST_SERIALIZATION_NVP(min_sample_size);
+    ar& BOOST_SERIALIZATION_NVP(max_sample_size);
+    ar& BOOST_SERIALIZATION_NVP(predictor_sample_size_min);
+    ar& BOOST_SERIALIZATION_NVP(predictor_sample_size_max);
+    ar& BOOST_SERIALIZATION_NVP(ensemble_size);
+    ar& BOOST_SERIALIZATION_NVP(verbosity);
+    ar& BOOST_SERIALIZATION_NVP(alpha);
+    ar& BOOST_SERIALIZATION_NVP(flmin);
+    ar& BOOST_SERIALIZATION_NVP(nlam);
+    ar& BOOST_SERIALIZATION_NVP(nthreads);
   }
   std::string infile;
   std::string gene_file;
@@ -87,25 +87,28 @@ struct seidr_elnet_param_t
   std::string cmd_file;
 };
 
-void el_ensemble(const arma::mat& geneMatrix, 
-                 const std::vector<std::string>& genes,
-                 const std::vector<arma::uword>& uvec, 
-                 const std::string& tmpdir,
-                 const arma::uword min_sample_size,
-                 const arma::uword max_sample_size,
-                 const arma::uword predictor_sample_size_min,
-                 const arma::uword predictor_sample_size_max,
-                 const arma::uword ensemble_size, 
-                 const double alpha, 
-                 const double flmin,
-                 const arma::uword nlam,
-                 seidr_mpi_elnet * self);
+void
+el_ensemble(const arma::mat& geneMatrix,
+            const std::vector<std::string>& genes,
+            const std::vector<arma::uword>& uvec,
+            const std::string& tmpdir,
+            const arma::uword min_sample_size,
+            const arma::uword max_sample_size,
+            const arma::uword predictor_sample_size_min,
+            const arma::uword predictor_sample_size_max,
+            const arma::uword ensemble_size,
+            const double alpha,
+            const double flmin,
+            const arma::uword nlam,
+            seidr_mpi_elnet* self);
 
-void el_full(const arma::mat& GM, 
-             const std::vector<std::string>& genes, 
-             const seidr_elnet_param_t& param);
+void
+el_full(const arma::mat& GM,
+        const std::vector<std::string>& genes,
+        const seidr_elnet_param_t& param);
 
-void el_partial(const arma::mat& GM, 
-                const std::vector<std::string>& genes, 
-                const std::vector<std::string>& targets, 
-                const seidr_elnet_param_t& param);
+void
+el_partial(const arma::mat& GM,
+           const std::vector<std::string>& genes,
+           const std::vector<std::string>& targets,
+           const seidr_elnet_param_t& param);

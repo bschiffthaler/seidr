@@ -21,12 +21,14 @@
 
 #include <common.h>
 
-#include <vector>
 #include <string>
+#include <vector>
 
-int view(int argc, char * argv[]);
+int
+view(int argc, char* argv[]);
 
-struct seidr_param_view_t {
+struct seidr_param_view_t
+{
   std::string el_file;
   std::string ot_file;
   bool header = false;

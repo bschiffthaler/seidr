@@ -28,4 +28,5 @@ struct seidr_reheader_param_t
   std::string tempfile;
 };
 
-int reheader(int argc, char ** argv);
+int
+reheader(int argc, char** argv);

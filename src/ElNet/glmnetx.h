@@ -22,7 +22,8 @@
 #include <armadillo>
 #include <vector>
 
-extern "C" {
+extern "C"
+{
   /*
     c dense predictor matrix:
     c
@@ -99,33 +100,59 @@ extern "C" {
     c         jerr = -10000-k => number of non zero coefficients along path
     c            exceeds nx (see above) at kth lamda value.
   */
-  void elnet_(int64_t* ka, double* parm, int64_t* no, int64_t* ni, double* x, double* y,
-              double* w, int64_t* jd, double* vp, double* cl, int64_t* ne, int64_t* nx,
-              int64_t* nlam, double* flmin, double* ulam, double* thr, int64_t* isd,
-              int64_t* intr, int64_t* maxit, int64_t* lmu, double* a0, double* ca, int64_t* ia,
-              int64_t* nin, double* rsq, double* alm, int64_t* nlp, int64_t* jerr);
+  void elnet_(int64_t* ka,
+              double* parm,
+              int64_t* no,
+              int64_t* ni,
+              double* x,
+              double* y,
+              double* w,
+              int64_t* jd,
+              double* vp,
+              double* cl,
+              int64_t* ne,
+              int64_t* nx,
+              int64_t* nlam,
+              double* flmin,
+              double* ulam,
+              double* thr,
+              int64_t* isd,
+              int64_t* intr,
+              int64_t* maxit,
+              int64_t* lmu,
+              double* a0,
+              double* ca,
+              int64_t* ia,
+              int64_t* nin,
+              double* rsq,
+              double* alm,
+              int64_t* nlp,
+              int64_t* jerr);
 }
 
-struct lambda_interp_t {
+struct lambda_interp_t
+{
   arma::uvec left;
   arma::uvec right;
   arma::vec frac;
 };
 
-struct glm_cv_t {
+struct glm_cv_t
+{
   arma::vec cvm;
   arma::vec cvsd;
   double lambda_min;
   double lambda_sd;
 };
 
-class glm {
- public:
+class glm
+{
+public:
   // Base data
   arma::mat X;
   arma::vec Y;
   // Input to FORTRAN code
-  int64_t nlam; 
+  int64_t nlam;
   int64_t nobs;
   int64_t nvars;
   int64_t ne;
@@ -157,8 +184,12 @@ class glm {
   arma::uvec sort_order;
   bool beta_success;
   // Ctor
-  glm(arma::mat X, arma::vec Y, int64_t _nlam = 6, double _flmin = 0.3,
-      double _alpha = 1, arma::vec _ulam = arma::vec(1, arma::fill::zeros));
+  glm(arma::mat X,
+      arma::vec Y,
+      int64_t _nlam = 6,
+      double _flmin = 0.3,
+      double _alpha = 1,
+      arma::vec _ulam = arma::vec(1, arma::fill::zeros));
   // Calculate and return beta
   void calculate_beta();
   // Predict a new set of data
@@ -169,6 +200,8 @@ class glm {
   glm_cv_t k_fold_cv(arma::uword k);
 };
 
-glm glmnet(arma::mat&, arma::vec&, int64_t nsteps, double fmin);
+glm
+glmnet(arma::mat&, arma::vec&, int64_t nsteps, double fmin);
 
-lambda_interp_t lambda_interp(arma::vec lambda, arma::vec s);
+lambda_interp_t
+lambda_interp(arma::vec lambda, arma::vec s);

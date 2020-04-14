@@ -19,34 +19,34 @@
 //
 
 // Seidr
-#include <common.h>
-#include <import.h>
-#include <viewRanks.h>
-#include <aggregate.h>
+#include <BSlogger.hpp>
 #include <adjacency.h>
+#include <aggregate.h>
 #include <asp.h>
 #include <backbone.h>
-#include <describe.h>
-#include <index.h>
-#include <graphstats.h>
-#include <threshold.h>
-#include <roc.h>
-#include <convert.h>
-#include <compare_clusters.h>
+#include <common.h>
 #include <compare.h>
-#include <resolve.h>
+#include <compare_clusters.h>
+#include <convert.h>
+#include <describe.h>
+#include <graphstats.h>
+#include <import.h>
+#include <index.h>
+#include <neighbours.h>
 #include <reheader.h>
+#include <resolve.h>
+#include <roc.h>
+#include <sample.h>
 #include <stats.h>
 #include <tau.h>
-#include <BSlogger.hpp>
-#include <neighbours.h>
-#include <sample.h>
 #include <test.h>
+#include <threshold.h>
 #include <top.h>
+#include <viewRanks.h>
 // External
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 std::string usage_msg =
   "Gene network utility for format conversion, ranking and aggregation.\n\n"
@@ -59,7 +59,8 @@ std::string usage_msg =
   "  backbone                  \t Calculate network backbone and filter edges\n"
   "                            \t based on noise corrected backbone measure.\n"
   "  index                     \t Create index for SeidrFiles.\n"
-  "  neighbours                \t Extract N first degree neighbours of all nodes\n"
+  "  neighbours                \t Extract N first degree neighbours of all "
+  "nodes\n"
   "                            \t or a list of nodes in a SeidrFile.\n"
   "  sample                    \t Sample random edges from a SeidrFile.\n"
   "  threshold                 \t Calculate network threshold based on scale\n"
@@ -91,22 +92,20 @@ std::string usage_msg =
   "[Other utility]\n"
   "  reheader                  \t Modify SeidrFile headers.\n"
   "\n"
-  "Version " + version + "\n";
+  "Version " +
+  version + "\n";
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
   logger log(std::cerr, "seidr");
 
-  try
-  {
-    if (argc < 2)
-    {
+  try {
+    if (argc < 2) {
       std::cerr << usage_msg << std::endl;
       throw std::invalid_argument("Too few arguments.");
     }
-  }
-  catch (std::invalid_argument& e)
-  {
+  } catch (std::invalid_argument& e) {
     log(LOG_ERR) << e.what() << '\n';
     return EPERM;
   }
@@ -115,105 +114,58 @@ int main(int argc, char* argv[])
 
   int ret;
 
-  try
-  {
-    if (task == "adjacency")
-    {
+  try {
+    if (task == "adjacency") {
       ret = adjacency(argc, argv);
-    }
-    else if (task == "aggregate")
-    {
+    } else if (task == "aggregate") {
       ret = aggregate(argc, argv);
-    }
-    else if (task == "asp")
-    {
+    } else if (task == "asp") {
       ret = asp(argc, argv);
-    }
-    else if (task == "backbone")
-    {
+    } else if (task == "backbone") {
       ret = backbone(argc, argv);
-    }
-    else if (task == "cluster-enrichment")
-    {
+    } else if (task == "cluster-enrichment") {
       ret = cluster_enrichment(argc, argv);
-    }
-    else if (task == "compare")
-    {
+    } else if (task == "compare") {
       ret = compare(argc, argv);
-    }
-    else if (task == "convert")
-    {
+    } else if (task == "convert") {
       ret = convert(argc, argv);
-    }
-    else if (task == "describe")
-    {
+    } else if (task == "describe") {
       ret = describe(argc, argv);
-    }
-    else if (task == "graphstats")
-    {
+    } else if (task == "graphstats") {
       ret = graphstats(argc, argv);
-    }
-    else if (task == "import")
-    {
+    } else if (task == "import") {
       ret = import(argc, argv);
-    }
-    else if (task == "index")
-    {
+    } else if (task == "index") {
       ret = index(argc, argv);
-    }
-    else if (task == "neighbours")
-    {
+    } else if (task == "neighbours") {
       ret = neighbours(argc, argv);
-    }
-    else if (task == "reheader")
-    {
+    } else if (task == "reheader") {
       ret = reheader(argc, argv);
-    }
-    else if (task == "resolve")
-    {
+    } else if (task == "resolve") {
       ret = resolve(argc, argv);
-    }   
-    else if (task == "roc")
-    {
+    } else if (task == "roc") {
       ret = roc(argc, argv);
-    } 
-    else if (task == "sample")
-    {
+    } else if (task == "sample") {
       ret = sample(argc, argv);
-    }
-    else if (task == "stats")
-    {
+    } else if (task == "stats") {
       ret = stats(argc, argv);
-    }
-    else if (task == "tau")
-    {
+    } else if (task == "tau") {
       ret = tau(argc, argv);
-    }
-    else if (task == "threshold")
-    {
+    } else if (task == "threshold") {
       ret = threshold(argc, argv);
-    }
-    else if (task == "top")
-    {
+    } else if (task == "top") {
       ret = top(argc, argv);
-    }
-    else if (task == "view")
-    {
+    } else if (task == "view") {
       ret = view(argc, argv);
-    }    
-    else if (task == "test")
-    {
+    } else if (task == "test") {
       ret = test(argc, argv);
     }
-    
-    else
-    {
+
+    else {
       log(LOG_ERR) << usage_msg << '\n';
       throw std::invalid_argument("Unrecognized task.");
     }
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }

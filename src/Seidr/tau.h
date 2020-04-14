@@ -20,7 +20,8 @@
 #pragma once
 #include <string>
 
-struct seidr_param_tau_t {
+struct seidr_param_tau_t
+{
   std::string network_a;
   std::string network_b;
   std::string out_file;
@@ -30,4 +31,5 @@ struct seidr_param_tau_t {
   uint32_t tpos_b;
 };
 
-int tau(int argc, char * argv[]);
+int
+tau(int argc, char* argv[]);

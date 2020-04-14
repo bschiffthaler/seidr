@@ -33,7 +33,8 @@
 
 namespace po = boost::program_options;
 
-int main(int argc, char ** argv)
+int
+main(int argc, char** argv)
 {
   logger log(std::cerr, "correlation");
 
@@ -41,76 +42,69 @@ int main(int argc, char ** argv)
 
   po::options_description umbrella("Pearson/Spearman correlation for Seidr");
   po::variables_map vm;
-  try
-  {
+  try {
     po::options_description opt("Common Options");
-    opt.add_options()
-    ("help,h", "Show this help message")
-    ("targets,t", po::value<std::string>(&param.targets_file),
-     "File containing gene names"
-     " of genes of interest. The network will only be"
-     " calculated using these as the sources of potential connections.")
-    ("outfile,o",
-     po::value<std::string>(&param.outfile)->default_value("<method>_scores.tsv"),
-     "Output file path")
-    ("verbosity,v",
-     po::value<unsigned>(&param.verbosity)->default_value(3),
-     "Verbosity level (lower is less verbose)")
-    ("force,f", po::bool_switch(&param.force)->default_value(false),
-     "Force overwrite if output already exists");
+    opt.add_options()("help,h", "Show this help message")(
+      "targets,t",
+      po::value<std::string>(&param.targets_file),
+      "File containing gene names"
+      " of genes of interest. The network will only be"
+      " calculated using these as the sources of potential connections.")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)
+        ->default_value("<method>_scores.tsv"),
+      "Output file path")(
+      "verbosity,v",
+      po::value<unsigned>(&param.verbosity)->default_value(3),
+      "Verbosity level (lower is less verbose)")(
+      "force,f",
+      po::bool_switch(&param.force)->default_value(false),
+      "Force overwrite if output already exists");
 
     po::options_description algopt("Correlation specific Options");
-    algopt.add_options()
-    ("method,m",
-     po::value<std::string>(&param.method)->default_value("pearson"),
-     "Correlation method")
-    ("absolute,a", po::bool_switch(&param.abs)->default_value(false),
-     "Report absolute values")
-    ("scale,s", po::bool_switch(&param.do_scale)->default_value(false),
-     "Transform data to z-scores");
+    algopt.add_options()(
+      "method,m",
+      po::value<std::string>(&param.method)->default_value("pearson"),
+      "Correlation method")("absolute,a",
+                            po::bool_switch(&param.abs)->default_value(false),
+                            "Report absolute values")(
+      "scale,s",
+      po::bool_switch(&param.do_scale)->default_value(false),
+      "Transform data to z-scores");
 
     po::options_description req("Required Options");
-    req.add_options()
-    ("infile,i", po::value<std::string>(&param.infile)->required(),
-     "The expression table (without headers)")
-    ("genes,g", po::value<std::string>(&param.gene_file)->required(),
-     "File containing gene names");
+    req.add_options()("infile,i",
+                      po::value<std::string>(&param.infile)->required(),
+                      "The expression table (without headers)")(
+      "genes,g",
+      po::value<std::string>(&param.gene_file)->required(),
+      "File containing gene names");
 
     umbrella.add(req).add(algopt).add(opt);
 
     po::positional_options_description p;
 
-
-    po::store(po::command_line_parser(argc, argv).
-              options(umbrella).run(), vm);
-  }
-  catch (std::exception& e)
-  {
+    po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
+  } catch (std::exception& e) {
     log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
     return 22;
   }
 
-
-  if (vm.count("help") > 0 || argc == 1)
-  {
+  if (vm.count("help") > 0 || argc == 1) {
     std::cerr << umbrella << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
     return 22;
   }
 
   log.set_log_level(param.verbosity);
 
-  try
-  {
+  try {
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);
     param.gene_file = to_absolute(param.gene_file);
@@ -122,90 +116,71 @@ int main(int argc, char ** argv)
     assert_can_read(param.gene_file);
     assert_can_read(param.infile);
 
-    if (vm.count("targets") > 0)
-    {
+    if (vm.count("targets") > 0) {
       param.targets_file = to_absolute(param.targets_file);
       assert_exists(param.targets_file);
     }
 
-    if (vm["outfile"].defaulted())
-    {
+    if (vm["outfile"].defaulted()) {
       param.outfile = param.method + "_scores.tsv";
     }
 
-    if (! param.force)
-    {
+    if (!param.force) {
       assert_no_overwrite(param.outfile);
     }
-    assert_arg_constraint<std::string>({"pearson", "spearman"}, param.method);
-  }
-  catch (std::runtime_error& e)
-  {
+    assert_arg_constraint<std::string>({ "pearson", "spearman" }, param.method);
+  } catch (std::runtime_error& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
   arma::mat gm;
 
-  try
-  {
+  try {
     gm.load(param.infile, arma::raw_ascii);
     std::vector<std::string> genes = read_genes(param.gene_file);
     verify_matrix(gm, genes);
-    if (param.do_scale)
-    {
+    if (param.do_scale) {
       log(LOG_INFO) << "Transforming matrix to z-score\n";
       scale(gm);
     }
 
-    if (param.method == "spearman")
-    {
+    if (param.method == "spearman") {
       log(LOG_INFO) << "Transforming matrix to value ranks\n";
       to_rank(gm);
     }
 
     gm = arma::cor(gm);
-    if (vm.count("targets") == 0)
-    {
+    if (vm.count("targets") == 0) {
       write_lm(gm, param.outfile, param.abs);
-    }
-    else
-    {
+    } else {
       std::vector<std::string> genes = read_genes(param.gene_file);
       std::vector<std::string> targets = read_genes(param.targets_file);
       std::unordered_map<std::string, uint64_t> gene_map;
       uint64_t ctr = 0;
-      for (auto& g : genes)
-      {
+      for (auto& g : genes) {
         gene_map[g] = ctr++;
       }
       std::ofstream ofs(param.outfile, std::ios::out);
-      for (auto& t : targets)
-      {
+      for (auto& t : targets) {
         uint64_t i;
-        try
-        {
+        try {
           i = gene_map.at(t);
-        }
-        catch (std::exception& e)
-        {
+        } catch (std::exception& e) {
           log(LOG_ERR) << e.what() << '\n';
-          log(LOG_ERR) << "Target gene " << t << "is not in the expression matrix\n";
+          log(LOG_ERR) << "Target gene " << t
+                       << "is not in the expression matrix\n";
         }
-        for (uint64_t j = 0; j < gm.n_cols; j++)
-        {
-          if (i == j)
-          {
+        for (uint64_t j = 0; j < gm.n_cols; j++) {
+          if (i == j) {
             continue;
           }
-          ofs << genes[i] << '\t' << genes[j] << '\t' <<
-              (param.abs ? fabs(gm(i, j)) : gm(i, j)) << '\n';
+          ofs << genes[i] << '\t' << genes[j] << '\t'
+              << (param.abs ? fabs(gm(i, j)) : gm(i, j)) << '\n';
         }
       }
     }
-  }
-  catch (std::runtime_error& e)
-  {
+  } catch (std::runtime_error& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }

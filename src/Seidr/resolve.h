@@ -29,4 +29,5 @@ struct seidr_resolve_param_t
   std::string outfile;
 };
 
-int resolve(int argc, char * argv[]);
+int
+resolve(int argc, char* argv[]);

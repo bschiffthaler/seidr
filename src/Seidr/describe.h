@@ -20,7 +20,8 @@
 #pragma once
 #include <string>
 
-struct seidr_param_describe_t {
+struct seidr_param_describe_t
+{
   std::string el_file;
   uint32_t bins;
   bool parseable;
@@ -29,4 +30,5 @@ struct seidr_param_describe_t {
   bool force;
 };
 
-int describe(int argc, char * argv[]);
+int
+describe(int argc, char* argv[]);

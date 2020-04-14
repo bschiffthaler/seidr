@@ -22,7 +22,8 @@
 #include <armadillo>
 #include <vector>
 
-struct edge {
+struct edge
+{
   size_t i = 0;
   double w = 0;
   double r = 0;
@@ -52,13 +53,22 @@ struct seidr_tom_param_t
   uint64_t sft;
 };
 
-double scale_free_fit(const arma::mat & gm, const uint64_t p,
-                      const uint64_t nbreaks, const tom_cor_t cor);
-arma::mat tom_similarity(arma::mat & gm, const uint64_t p,
-                         const tom_cor_t cor);
-bool ascending(edge a, edge b);
-void rank_vector(std::vector<edge>& ev);
-void to_rank(arma::mat& GM);
-void write_lm(arma::mat & gm, const std::string& outfile, bool abs);
-double mad(const arma::vec & v);
-arma::mat bicor(const arma::mat & gm);
+double
+scale_free_fit(const arma::mat& gm,
+               const uint64_t p,
+               const uint64_t nbreaks,
+               const tom_cor_t cor);
+arma::mat
+tom_similarity(arma::mat& gm, const uint64_t p, const tom_cor_t cor);
+bool
+ascending(edge a, edge b);
+void
+rank_vector(std::vector<edge>& ev);
+void
+to_rank(arma::mat& GM);
+void
+write_lm(arma::mat& gm, const std::string& outfile, bool abs);
+double
+mad(const arma::vec& v);
+arma::mat
+bicor(const arma::mat& gm);

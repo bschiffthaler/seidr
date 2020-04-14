@@ -36,4 +36,5 @@ struct seidr_neighbours_param_t
   bool case_insensitive;
 };
 
-int neighbours(int argc, char * argv[]);
+int
+neighbours(int argc, char* argv[]);

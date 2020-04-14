@@ -20,17 +20,17 @@
 #pragma once
 
 #ifdef SEIDR_WITH_MPI
-  #include <mpiomp.h>
+#include <mpiomp.h>
 #else
-  #include <mpi_dummy.h>
+#include <mpi_dummy.h>
 #endif
-#include <common.h>
 #include <armadillo>
-#include <vector>
+#include <common.h>
 #include <string>
+#include <vector>
 
-#include <boost/archive/xml_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
 
 #define GENIE3_FULL 0
 #define GENIE3_PARTIAL 1
@@ -43,26 +43,26 @@ struct seidr_genie3_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive & ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version)
   {
-    ar & BOOST_SERIALIZATION_NVP(infile);
-    ar & BOOST_SERIALIZATION_NVP(gene_file);
-    ar & BOOST_SERIALIZATION_NVP(targets_file);
-    ar & BOOST_SERIALIZATION_NVP(do_scale);
-    ar & BOOST_SERIALIZATION_NVP(force);
-    ar & BOOST_SERIALIZATION_NVP(row_delim);
-    ar & BOOST_SERIALIZATION_NVP(field_delim);
-    ar & BOOST_SERIALIZATION_NVP(bs);
-    ar & BOOST_SERIALIZATION_NVP(mode);
-    ar & BOOST_SERIALIZATION_NVP(outfile);
-    ar & BOOST_SERIALIZATION_NVP(tempdir);
-    ar & BOOST_SERIALIZATION_NVP(verbosity);
-    ar & BOOST_SERIALIZATION_NVP(nthreads);
-    ar & BOOST_SERIALIZATION_NVP(ntree);
-    ar & BOOST_SERIALIZATION_NVP(mtry);
-    ar & BOOST_SERIALIZATION_NVP(min_node_size);
-    ar & BOOST_SERIALIZATION_NVP(minprop);
-    ar & BOOST_SERIALIZATION_NVP(alpha);
+    ar& BOOST_SERIALIZATION_NVP(infile);
+    ar& BOOST_SERIALIZATION_NVP(gene_file);
+    ar& BOOST_SERIALIZATION_NVP(targets_file);
+    ar& BOOST_SERIALIZATION_NVP(do_scale);
+    ar& BOOST_SERIALIZATION_NVP(force);
+    ar& BOOST_SERIALIZATION_NVP(row_delim);
+    ar& BOOST_SERIALIZATION_NVP(field_delim);
+    ar& BOOST_SERIALIZATION_NVP(bs);
+    ar& BOOST_SERIALIZATION_NVP(mode);
+    ar& BOOST_SERIALIZATION_NVP(outfile);
+    ar& BOOST_SERIALIZATION_NVP(tempdir);
+    ar& BOOST_SERIALIZATION_NVP(verbosity);
+    ar& BOOST_SERIALIZATION_NVP(nthreads);
+    ar& BOOST_SERIALIZATION_NVP(ntree);
+    ar& BOOST_SERIALIZATION_NVP(mtry);
+    ar& BOOST_SERIALIZATION_NVP(min_node_size);
+    ar& BOOST_SERIALIZATION_NVP(minprop);
+    ar& BOOST_SERIALIZATION_NVP(alpha);
   }
   std::string infile;
   std::string gene_file;
@@ -87,22 +87,25 @@ struct seidr_genie3_param_t
   std::string cmd_file;
 };
 
-void genie3(const arma::mat& gm, 
+void
+genie3(const arma::mat& gm,
+       const std::vector<std::string>& genes,
+       const std::vector<arma::uword>& pred,
+       const std::string& tmpdir,
+       const uint64_t& ntree,
+       const uint64_t& mtry,
+       const uint64_t& min_node_size,
+       const double& alpha,
+       const double& minprop,
+       seidr_mpi_genie3* self);
+
+void
+genie3_full(const arma::mat& gm,
             const std::vector<std::string>& genes,
-            const std::vector<arma::uword>& pred, 
-            const std::string& tmpdir,
-            const uint64_t& ntree, 
-            const uint64_t& mtry,
-            const uint64_t& min_node_size, 
-            const double& alpha, 
-            const double& minprop,
-            seidr_mpi_genie3 * self);
+            const seidr_genie3_param_t& param);
 
-void genie3_full(const arma::mat& gm, 
-                 const std::vector<std::string>& genes,
-                 const seidr_genie3_param_t& param);
-
-void genie3_partial(const arma::mat& gm,
-                    const std::vector<std::string>& genes,
-                    const std::vector<std::string>& targets,
-                    const seidr_genie3_param_t& param);
+void
+genie3_partial(const arma::mat& gm,
+               const std::vector<std::string>& genes,
+               const std::vector<std::string>& targets,
+               const seidr_genie3_param_t& param);

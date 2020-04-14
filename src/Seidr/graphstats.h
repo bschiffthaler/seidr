@@ -27,4 +27,5 @@ struct seidr_graphstat_param_t
   std::string outfile;
 };
 
-int graphstats(int argc, char ** argv);
+int
+graphstats(int argc, char** argv);

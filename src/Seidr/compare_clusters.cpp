@@ -18,38 +18,37 @@
 // along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-#include <compare_clusters.h>
-#include <common.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <common.h>
+#include <compare_clusters.h>
+#include <fs.h>
 
-#include <map>
+#include <algorithm>
+#include <boost/program_options.hpp>
+#include <fstream>
 #include <iostream>
+#include <map>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <fstream>
-#include <sstream>
-#include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
 
-double div_as_double(unsigned long lhs,
-                     unsigned long rhs)
+double
+div_as_double(unsigned long lhs, unsigned long rhs)
 {
   double a = lhs;
   double b = rhs;
   return a / b;
 }
 
-std::vector<std::string> strsplit(std::string& sin, char split)
+std::vector<std::string>
+strsplit(std::string& sin, char split)
 {
   std::vector<std::string> ret;
   std::string word{};
-  for (auto& c : sin)
-  {
-    if (c == split)
-    {
+  for (auto& c : sin) {
+    if (c == split) {
       if (word.size() > 0)
         ret.push_back(word);
     }
@@ -70,22 +69,18 @@ cluster_map(std::string inf,
   std::string line;
 
   // Read file and add clusters to map
-  while (std::getline(ifs, line))
-  {
+  while (std::getline(ifs, line)) {
     std::string field;
     std::stringstream ss(line);
     ss >> field;
     std::vector<std::string> clusters = strsplit(field, ':');
     ss >> field;
-    for (unsigned long i = 0; i < clusters.size(); i++)
-    {
+    for (unsigned long i = 0; i < clusters.size(); i++) {
       auto hit = ret.find(clusters[i]);
-      if (hit == ret.end())
-      {
+      if (hit == ret.end()) {
         ret[clusters[i]] = cluster();
         ret[clusters[i]].set_name(clusters[i]);
-        if (i > 0)
-        {
+        if (i > 0) {
           ret[clusters[i]].set_parent_name(clusters[i - 1]);
         }
       }
@@ -94,40 +89,36 @@ cluster_map(std::string inf,
   }
 
   // Drop modules with too few/many members
-  for (auto it = ret.begin(); it != ret.end(); it++)
-  {
+  for (auto it = ret.begin(); it != ret.end(); it++) {
     if ((it->second.get_members().size() >= min_members) &&
-        (it->second.get_members().size() <= max_members))
-    {
-      //std::cout << it->first << ' ' << it->second.get_members().size() << '\n';
+        (it->second.get_members().size() <= max_members)) {
+      // std::cout << it->first << ' ' << it->second.get_members().size() <<
+      // '\n';
       filt[it->first] = it->second;
     }
   }
 
   // Ensure vectors are sorted and unique
-  for (auto it = filt.begin(); it != filt.end(); it++)
-  {
+  for (auto it = filt.begin(); it != filt.end(); it++) {
     it->second.sort_members();
     it->second.make_unique();
   }
 
   // Link pointers to parents
-  for (auto it = filt.begin(); it != filt.end(); it++)
-  {
-    if (it->second.has_parent())
-    {
-      it->second.set_parent( filt[it->second.get_parent_name()] );
+  for (auto it = filt.begin(); it != filt.end(); it++) {
+    if (it->second.has_parent()) {
+      it->second.set_parent(filt[it->second.get_parent_name()]);
     }
   }
   return filt;
 }
 
-std::vector<std::string> cluster::parent_members()
+std::vector<std::string>
+cluster::parent_members()
 {
   std::vector<std::string> members = this->get_members();
   auto current_cluster = (*this);
-  while (current_cluster.has_parent())
-  {
+  while (current_cluster.has_parent()) {
     auto parent = current_cluster.get_parent();
     current_cluster = *parent;
     for (auto& m : current_cluster.get_members())
@@ -139,49 +130,55 @@ std::vector<std::string> cluster::parent_members()
   return members;
 }
 
-double log10_binom_coef(unsigned long n, unsigned long k)
+double
+log10_binom_coef(unsigned long n, unsigned long k)
 {
   if (k > n) {
     return -1;
   }
-  if (k == 0) return 0;
+  if (k == 0)
+    return 0;
 
   double nd = n;
 
-  double r = log10( nd );
+  double r = log10(nd);
 
-  for (unsigned long i = 2; i <= k; i++)
-  {
-    double id =  i;
-    r += log10( ( nd + 1 - id ) / id );
+  for (unsigned long i = 2; i <= k; i++) {
+    double id = i;
+    r += log10((nd + 1 - id) / id);
   }
   return r;
 }
 
-unsigned long min(unsigned long a, unsigned long b)
+unsigned long
+min(unsigned long a, unsigned long b)
 {
   return a <= b ? a : b;
 }
 
 // Probability to observe sigma_t or more terms, equ (2) in
 // Grossman et al.
-double log10_sigma_t(unsigned long m, unsigned long n,
-                     unsigned long mt, unsigned long nt)
+double
+log10_sigma_t(unsigned long m,
+              unsigned long n,
+              unsigned long mt,
+              unsigned long nt)
 {
   unsigned long limit = min(mt, n);
 
   double s = 0;
 
-  for (unsigned long k = nt; k <= limit; k++)
-  {
+  for (unsigned long k = nt; k <= limit; k++) {
     // We get logarithms from log10_binom_coef so products
     // become sums and divisions differences
     double t1 = log10_binom_coef(mt, k);
     double t2 = log10_binom_coef(m - mt, n - k);
     double t3 = log10_binom_coef(m, n);
 
-    if (t1 < 0 || t2 < 0) continue;
-    if (t3 < 0) return -1;
+    if (t1 < 0 || t2 < 0)
+      continue;
+    if (t3 < 0)
+      return -1;
 
     double e = t1 + t2 - t3;
     s += pow(10, e);
@@ -190,7 +187,8 @@ double log10_sigma_t(unsigned long m, unsigned long n,
   return s;
 }
 
-result test(cluster& lhs, cluster& rhs)
+result
+test(cluster& lhs, cluster& rhs)
 {
   unsigned long mt = rhs.get_members().size();
 
@@ -210,7 +208,7 @@ result test(cluster& lhs, cluster& rhs)
 
   unsigned long mpat = rhs_parents.size();
 
-  //std::cerr << lhs.get_members().size() << '(' << npat << "), "
+  // std::cerr << lhs.get_members().size() << '(' << npat << "), "
   //          << mt << '(' << mpat << "), " << nt << "\t";
 
   result res;
@@ -224,38 +222,35 @@ result test(cluster& lhs, cluster& rhs)
   return res;
 }
 
-std::vector<double> bh_adjust(std::vector< double > pvals)
+std::vector<double>
+bh_adjust(std::vector<double> pvals)
 {
-  std::vector< prank > pr(pvals.size());
-  std::vector< double > ret(pvals.size());
-  //Assign p values and sort descending
-  for ( unsigned long i = 0; i < pvals.size(); i++)
-  {
+  std::vector<prank> pr(pvals.size());
+  std::vector<double> ret(pvals.size());
+  // Assign p values and sort descending
+  for (unsigned long i = 0; i < pvals.size(); i++) {
     pr[i].orig_pos = i;
     pr[i].val = pvals[i];
   }
   std::sort(pr.begin(), pr.end());
 
-  //Process first entry
+  // Process first entry
   double n = pvals.size();
   pr[0].cmin = pr[0].val * 1;
-  if (pr[0].cmin > 1) pr[0].cmin = 1;
+  if (pr[0].cmin > 1)
+    pr[0].cmin = 1;
   ret[pr[0].orig_pos] = pr[0].cmin;
 
   double prev = pr[0].cmin;
 
-  //Process rest
-  for (unsigned long i = 1; i < pvals.size(); i++)
-  {
+  // Process rest
+  for (unsigned long i = 1; i < pvals.size(); i++) {
     double ix = i;
     double cur = n / (n - ix) * pr[i].val;
-    if (cur < prev)
-    {
+    if (cur < prev) {
       pr[i].cmin = cur > 1 ? 1 : cur;
       prev = cur;
-    }
-    else
-    {
+    } else {
       pr[i].cmin = prev;
     }
 
@@ -264,54 +259,55 @@ std::vector<double> bh_adjust(std::vector< double > pvals)
   return ret;
 }
 
-int cluster_enrichment(int argc, char ** argv)
+int
+cluster_enrichment(int argc, char** argv)
 {
 
   logger log(std::cerr, "cluster_enrichment");
 
   seidr_cc_param_t param;
 
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " cluster enrichment";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   po::options_description umbrella("Test wether clusters of two networks show"
                                    " significant overlap or extract clusters");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o", po::value<std::string>(&param.file_out)->default_value("-"),
-   "Output file name ['-' for stdout]");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.file_out)->default_value("-"),
+    "Output file name ['-' for stdout]");
 
   po::options_description ccopt("Cluster-Compare Options");
-  ccopt.add_options()
-  ("second,2",
-   po::value<std::string>(&param.in_right),
-   "Another cluster->gene mapping [can be positional]")
-  ("delim,d",
-   po::value<std::string>(&param.delim)->default_value(","),
-   "Output delimiter")
-  ("alpha,a",
-   po::value<double>(&param.alpha)->default_value(0.1, "0.1"),
-   "Adjusted p-value cutoff")
-  ("min-members,m",
-   po::value<unsigned long>(&param.min_members)->default_value(20),
-   "Minimum members of a cluster")
-  ("max-members,M",
-   po::value<unsigned long>(&param.max_members)->default_value(200),
-   "Maximum members of a cluster");
+  ccopt.add_options()("second,2",
+                      po::value<std::string>(&param.in_right),
+                      "Another cluster->gene mapping [can be positional]")(
+    "delim,d",
+    po::value<std::string>(&param.delim)->default_value(","),
+    "Output delimiter")(
+    "alpha,a",
+    po::value<double>(&param.alpha)->default_value(0.1, "0.1"),
+    "Adjusted p-value cutoff")(
+    "min-members,m",
+    po::value<unsigned long>(&param.min_members)->default_value(20),
+    "Minimum members of a cluster")(
+    "max-members,M",
+    po::value<unsigned long>(&param.max_members)->default_value(200),
+    "Maximum members of a cluster");
 
   po::options_description req("Required Options [can be positional]");
-  req.add_options()
-  ("first,1",
-   po::value<std::string>(&param.in_left)->required(),
-   "First cluster->gene mapping");
+  req.add_options()("first,1",
+                    po::value<std::string>(&param.in_left)->required(),
+                    "First cluster->gene mapping");
 
   umbrella.add(req).add(ccopt).add(opt);
 
@@ -320,67 +316,52 @@ int cluster_enrichment(int argc, char ** argv)
   p.add("second", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return EINVAL;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     param.in_left = to_absolute(param.in_left);
     assert_exists(param.in_left);
     assert_can_read(param.in_left);
-    if (param.file_out != "-")
-    {
+    if (param.file_out != "-") {
       param.file_out = to_absolute(param.file_out);
       assert_dir_is_writeable(dirname(param.file_out));
-      if (! param.force)
-      {
+      if (!param.force) {
         assert_no_overwrite(param.file_out);
       }
     }
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
   std::shared_ptr<std::ostream> out;
 
-  if (param.file_out == "-")
-  {
+  if (param.file_out == "-") {
     out.reset(&std::cout, [](...) {});
-  }
-  else
-  {
+  } else {
     out.reset(new std::ofstream(param.file_out));
   }
 
-  if (vm.count("second"))
-  {
-    try
-    {
+  if (vm.count("second")) {
+    try {
       param.in_right = to_absolute(param.in_right);
       assert_exists(param.in_right);
       assert_can_read(param.in_right);
-    }
-    catch (std::exception& e)
-    {
+    } catch (std::exception& e) {
       log(LOG_ERR) << e.what() << '\n';
       return 1;
     }
@@ -392,10 +373,8 @@ int cluster_enrichment(int argc, char ** argv)
     std::vector<double> padj;
     std::vector<unsigned long> mpat, npat, mt, nt, lhss, rhss;
 
-    for (auto& lhs : x)
-    {
-      for (auto& rhs : y)
-      {
+    for (auto& lhs : x) {
+      for (auto& rhs : y) {
         lname.push_back(lhs.first);
         rname.push_back(rhs.first);
         result res = test(lhs.second, rhs.second);
@@ -414,35 +393,22 @@ int cluster_enrichment(int argc, char ** argv)
     (*out) << "First\tSecond\tFirst_Size\tSecond_size"
            << "\tMt\tNt\tMpat\tNpat\tRepr\tP_Adj\n";
 
-    for (unsigned long i = 0; i < padj.size(); i++)
-    {
-      if (padj[i] < param.alpha)
-      {
-        (*out) << lname[i] << '\t'
-               << rname[i] << '\t'
-               << lhss[i] << '\t'
-               << rhss[i] << '\t'
-               << mt[i] << '\t'
-               << nt[i] << '\t'
-               << mpat[i] << '\t'
-               << npat[i] << '\t'
-               << div_as_double(nt[i], rhss[i]) << '\t'
-               << padj[i] << '\n';
+    for (unsigned long i = 0; i < padj.size(); i++) {
+      if (padj[i] < param.alpha) {
+        (*out) << lname[i] << '\t' << rname[i] << '\t' << lhss[i] << '\t'
+               << rhss[i] << '\t' << mt[i] << '\t' << nt[i] << '\t' << mpat[i]
+               << '\t' << npat[i] << '\t' << div_as_double(nt[i], rhss[i])
+               << '\t' << padj[i] << '\n';
       }
     }
-  }
-  else
-  {
+  } else {
     auto x = cluster_map(param.in_left, param.min_members, param.max_members);
-    for (auto& i : x)
-    {
+    for (auto& i : x) {
       auto members = i.second.get_members();
       if (members.size() >= param.min_members &&
-          members.size() <= param.max_members)
-      {
+          members.size() <= param.max_members) {
         (*out) << i.first << '\t';
-        for (uint64_t j = 0; j < members.size(); j++)
-        {
+        for (uint64_t j = 0; j < members.size(); j++) {
           (*out) << members[j]
                  << (j == members.size() - 1 ? "\n" : param.delim);
         }
@@ -451,4 +417,3 @@ int cluster_enrichment(int argc, char ** argv)
   }
   return 0;
 }
-

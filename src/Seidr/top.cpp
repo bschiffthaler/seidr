@@ -19,22 +19,22 @@
 //
 
 // Seidr
-#include <common.h>
-#include <Serialize.h>
-#include <fs.h>
 #include <BSlogger.hpp>
+#include <Serialize.h>
+#include <common.h>
+#include <fs.h>
 #include <top.h>
 // External
+#include <boost/program_options.hpp>
 #include <cerrno>
+#include <fstream>
 #include <iostream>
 #include <memory>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
 #include <queue>
+#include <sstream>
+#include <string>
 #include <utility>
-#include <boost/program_options.hpp>
+#include <vector>
 
 namespace po = boost::program_options;
 
@@ -53,53 +53,53 @@ public:
 
 // Need to derive from STL priority_queue to access the underlying vector
 // for convenient iteration
-class priority_queue :
-  public std::priority_queue<expl_score_t, std::vector<expl_score_t>, comp_greater>
+class priority_queue
+  : public std::
+      priority_queue<expl_score_t, std::vector<expl_score_t>, comp_greater>
 {
 public:
-  std::vector<expl_score_t>& vec() {return c;}
+  std::vector<expl_score_t>& vec() { return c; }
 };
 
-
-int top(int argc, char * argv[]) {
+int
+top(int argc, char* argv[])
+{
   logger log(std::cerr, "top");
 
   // We ignore the first argument
-  const char * args[argc - 1];
+  const char* args[argc - 1];
   std::string pr(argv[0]);
   pr += " top";
   args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++) args[i - 1] = argv[i];
+  for (int i = 2; i < argc; i++)
+    args[i - 1] = argv[i];
   argc--;
 
   seidr_top_param_t param;
 
-
-  po::options_description
-  umbrella("Show edges with highest scores");
+  po::options_description umbrella("Show edges with highest scores");
 
   po::options_description opt("Common Options");
-  opt.add_options()
-  ("force,f", po::bool_switch(&param.force)->default_value(false),
-   "Force overwrite output file if it exists")
-  ("help,h", "Show this help message")
-  ("outfile,o",
-   po::value<std::string>(&param.outfile)->default_value("-"),
-   "Output file name ['-' for stdout]");
+  opt.add_options()("force,f",
+                    po::bool_switch(&param.force)->default_value(false),
+                    "Force overwrite output file if it exists")(
+    "help,h", "Show this help message")(
+    "outfile,o",
+    po::value<std::string>(&param.outfile)->default_value("-"),
+    "Output file name ['-' for stdout]");
 
   po::options_description topt("Top Options");
-  topt.add_options()
-  ("number,n",
-   po::value<uint64_t>(&param.ntop)->default_value(10, "10"),
-   "The number of highest scoring edges to return")
-  ("index,i",
-   po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
-   "Score column to use as edge weights");
-  
+  topt.add_options()("number,n",
+                     po::value<uint64_t>(&param.ntop)->default_value(10, "10"),
+                     "The number of highest scoring edges to return")(
+    "index,i",
+    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+    "Score column to use as edge weights");
+
   po::options_description req("Required [can be positional]");
-  req.add_options()
-  ("in-file", po::value<std::string>(&param.infile)->required(),
-   "Input SeidrFile");
+  req.add_options()("in-file",
+                    po::value<std::string>(&param.infile)->required(),
+                    "Input SeidrFile");
 
   umbrella.add(req).add(topt).add(opt);
 
@@ -107,47 +107,38 @@ int top(int argc, char * argv[]) {
   p.add("in-file", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, args).
-            options(umbrella).positional(p).run(), vm);
+  po::store(
+    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
+    vm);
 
-  if (vm.count("help") || argc == 1)
-  {
+  if (vm.count("help") || argc == 1) {
     std::cerr << umbrella << '\n';
     return 22;
   }
 
-  try
-  {
+  try {
     po::notify(vm);
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception& e) {
     log(LOG_ERR) << e.what() << '\n';
     return 1;
   }
 
-  try
-  {
+  try {
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
 
-    if (param.outfile != "-")
-    {
+    if (param.outfile != "-") {
       param.outfile = to_absolute(param.outfile);
-      if (! param.force)
-      {
+      if (!param.force) {
         assert_no_overwrite(param.outfile);
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  }
-  catch (std::runtime_error& except)
-  {
+  } catch (std::runtime_error& except) {
     log(LOG_ERR) << except.what() << '\n';
     return 1;
   }
-
 
   SeidrFile rf(param.infile.c_str());
   rf.open("r");
@@ -162,31 +153,28 @@ int top(int argc, char * argv[]) {
   double max = min;
 
   std::shared_ptr<std::ostream> out;
-  if (param.outfile == "-")
-  {
-    out = std::shared_ptr < std::ostream > (&std::cout, [](void*) {});
-  }
-  else
-  {
-    out = std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+  if (param.outfile == "-") {
+    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
+  } else {
+    out =
+      std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
   }
 
   priority_queue pq;
 
-  rf.each_edge([&](SeidrFileEdge & e, SeidrFileHeader & h) {
+  rf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     double v = e.scores[param.tpos].s;
-    if (v > min)
-    {
+    if (v > min) {
       pq.push(expl_score_t(e, v));
-      if (v > max) max = v;
+      if (v > max)
+        max = v;
       min = pq.top().second;
     }
     if (pq.size() > param.ntop)
       pq.pop();
   });
 
-  while (! pq.empty())
-  {
+  while (!pq.empty()) {
     pq.top().first.print(*out, h);
     pq.pop();
   }

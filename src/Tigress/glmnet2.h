@@ -21,11 +21,12 @@
 
 #include <armadillo>
 
-struct glm {
+struct glm
+{
   arma::mat beta;
   arma::uvec sort_order;
   bool success;
 };
 
-glm glmnet(arma::mat, arma::vec, int64_t nsteps, double fmin);
-
+glm
+glmnet(arma::mat, arma::vec, int64_t nsteps, double fmin);

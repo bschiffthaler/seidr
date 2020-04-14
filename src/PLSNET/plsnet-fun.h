@@ -20,12 +20,11 @@
 #pragma once
 
 #include <armadillo>
-#include <vector>
 #include <string>
+#include <vector>
 
-
-#include <boost/archive/xml_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
 
 #define PLSNET_FULL 0
 #define PLSNET_PARTIAL 1
@@ -38,23 +37,23 @@ struct seidr_plsnet_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive & ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version)
   {
-    ar & BOOST_SERIALIZATION_NVP(infile);
-    ar & BOOST_SERIALIZATION_NVP(gene_file);
-    ar & BOOST_SERIALIZATION_NVP(targets_file);
-    ar & BOOST_SERIALIZATION_NVP(do_scale);
-    ar & BOOST_SERIALIZATION_NVP(force);
-    ar & BOOST_SERIALIZATION_NVP(row_delim);
-    ar & BOOST_SERIALIZATION_NVP(field_delim);
-    ar & BOOST_SERIALIZATION_NVP(bs);
-    ar & BOOST_SERIALIZATION_NVP(mode);
-    ar & BOOST_SERIALIZATION_NVP(outfile);
-    ar & BOOST_SERIALIZATION_NVP(tempdir);
-    ar & BOOST_SERIALIZATION_NVP(verbosity);
-    ar & BOOST_SERIALIZATION_NVP(nthreads);
-    ar & BOOST_SERIALIZATION_NVP(ensemble_size);
-    ar & BOOST_SERIALIZATION_NVP(ncomp);
+    ar& BOOST_SERIALIZATION_NVP(infile);
+    ar& BOOST_SERIALIZATION_NVP(gene_file);
+    ar& BOOST_SERIALIZATION_NVP(targets_file);
+    ar& BOOST_SERIALIZATION_NVP(do_scale);
+    ar& BOOST_SERIALIZATION_NVP(force);
+    ar& BOOST_SERIALIZATION_NVP(row_delim);
+    ar& BOOST_SERIALIZATION_NVP(field_delim);
+    ar& BOOST_SERIALIZATION_NVP(bs);
+    ar& BOOST_SERIALIZATION_NVP(mode);
+    ar& BOOST_SERIALIZATION_NVP(outfile);
+    ar& BOOST_SERIALIZATION_NVP(tempdir);
+    ar& BOOST_SERIALIZATION_NVP(verbosity);
+    ar& BOOST_SERIALIZATION_NVP(nthreads);
+    ar& BOOST_SERIALIZATION_NVP(ensemble_size);
+    ar& BOOST_SERIALIZATION_NVP(ncomp);
   }
   std::string infile;
   std::string gene_file;
@@ -77,35 +76,43 @@ struct seidr_plsnet_param_t
   std::string cmd_file;
 };
 
-struct simpls_t {
+struct simpls_t
+{
   arma::mat x;
   arma::mat y;
   arma::mat w;
 };
 
-struct plsreg_t {
+struct plsreg_t
+{
   arma::mat p;
   arma::mat w;
 };
 
-simpls_t simpls(arma::mat& X, arma::vec& Y, arma::uword ncomp);
-plsreg_t plsreg(arma::mat& X, arma::vec& Y, arma::uword ncomp);
-arma::vec vip(arma::mat& X, arma::vec& Y, arma::uword ncomp);
+simpls_t
+simpls(arma::mat& X, arma::vec& Y, arma::uword ncomp);
+plsreg_t
+plsreg(arma::mat& X, arma::vec& Y, arma::uword ncomp);
+arma::vec
+vip(arma::mat& X, arma::vec& Y, arma::uword ncomp);
 
-void plsnet(const arma::mat& geneMatrix, 
+void
+plsnet(const arma::mat& geneMatrix,
+       const std::vector<std::string>& genes,
+       const std::vector<arma::uword>& uvec,
+       const std::string& tmpdir,
+       const arma::uword& predictor_sample_size,
+       const arma::uword& ensemble_size,
+       const arma::uword& ncomp,
+       seidr_mpi_plsnet* self);
+
+void
+plsnet_partial(const arma::mat& GM,
+               const std::vector<std::string>& genes,
+               const std::vector<std::string>& targets,
+               const seidr_plsnet_param_t& param);
+
+void
+plsnet_full(const arma::mat& GM,
             const std::vector<std::string>& genes,
-            const std::vector<arma::uword>& uvec, 
-            const std::string& tmpdir,
-            const arma::uword& predictor_sample_size,
-            const arma::uword& ensemble_size, 
-            const arma::uword& ncomp,
-            seidr_mpi_plsnet * self);
-
-void plsnet_partial(const arma::mat& GM,
-                    const std::vector<std::string>& genes,
-                    const std::vector<std::string>& targets,
-                    const seidr_plsnet_param_t& param);
-
-void plsnet_full(const arma::mat& GM,
-                 const std::vector<std::string>& genes,
-                 const seidr_plsnet_param_t& param);
+            const seidr_plsnet_param_t& param);
