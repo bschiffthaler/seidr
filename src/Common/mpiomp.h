@@ -42,7 +42,7 @@ template <typename T>
 class seidr_mpi_progbar {
 public:
   seidr_mpi_progbar(std::ostream& f, T max, uint64_t poll_interval = 1000,
-                    uint64_t width = 60, std::string unit = "units") :
+                    uint64_t width = 25, std::string unit = "units") :
     _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
   {
     MPI_Comm_rank(MPI_COMM_WORLD, &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
