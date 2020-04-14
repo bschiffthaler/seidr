@@ -55,7 +55,7 @@ using boost::numeric_cast;
 typedef std::map<std::string, uint32_t> stringmap;
 typedef std::pair<uint32_t, uint32_t> inx_t;
 
-seidr_score_t parse_score_field(const std::string & field, uint64_t l)
+seidr_score_t parse_score_field(const std::string & field, const uint64_t & l)
 {
   try
   {
