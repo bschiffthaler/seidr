@@ -112,13 +112,6 @@ if (CMAKE_PIPE)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -pipe")
 endif()
 
-##############################
-## Allow stripping binaries ##
-##############################
-if (CMAKE_STRIP)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wl,-s")
-endif()
-
 ##########################
 ## General Optimization ##
 ##########################
@@ -475,6 +468,30 @@ else()
   target_link_libraries(narromi PUBLIC ${GLPK_LIBRARIES})
 endif()
 
+## IPO
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT ipo_supp_output LANGUAGES CXX)
+if(result)
+  set_property(TARGET seidr PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET tigress PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET svm-ensemble PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET llr-ensemble PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET el-ensemble PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET narromi PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET mi PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET plsnet PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET genie3 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET anoverence PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET correlation PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET tomsimilarity PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_property(TARGET pcor PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+check_ipo_supported(RESULT ipo_f_supported OUTPUT ipo_f_supp_output LANGUAGES Fortran)
+if(result)
+  set_property(TARGET seidr-glmnet PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 #####
 ## Install
 #####
@@ -507,6 +524,11 @@ else()
   message(STATUS "  Clang Analyze: No")
 endif()
 message(STATUS "  Optimization: ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
+message(STATUS "    IPO: ${ipo_supported}")
+message(STATUS "    GLMNet IPO: ${ipo_f_supported}")
+if (CMAKE_STRIP)
+  message(STATUS "  Strip binaries: ${CMAKE_STRIP}")
+endif()
 if (CMAKE_BUILD_NATIVE)
   message(STATUS "  Native build: Yes")
 else()
