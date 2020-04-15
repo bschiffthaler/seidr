@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,*,-readability-braces-around-statements,-fuchsia*,-google-readability-braces-around-statements,-llvm-include-order'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,*,-readability-braces-around-statements,-fuchsia*,-google-readability-braces-around-statements,-llvm-include-order,-modernize-use-trailing-return-type,-cppcoreguidelines-macro-usage,-llvm-header-guard,-misc-non-private-member-variables-in-classes,-cppcoreguidelines-non-private-member-variables-in-classes,-misc-unused-parameters,-google-runtime-references,-cppcoreguidelines-avoid-magic-numbers'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false

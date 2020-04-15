@@ -35,6 +35,14 @@
 #define GENIE3_FULL 0
 #define GENIE3_PARTIAL 1
 
+constexpr unsigned GENIE3_DEF_VERBOSITY = 3;
+constexpr unsigned GENIE3_DEF_BS = 0;
+constexpr uint64_t GENIE3_DEF_MIN_NODE_SIZE = 5;
+constexpr double GENIE3_DEF_MINPROP = 0.1;
+constexpr double GENIE3_DEF_ALPHA = 0.5;
+constexpr uint64_t GENIE3_DEF_ENSEMBLE = 1000;
+constexpr uint64_t GENIE3_DEF_MTRY = 0;
+
 #define LOG_NAME "genie3"
 
 class seidr_mpi_genie3;
@@ -43,7 +51,7 @@ struct seidr_genie3_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);

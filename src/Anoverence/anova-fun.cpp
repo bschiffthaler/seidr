@@ -180,7 +180,8 @@ readFeatures(std::string filename)
     thisChip.time = (vLine[6] == "NA") ? 0 : std::stof(vLine[6]);
 
     // 8 time
-    thisChip.replicaNumber = (vLine[7] == "NA") ? 0 : std::stoi(vLine[7]); // NEW
+    thisChip.replicaNumber =
+      (vLine[7] == "NA") ? 0 : std::stoi(vLine[7]); // NEW
 
     // store this chip info in temp waiting for the data from the replicates
     chips[i] = thisChip;

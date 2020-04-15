@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
 #include <Serialize.h>
@@ -28,6 +27,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <random>
 
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
@@ -79,16 +79,13 @@ namespace po = boost::program_options;
 #define SEIDR_MPI_INIT() int rank = 0;
 #endif
 
-typedef double seidr_score_t;
+using seidr_score_t = double;
+using seidr_mat_t = arma::mat;
+using seidr_uword_t = arma::uword;
+using tokenizer = boost::tokenizer<boost::char_separator<char>>;
 
-#ifndef SEIDR_SCORE_DOUBLE
-typedef arma::mat seidr_mat_t;
-#else
-typedef arma::mat seidr_mat_t;
-#endif
-
-typedef arma::uword seidr_uword_t;
-typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
+#define SEIDR_DEFAULT_SSEQ {3, 1, 4, 1, 5, 9, 2, 6, 5}
+#define SEIDR_DEFAULT_SEED 314159265
 
 // Set difference for a single number
 arma::uvec
@@ -141,12 +138,12 @@ merge_files(const std::string& outfile,
             const std::vector<std::string>& genes);
 
 bool
-any_const_expr(arma::mat& inp);
+any_const_expr(const arma::mat& inp);
 
 void
-verify_matrix(arma::mat& inp);
+verify_matrix(const arma::mat& inp);
 void
-verify_matrix(arma::mat& inp, std::vector<std::string>& genes);
+verify_matrix(const arma::mat& inp, const std::vector<std::string>& genes);
 
 template<typename T>
 void
@@ -156,25 +153,20 @@ assert_in_range(const T& num,
                 const std::string& nam = "")
 {
   if (num < min || num > max) {
+    std::stringstream err;
+    err << "Value";
     if (!nam.empty()) {
-      throw std::runtime_error("Value of " + nam + " (=" + std::to_string(num) +
-                               ") not in allowed range of "
-                               "[" +
-                               std::to_string(min) + "," + std::to_string(max) +
-                               "]");
-    } else {
-      throw std::runtime_error("Value (=" + std::to_string(num) +
-                               ") not in allowed range of "
-                               "[" +
-                               std::to_string(min) + "," + std::to_string(max) +
-                               "]");
+      err << " of " << nam << " ";
     }
+    err << " (=" + std::to_string(num) << ") not in allowed range of ["
+        << std::to_string(min) << "," << std::to_string(max) << "]";
+    throw std::runtime_error(err.str());
   }
 }
 
 void
 assert_mutually_exclusive(const po::variables_map& vm,
-                          const std::vector<std::string> targets);
+                          const std::vector<std::string>& targets);
 
 std::string
 str_join(const std::vector<std::string>& source, const std::string& delim);

@@ -45,16 +45,14 @@ using boost::numeric_cast;
 int
 main(int argc, char** argv)
 {
-
   SEIDR_MPI_INIT();
-
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
-
-  seidr_elnet_param_t param;
-  po::variables_map vm;
-  po::options_description umbrella("Elastic net ensemble implementation for"
-                                   " Seidr");
   try {
+
+    seidr_elnet_param_t param;
+    po::variables_map vm;
+    po::options_description umbrella("Elastic net ensemble implementation for"
+                                     " Seidr");
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "targets,t",
@@ -71,7 +69,7 @@ main(int argc, char** argv)
       po::value<std::string>(&param.cmd_file),
       "Try to resume job from this file.")(
       "verbosity,v",
-      po::value<unsigned>(&param.verbosity)->default_value(3),
+      po::value<unsigned>(&param.verbosity)->default_value(ELNET_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)")(
       "force,f",
       po::bool_switch(&param.force)->default_value(false),
@@ -82,23 +80,23 @@ main(int argc, char** argv)
                          po::bool_switch(&param.do_scale)->default_value(false),
                          "Transform data to z-scores")(
       "nlambda,n",
-      po::value<seidr_uword_t>(&param.nlam)->default_value(10),
+      po::value<seidr_uword_t>(&param.nlam)->default_value(ELNET_DEF_NLAM),
       "The maximum number of lambda values")(
       "min-lambda,l",
-      po::value<double>(&param.flmin)->default_value(0.3, "0.3"),
+      po::value<double>(&param.flmin)->default_value(ELNET_DEF_FLMIN, "0.3"),
       "The minimum lambda as a fraction of the maximum.")(
       "alpha,a",
-      po::value<double>(&param.alpha)->default_value(0.3, "0.3"),
+      po::value<double>(&param.alpha)->default_value(ELNET_DEF_ALPHA, "0.3"),
       "The elastic net mixing value alpha. 1.0 is "
       "LASSO, 0 is Ridge.");
 
     po::options_description mpiopt("MPI Options");
-    mpiopt.add_options()("batch-size,B",
-                         po::value<uint64_t>(&param.bs)->default_value(0),
-                         "Number of genes in MPI batch")(
-      "tempdir,T",
-      po::value<std::string>(&param.tempdir),
-      "Temporary directory path");
+    mpiopt.add_options()(
+      "batch-size,B",
+      po::value<uint64_t>(&param.bs)->default_value(ELNET_DEF_BS),
+      "Number of genes in MPI batch")("tempdir,T",
+                                      po::value<std::string>(&param.tempdir),
+                                      "Temporary directory path");
 
     po::options_description ompopt("OpenMP Options");
     ompopt.add_options()(
@@ -107,25 +105,25 @@ main(int argc, char** argv)
       "Number of OpenMP threads per MPI task");
 
     po::options_description bootopt("Bootstrap Options");
-    bootopt.add_options()(
-      "ensemble,e",
-      po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
-      "The ensemble size")(
+    bootopt.add_options()("ensemble,e",
+                          po::value<seidr_uword_t>(&param.ensemble_size)
+                            ->default_value(ELNET_DEF_ENSEMBLE),
+                          "The ensemble size")(
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
-        ->default_value(0, "20% of predictors"),
+        ->default_value(ELNET_DEF_PREDICTOR_SIZE_MIN, "20% of predictors"),
       "The minimum number of predictors to be sampled.")(
       "max-predictor-size,P",
       po::value<seidr_uword_t>(&param.predictor_sample_size_max)
-        ->default_value(0, "80% of predictors"),
+        ->default_value(ELNET_DEF_PREDICTOR_SIZE_MAX, "80% of predictors"),
       "The maximum number of predictors to be sampled")(
       "min-experiment-size,x",
       po::value<seidr_uword_t>(&param.min_sample_size)
-        ->default_value(0, "20% of experiments"),
+        ->default_value(ELNET_DEF_SAMPLE_SIZE_MIN, "20% of experiments"),
       "The minimum number of experiments to be sampled")(
       "max-experiment-size,X",
       po::value<seidr_uword_t>(&param.max_sample_size)
-        ->default_value(0, "80% of experiments"),
+        ->default_value(ELNET_DEF_SAMPLE_SIZE_MAX, "80% of experiments"),
       "The maximum number of experiments to be sampled");
 
     po::options_description req("Required Options");
@@ -139,51 +137,35 @@ main(int argc, char** argv)
     umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  if (vm.count("help") != 0 || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  log.set_log_level(5);
-
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    if (vm.count("targets") != 0) {
+      param.mode = EL_PARTIAL;
+    }
 
-  if (vm.count("targets") != 0) {
-    param.mode = EL_PARTIAL;
-  }
+    // Normalize paths
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-  // Normalize paths
-  param.outfile = to_absolute(param.outfile);
-  param.infile = to_absolute(param.infile);
-  param.gene_file = to_absolute(param.gene_file);
+    if (param.mode == EL_PARTIAL) {
+      param.targets_file = to_absolute(param.targets_file);
+    }
 
-  if (param.mode == EL_PARTIAL) {
-    param.targets_file = to_absolute(param.targets_file);
-  }
+    cp_resume<seidr_elnet_param_t> cp_res(param, CPR_M);
+    if (vm.count("resume-from") > 0) {
+      assert_exists(param.cmd_file);
+      cp_res.load(param, param.cmd_file);
+    }
 
-  cp_resume<seidr_elnet_param_t> cp_res(param, CPR_M);
-  if (vm.count("resume-from") > 0) {
-    assert_exists(param.cmd_file);
-    cp_res.load(param, param.cmd_file);
-  }
-
-  // Check all kinds of FS problems that may arise in the master thread
-  if (rank == 0) {
-    try {
+    // Check all kinds of FS problems that may arise only in the master thread
+    if (rank == 0) {
       if (vm.count("resume-from") > 0 && file_exists(param.cmd_file)) {
         log << "Trying to resume from " << param.cmd_file << '\n';
         log.log(LOG_INFO);
@@ -229,21 +211,17 @@ main(int argc, char** argv)
         assert_dir_is_writeable(param.tempdir);
         mpi_sync_tempdir(&param.tempdir);
       }
-    } catch (std::runtime_error& e) {
-      log << e.what() << '\n';
-      log.log(LOG_ERR);
-      return EINVAL;
     }
-  } else {
-    mpi_sync_tempdir(&param.tempdir);
-    if (vm.count("resume-from") > 0) {
-      mpi_sync_cpr_vector(&param.good_idx);
-    }
-  }
-  // All threads wait until checks are done
-  SEIDR_MPI_BARRIER(); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 
-  try {
+    else {
+      mpi_sync_tempdir(&param.tempdir);
+      if (vm.count("resume-from") > 0) {
+        mpi_sync_cpr_vector(&param.good_idx);
+      }
+    }
+    // All threads wait until checks are done
+    SEIDR_MPI_BARRIER(); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(), "--threads");
     omp_set_num_threads(param.nthreads);
     arma::mat gene_matrix;
@@ -280,19 +258,19 @@ main(int argc, char** argv)
 
     if (param.min_sample_size == 0) {
       param.min_sample_size =
-        numeric_cast<arma::uword>(gene_matrix.n_rows * 0.2);
+        numeric_cast<arma::uword>(gene_matrix.n_rows * ELNET_DEF_MIN_RATIO);
     }
     if (param.max_sample_size == 0) {
       param.max_sample_size =
-        numeric_cast<arma::uword>(gene_matrix.n_rows * 0.8);
+        numeric_cast<arma::uword>(gene_matrix.n_rows * ELNET_DEF_MAX_RATIO);
     }
     if (param.predictor_sample_size_min == 0) {
-      param.predictor_sample_size_min =
-        numeric_cast<arma::uword>((gene_matrix.n_cols - 1) * 0.2);
+      param.predictor_sample_size_min = numeric_cast<arma::uword>(
+        numeric_cast<double>(gene_matrix.n_cols - 1) * ELNET_DEF_MIN_RATIO);
     }
     if (param.predictor_sample_size_max == 0) {
-      param.predictor_sample_size_max =
-        numeric_cast<arma::uword>((gene_matrix.n_cols - 1) * 0.8);
+      param.predictor_sample_size_max = numeric_cast<arma::uword>(
+        numeric_cast<double>(gene_matrix.n_cols - 1) * ELNET_DEF_MAX_RATIO);
     }
 
     // Check if sampling settings are sane
@@ -323,26 +301,34 @@ main(int argc, char** argv)
       if (vm.count("save-resume") > 0) {
         cp_res.save(param.cmd_file, param);
       }
+      if (param.min_sample_size < 10) {
+        log << "The samples size of the dataset is low. Consider increasing "
+            << " -x and -X.\n";
+        log.log(LOG_WARN);
+      }
     }
 
     switch (param.mode) {
       case EL_FULL:
         el_full(gene_matrix, genes, param);
         break;
-
       case EL_PARTIAL:
         el_partial(gene_matrix, genes, targets, param);
         break;
-
       default:
         return 1;
     }
+
+  } catch (const po::error& e) {
+    log << "[Argument Error]: " << e.what() << '\n';
+    log.log(LOG_ERR);
+    return 1;
   } catch (const std::runtime_error& e) {
-    log << e.what() << '\n';
+    log << "[Runtime Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   } catch (const std::exception& e) {
-    log << e.what() << '\n';
+    log << "[Generic Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   }

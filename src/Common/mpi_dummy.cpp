@@ -37,6 +37,11 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
                              const std::string& outfile)
   : _id(0)
   , _procn(0)
+  , _pbar(seidr_mpi_progbar<uint64_t>(std::cerr,
+                                      indices.size(),
+                                      DEFAULT_POLL_INTERVAL,
+                                      DEFAULT_BAR_WIDTH,
+                                      "genes"))
   , _current_i(0)
   , _bsize(bs)
   , _indices(indices)
@@ -46,8 +51,6 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
   , _tempdir(tempdir)
   , _init_time(0)
   , _queue_fh(nullptr)
-  , _pbar(
-      seidr_mpi_progbar<uint64_t>(std::cerr, indices.size(), 1000, 60, "genes"))
 {
   // Always take all the work and let OMP handle the scheduling
   _my_indices = _indices;
@@ -65,8 +68,8 @@ seidr_mpi_omp::get_more_work()
   _my_indices.clear();
 }
 
-bool
-seidr_mpi_omp::check_logs(const std::string& bn)
+bool seidr_mpi_omp::check_logs(
+  const std::string& bn) // NOLINT(clang-diagnostic-unused-parameter)
 {
   return false;
 }
@@ -105,10 +108,12 @@ seidr_mpi_logger::send(unsigned ll)
 }
 
 void
-mpi_sync_tempdir(std::string* tempdir)
+mpi_sync_tempdir(
+  std::string* tempdir) // NOLINT(clang-diagnostic-unused-parameter)
 {}
 void
-mpi_sync_cpr_vector(std::vector<uint64_t>* resume)
+mpi_sync_cpr_vector(
+  std::vector<uint64_t>* resume) // NOLINT(clang-diagnostic-unused-parameter)
 {}
 
 std::string

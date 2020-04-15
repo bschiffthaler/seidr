@@ -55,12 +55,12 @@ cp_resume<T>::_valid(const uint64_t& nf, const uint64_t& ng, const uint64_t& i)
 {
   if (_format == CPR_M) {
     return nf == ng;
-  } else if (_format == CPR_LM) {
-    return nf == i;
-  } else {
-    _BUG("Control reaches unexpected code block.");
-    return false;
   }
+  if (_format == CPR_LM) {
+    return nf == i;
+  }
+  _BUG("Control reaches unexpected code block.");
+  return false;
 }
 
 template<typename T>
@@ -123,7 +123,7 @@ cp_resume<T>::resume()
   for (auto it = fs::directory_iterator(p_tmp); it != fs::directory_iterator();
        it++) {
     std::string pstring = it->path().string();
-    if (pstring.find(".") != std::string::npos) {
+    if (pstring.find('.') != std::string::npos) {
       log << "Ignoring unexpected file: " << pstring << '\n';
       log.log(LOG_WARN);
     } else if (fs::is_regular_file(it->path())) {

@@ -88,7 +88,7 @@ struct chip
   float time;
   std::vector<int> controls; // stores the indexes of the controls that pair
                              // with this measurement
-  int totalRepeats = 1; // at least is always one
+  int totalRepeats = 1;      // at least is always one
   std::vector<chip*> controlsPtr;
   int experiment; // col 1
   int replicaNumber;

@@ -22,6 +22,7 @@
 #include <armadillo>
 #include <string>
 #include <vector>
+#include <common.h>
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -31,12 +32,30 @@
 
 #define LOG_NAME "el-ensemble"
 
+constexpr unsigned ELNET_DEF_VERBOSITY = 3;
+constexpr seidr_uword_t ELNET_DEF_NLAM = 10;
+constexpr double ELNET_DEF_FLMIN = 0.3;
+constexpr double ELNET_DEF_ALPHA = 0.3;
+constexpr uint64_t ELNET_DEF_BS = 0;
+constexpr seidr_uword_t ELNET_DEF_ENSEMBLE = 1000;
+constexpr seidr_uword_t ELNET_DEF_SAMPLE_SIZE_MIN = 0;
+constexpr seidr_uword_t ELNET_DEF_SAMPLE_SIZE_MAX = 0;
+constexpr seidr_uword_t ELNET_DEF_PREDICTOR_SIZE_MIN = 0;
+constexpr seidr_uword_t ELNET_DEF_PREDICTOR_SIZE_MAX = 0;
+
+constexpr double ELNET_DEF_MIN_RATIO = 0.2;
+constexpr double ELNET_DEF_MAX_RATIO = 0.8;
+
+constexpr arma::uword ELNET_DEF_MAX_K_CV = 10;
+constexpr arma::uword ELNET_DEF_TOP_N_CONSIDERED = 20;
+
 class seidr_mpi_elnet;
 
 struct seidr_elnet_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
+  // NOLINTNEXTLINE(clang-diagnostic-unused-parameter): version currently unused
   void serialize(Archive& ar, const unsigned int version)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
@@ -92,14 +111,14 @@ el_ensemble(const arma::mat& geneMatrix,
             const std::vector<std::string>& genes,
             const std::vector<arma::uword>& uvec,
             const std::string& tmpdir,
-            const arma::uword min_sample_size,
-            const arma::uword max_sample_size,
-            const arma::uword predictor_sample_size_min,
-            const arma::uword predictor_sample_size_max,
-            const arma::uword ensemble_size,
-            const double alpha,
-            const double flmin,
-            const arma::uword nlam,
+            const arma::uword& min_sample_size,
+            const arma::uword& max_sample_size,
+            const arma::uword& predictor_sample_size_min,
+            const arma::uword& predictor_sample_size_max,
+            const arma::uword& ensemble_size,
+            const double& alpha,
+            const double& flmin,
+            const arma::uword& nlam,
             seidr_mpi_elnet* self);
 
 void

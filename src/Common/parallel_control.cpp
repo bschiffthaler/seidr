@@ -30,6 +30,6 @@ set_pstl_threads(int target)
 
 #else
 void
-set_pstl_threads(int target)
+set_pstl_threads(int target) // NOLINT(clang-diagnostic-unused-parameter)
 {}
 #endif

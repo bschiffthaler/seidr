@@ -38,17 +38,22 @@ seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
                              const std::string& outfile)
   : _id(0)
   , _procn(0)
+  , _pbar(seidr_mpi_progbar<uint64_t>(std::cerr,
+                                      indices.size(),
+                                      DEFAULT_POLL_INTERVAL,
+                                      DEFAULT_BAR_WIDTH,
+                                      "genes"))
   , _current_i(0)
   , _bsize(bs)
   , _indices(indices)
+  , _my_indices(std::vector<uint64_t>())
   , _data(data)
   , _genes(genes)
   , _outfile(outfile)
   , _tempdir(tempdir)
   , _init_time(MPI_Wtime())
+  , _queue_file(std::string())
   , _queue_fh(nullptr)
-  , _pbar(
-      seidr_mpi_progbar<uint64_t>(std::cerr, indices.size(), 1000, 60, "genes"))
 {
   MPI_Comm_rank(MPI_COMM_WORLD,
                 &_id); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
@@ -198,7 +203,7 @@ seidr_mpi_logger::seidr_mpi_logger()
                 &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 }
 
-seidr_mpi_logger::seidr_mpi_logger(std::string nam)
+seidr_mpi_logger::seidr_mpi_logger(const std::string & nam)
   : _rank(0)
   , _nam(std::move(nam))
 {

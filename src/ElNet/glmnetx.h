@@ -22,6 +22,9 @@
 #include <armadillo>
 #include <vector>
 
+constexpr double GLM_DEF_CONVERGENCE_THR = 1e-5;
+constexpr int64_t GLM_DEF_MAX_ITER = 1e5;
+
 extern "C"
 {
   /*
@@ -186,9 +189,9 @@ public:
   // Ctor
   glm(arma::mat X,
       arma::vec Y,
-      int64_t _nlam = 6,
-      double _flmin = 0.3,
-      double _alpha = 1,
+      int64_t _nlam,
+      double _flmin,
+      double _alpha,
       arma::vec _ulam = arma::vec(1, arma::fill::zeros));
   // Calculate and return beta
   void calculate_beta();
@@ -201,7 +204,7 @@ public:
 };
 
 glm
-glmnet(arma::mat&, arma::vec&, int64_t nsteps, double fmin);
+glmnet(arma::mat&, arma::vec&, int64_t nsteps, double fmin, double alpha);
 
 lambda_interp_t
 lambda_interp(arma::vec lambda, arma::vec s);

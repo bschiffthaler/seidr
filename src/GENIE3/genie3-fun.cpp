@@ -65,7 +65,7 @@ private:
   uint64_t _min_node_size = 0;
   double _alpha = 0;
   double _minprop = 0;
-  bool _targeted = 0;
+  bool _targeted = false;
 };
 
 void
@@ -77,8 +77,8 @@ seidr_mpi_genie3::entrypoint()
     for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME "@" + mpi_get_host()))
-      ; // NOLINT
+    while (check_logs(LOG_NAME "@" + mpi_get_host())) {
+    }
     genie3(_data,
            _genes,
            uvec,
@@ -108,8 +108,10 @@ public:
 
   SeidrForestData(const SeidrForestData&) = delete;
   SeidrForestData& operator=(const SeidrForestData&) = delete;
+  SeidrForestData(SeidrForestData&& other) = delete;
+  SeidrForestData& operator=(SeidrForestData&& other) = delete;
 
-  virtual ~SeidrForestData() override = default;
+  ~SeidrForestData() override = default;
 
   double get_x(size_t row, size_t col) const override
   {
@@ -122,9 +124,10 @@ public:
 
     if (col < num_cols_no_snp) {
       return x[col * num_rows + row];
-    } else {
-      return getSnp(row, col, col_permuted);
     }
+
+    return getSnp(row, col, col_permuted);
+
   }
 
   double get_y(size_t row, size_t col) const override
@@ -138,11 +141,13 @@ public:
     y.resize(y_cols * num_rows);
   }
 
+  // NOLINTNEXTLINE(clang-diagnostic-unused-parameter)
   void set_x(size_t col, size_t row, double value, bool& error) override
   {
     x[col * num_rows + row] = value;
   }
 
+  // NOLINTNEXTLINE(clang-diagnostic-unused-parameter)
   void set_y(size_t col, size_t row, double value, bool& error) override
   {
     y[col * num_rows + row] = value;
@@ -160,13 +165,13 @@ public:
               const arma::mat& gm_x,
               const arma::mat& gm_y,
               const std::vector<std::string>& var,
-              const size_t ntree,
-              const size_t mtry,
-              const size_t min_node_size,
-              const double alpha,
-              const double minprop,
+              const size_t& ntree,
+              const size_t& mtry,
+              const size_t& min_node_size,
+              const double& alpha,
+              const double& minprop,
               std::ostream& ostream);
-  std::unique_ptr<ranger::Data> load(
+  std::unique_ptr<ranger::Data> static load(
     const std::vector<std::string>& dependent_variable_name,
     const arma::mat& gm_x,
     const arma::mat& gm_y,
@@ -189,11 +194,11 @@ SeidrForest::SeidrForest(
   const arma::mat& gm_x,
   const arma::mat& gm_y,
   const std::vector<std::string>& var,
-  const size_t ntree,
-  const size_t mtry,
-  const size_t min_node_size,
-  const double alpha,
-  const double minprop,
+  const size_t& ntree,
+  const size_t& mtry,
+  const size_t& min_node_size,
+  const double& alpha,
+  const double& minprop,
   std::ostream& ostream)
 {
 
@@ -225,7 +230,7 @@ SeidrForest::SeidrForest(
        // output_prefix, num_tree, seed, threads, importance mode
        "ranger_out_s",
        ntree,
-       314159265,
+       SEIDR_DEFAULT_SEED,
        1,
        I,
        // min node size (0=auto), status variable, prediction mode,
@@ -271,14 +276,8 @@ genie3(const arma::mat& gm,
     throw std::runtime_error("Could not open temp file: " + tmpfile);
   }
 // SeidrForestData data(gm, genes);
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for default(shared) schedule(dynamic)
   for (arma::uword i = 0; i < pred.size(); i++) {
-
-#pragma omp critical
-    {
-      // log << "Gene: " << pred[i] << '\n';
-      // log.send(LOG_INFO);
-    }
 
     std::vector<std::string> dep_var;
     std::vector<std::string> var;
@@ -301,7 +300,7 @@ genie3(const arma::mat& gm,
     const arma::mat& ranger_my = gm.cols(ranger_iy);
 
     std::vector<std::string> catvars;
-    std::ostream nullstream(0);
+    std::ostream nullstream(nullptr);
     SeidrForest forest(dep_var,
                        ranger_mx,
                        ranger_my,
@@ -332,14 +331,15 @@ genie3(const arma::mat& gm,
           ofs << varimp[k] << (k == varimp.size() - 1 ? '\n' : '\t');
         }
       } else if (j == varimp.size()) {
-        for (arma::uword k = 0; k < varimp.size(); k++) {
-          ofs << varimp[k] << '\t';
+        for (const double& k : varimp) {
+          ofs << k << '\t';
         }
         ofs << 0 << '\n';
       } else {
         for (arma::uword k = 0; k < varimp.size(); k++) {
-          if (j == k)
+          if (j == k) {
             ofs << 0 << '\t';
+          }
           ofs << varimp[k] << (k == varimp.size() - 1 ? '\n' : '\t');
         }
       }
@@ -386,14 +386,12 @@ genie3_full(const arma::mat& gm,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
     }
   }
   SEIDR_MPI_FINALIZE();
@@ -413,13 +411,13 @@ genie3_partial(const arma::mat& gm,
   fs::path d_out(p_out.parent_path());
 
   std::vector<uint64_t> positions;
-  for (uint64_t i = 0; i < targets.size(); i++) {
-    uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
+  for (const std::string& i : targets) {
+    uint64_t pos = find(genes.begin(), genes.end(), i) - genes.begin();
     if (pos >= genes.size()) {
-      log << "Gene " << targets[i] << " was not found in the expression set "
+      log << "Gene " << i << " was not found in the expression set "
           << "and will therefore not be considered. "
           << "Please check that your expression set and "
-          << "its column names (gene file) contain an entry for " << targets[i]
+          << "its column names (gene file) contain an entry for " << i
           << ".\n";
       log.log(LOG_WARN);
     } else {
@@ -450,14 +448,12 @@ genie3_partial(const arma::mat& gm,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
     }
   }
 

@@ -37,12 +37,12 @@ int
 main(int argc, char** argv)
 {
   logger log(std::cerr, "correlation");
-
-  seidr_cor_param_t param;
-
-  po::options_description umbrella("Pearson/Spearman correlation for Seidr");
-  po::variables_map vm;
   try {
+
+    seidr_cor_param_t param;
+
+    po::options_description umbrella("Pearson/Spearman correlation for Seidr");
+    po::variables_map vm;
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "targets,t",
@@ -85,26 +85,15 @@ main(int argc, char** argv)
     po::positional_options_description p;
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  if (vm.count("help") > 0 || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") > 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
-
-  try {
+    log.set_log_level(param.verbosity);
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);
     param.gene_file = to_absolute(param.gene_file);
@@ -129,14 +118,8 @@ main(int argc, char** argv)
       assert_no_overwrite(param.outfile);
     }
     assert_arg_constraint<std::string>({ "pearson", "spearman" }, param.method);
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  arma::mat gm;
-
-  try {
+    arma::mat gm;
     gm.load(param.infile, arma::raw_ascii);
     std::vector<std::string> genes = read_genes(param.gene_file);
     verify_matrix(gm, genes);
@@ -180,8 +163,14 @@ main(int argc, char** argv)
         }
       }
     }
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
   return 0;

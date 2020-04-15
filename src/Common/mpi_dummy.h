@@ -34,16 +34,20 @@
 #define SEIDR_MPI_CPR_TAG 2
 #define SEIDR_MPI_PROGBAR_TAG 3
 
+constexpr uint64_t DEFAULT_POLL_INTERVAL = 1000;
+constexpr uint64_t DEFAULT_BAR_WIDTH = 25;
+
 template<typename T>
 class seidr_mpi_progbar
 {
 public:
   seidr_mpi_progbar(std::ostream& f,
                     T max,
-                    uint64_t poll_interval = 1000,
-                    uint64_t width = 25,
+                    uint64_t poll_interval = DEFAULT_POLL_INTERVAL,
+                    uint64_t width = DEFAULT_BAR_WIDTH,
                     std::string unit = "units")
-    : _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
+    : _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit)),
+    _rank(0)
   {}
   seidr_mpi_progbar& operator++()
   {
@@ -53,7 +57,7 @@ public:
   void finalize() { _pbar.finalize(); }
   seidr_mpi_progbar operator++(int)
   {
-    seidr_mpi_progbar<T> copy(*this);
+    const seidr_mpi_progbar<T> copy(*this);
     _pbar++;
     return copy;
   }
@@ -109,12 +113,12 @@ class seidr_mpi_logger
 {
 public:
   seidr_mpi_logger();
-  seidr_mpi_logger(std::string nam);
+  explicit seidr_mpi_logger(std::string nam);
   template<typename T>
   friend seidr_mpi_logger& operator<<(seidr_mpi_logger& lhs, const T& rhs);
   void send(unsigned ll);
   void log(unsigned ll);
-  void set_log_level(unsigned int x) { _loglevel = x; }
+  void static set_log_level(unsigned int x) { _loglevel = x; }
   static unsigned int _loglevel;
 
 private:

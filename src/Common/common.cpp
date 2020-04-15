@@ -165,7 +165,7 @@ merge_files(const std::string& outfile,
          it != fs::directory_iterator();
          it++) {
       std::string pstring = it->path().string();
-      if (pstring.find(".") != std::string::npos) {
+      if (pstring.find('.') != std::string::npos) {
         log << "Ignoring unexpected file: " << pstring << '\n';
         log.log(LOG_WARN);
       } else if (fs::is_regular_file(it->path())) {
@@ -193,18 +193,18 @@ merge_files(const std::string& outfile,
 
     std::ifstream ifs;
     std::string file_path;
-    for (auto it = rmap.begin(); it != rmap.end(); it++) {
+    for (auto & it : rmap) {
       if (file_path.empty()) // First iteration
       {
-        file_path = it->second.second;
-        ifs = std::ifstream(it->second.second.c_str());
-      } else if (file_path != it->second.second) // New file
+        file_path = it.second.second;
+        ifs = std::ifstream(it.second.second.c_str());
+      } else if (file_path != it.second.second) // New file
       {
         ifs.close();
-        file_path = it->second.second;
-        ifs = std::ifstream(it->second.second.c_str());
+        file_path = it.second.second;
+        ifs = std::ifstream(it.second.second.c_str());
       }
-      std::streampos gene_index = it->second.first;
+      std::streampos gene_index = it.second.first;
 
       ifs.seekg(gene_index);
       std::string l;
@@ -214,7 +214,7 @@ merge_files(const std::string& outfile,
         std::stringstream ss(l);
         std::string token;
         seidr_uword_t j = 0;
-        seidr_uword_t i = it->first;
+        seidr_uword_t i = it.first;
         while (ss >> token) {
           if (i != j) {
             ofs << genes[i] << '\t' << genes[j] << '\t' << token << '\n';
@@ -237,7 +237,7 @@ merge_files(const std::string& outfile,
 }
 
 bool
-any_const_expr(arma::mat& inp)
+any_const_expr(const arma::mat& inp)
 {
   arma::mat v = arma::var(inp);
   for (arma::uword i = 0; i < v.n_elem; i++) {
@@ -249,7 +249,7 @@ any_const_expr(arma::mat& inp)
 }
 
 void
-verify_matrix(arma::mat& inp, std::vector<std::string>& genes)
+verify_matrix(const arma::mat& inp, const std::vector<std::string>& genes)
 {
   if (genes.size() != inp.n_cols) {
     throw std::runtime_error("There must be as many gene names as columns "
@@ -259,7 +259,7 @@ verify_matrix(arma::mat& inp, std::vector<std::string>& genes)
 }
 
 void
-verify_matrix(arma::mat& inp)
+verify_matrix(const arma::mat& inp)
 {
   if (!inp.is_finite()) {
     throw std::runtime_error("Not all elements in input matrix are finite.");
@@ -273,7 +273,7 @@ verify_matrix(arma::mat& inp)
 
 void
 assert_mutually_exclusive(const po::variables_map& vm,
-                          const std::vector<std::string> targets)
+                          const std::vector<std::string>& targets)
 {
   uint64_t count = 0;
   for (const auto& t : targets) {
@@ -324,7 +324,7 @@ get_mpi_nthread()
     throw std::runtime_error("Number of MPI threads could not be"
                              " reliably determined");
   }
-  uint64_t ret = static_cast<uint64_t>(procn);
+  auto ret = static_cast<uint64_t>(procn);
   return ret;
 }
 
@@ -336,7 +336,6 @@ guess_batch_size(uint64_t const& set_size, uint64_t const& task_n)
   }
   if (set_size % task_n == 0) {
     return set_size / task_n;
-  } else {
-    return (set_size / task_n) + 1;
   }
+  return (set_size / task_n) + 1;
 }

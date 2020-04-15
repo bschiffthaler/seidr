@@ -48,7 +48,7 @@
 using boost::numeric_cast;
 
 void
-print_null(const char* s)
+print_null(const char* s) // NOLINT(clang-diagnostic-unused-parameter)
 {}
 
 class seidr_mpi_elnet : public seidr_mpi_omp
@@ -94,8 +94,7 @@ seidr_mpi_elnet::entrypoint()
     for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME "@" + mpi_get_host()))
-      ; // NOLINT
+    while (check_logs(LOG_NAME "@" + mpi_get_host())) {}
     el_ensemble(_data,
                 _genes,
                 uvec,
@@ -126,14 +125,14 @@ el_ensemble(const arma::mat& geneMatrix,
             const std::vector<std::string>& genes,
             const std::vector<arma::uword>& uvec,
             const std::string& tmpdir,
-            const arma::uword min_sample_size,
-            const arma::uword max_sample_size,
-            const arma::uword predictor_sample_size_min,
-            const arma::uword predictor_sample_size_max,
-            const arma::uword ensemble_size,
-            const double alpha,
-            const double flmin,
-            const arma::uword nlam,
+            const arma::uword& min_sample_size,
+            const arma::uword& max_sample_size,
+            const arma::uword& predictor_sample_size_min,
+            const arma::uword& predictor_sample_size_max,
+            const arma::uword& ensemble_size,
+            const double& alpha,
+            const double& flmin,
+            const arma::uword& nlam,
             seidr_mpi_elnet* self)
 {
 
@@ -156,7 +155,7 @@ el_ensemble(const arma::mat& geneMatrix,
     samples(i) = i;
   }
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for default(shared) schedule(dynamic)
   for (uint64_t i = 0; i < uvec.size(); i++) // NOLINT
   {
     arma::vec ret(geneMatrix.n_cols);
@@ -173,7 +172,7 @@ el_ensemble(const arma::mat& geneMatrix,
     ret.zeros();
     // Ensure all genes have the same initial seed such that
     // sample sizes are identical
-    std::seed_seq sseq{ 3, 1, 4, 1, 5, 9, 2, 6, 5 };
+    std::seed_seq sseq SEIDR_DEFAULT_SSEQ;
     gen.seed(sseq);
     arma::uword reshuf = 0;
     for (arma::uword boot = 0; boot < ensemble_size;) {
@@ -209,8 +208,8 @@ el_ensemble(const arma::mat& geneMatrix,
         double nr = pred_mat.n_rows;
         auto k = numeric_cast<arma::uword>(round(sqrt(nr)));
 
-        if (k > 10) {
-          k = 10;
+        if (k > ELNET_DEF_MAX_K_CV) {
+          k = ELNET_DEF_MAX_K_CV;
         }
 
         glm_cv_t glm_cv = elnet.k_fold_cv(k);
@@ -235,9 +234,9 @@ el_ensemble(const arma::mat& geneMatrix,
         arma::uvec zero_ind = arma::conv_to<arma::uvec>::from(zeros);
 
         // weights.print();
-        // Zero out weights vector and set top 20th values to 1
+        // Zero out weights vector and set top Nth values to 1
         weights.zeros();
-        arma::uword rt = pred_mat.n_cols / 20;
+        arma::uword rt = pred_mat.n_cols / ELNET_DEF_TOP_N_CONSIDERED;
         for (arma::uword i = 0; i <= rt; i++) {
           weights(sort_index(i)) = 1;
         }
@@ -269,8 +268,7 @@ el_ensemble(const arma::mat& geneMatrix,
     }
 #pragma omp critical
     {
-      while (self->check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (self->check_logs(LOG_NAME "@" + mpi_get_host())) {}
       self->increment_pbar();
       ofs << target << '\n';
       for (seidr_uword_t i = 0; i < ret.size(); i++) {
@@ -315,8 +313,7 @@ el_full(const arma::mat& GM,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
@@ -374,10 +371,14 @@ el_partial(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
-  if (mpi.rank() == 0) {
-    log << "Finalizing...\n";
-    log.send(LOG_INFO);
-    mpi.finalize();
+#pragma omp critical
+  {
+    if (mpi.rank() == 0) {
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
+      log << "Finalizing...\n";
+      log.send(LOG_INFO);
+      mpi.finalize();
+    }
   }
 
   SEIDR_MPI_FINALIZE();

@@ -30,9 +30,9 @@
 using boost::numeric_cast;
 
 glm
-glmnet(arma::mat& X, arma::vec& Y, int64_t nsteps, double fmin)
+glmnet(arma::mat& X, arma::vec& Y, int64_t nsteps, double fmin, double alpha)
 {
-  glm ret(X, Y, nsteps, fmin);
+  glm ret(X, Y, nsteps, fmin, alpha);
   return ret;
 }
 
@@ -55,11 +55,11 @@ glm::glm(arma::mat _X,
   ne = nvars + 1;
   nx = nvars;
   jd = 0;
-  thresh = 1e-7;
+  thresh = GLM_DEF_CONVERGENCE_THR;
   isd = 1;
   intr = 1;
   ka = 1;
-  maxit = 100000;
+  maxit = GLM_DEF_MAX_ITER;
   flmin = _flmin;
   alpha = _alpha;
 
@@ -70,37 +70,37 @@ glm::glm(arma::mat _X,
   double* xptr = x.memptr();
   double* yptr = y.memptr();
 
-  auto wptr = new double[nobs]();
+  std::unique_ptr<double> wptr(new double[nobs]());
   for (int64_t i = 0; i < nobs; i++) {
-    wptr[i] = 1.0;
+    wptr.get()[i] = 1.0;
   }
 
-  auto vpptr = new double[nvars]();
+  std::unique_ptr<double> vpptr(new double[nvars]());
   for (int64_t i = 0; i < nvars; i++) {
-    vpptr[i] = 1.0;
+    vpptr.get()[i] = 1.0;
   }
 
-  auto clptr = new double[2 * nvars]();
+  std::unique_ptr<double> clptr(new double[2 * nvars]());
   for (int64_t i = 0; i < 2 * nvars; i++) {
-    clptr[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
+    clptr.get()[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
   }
 
-  auto ulamptr = new double[1];
+  std::unique_ptr<double> ulamptr(new double[1]);
 
   if (flmin >= 1) {
-    ulamptr = new double[_ulam.n_elem];
+    ulamptr = std::unique_ptr<double>(new double[_ulam.n_elem]);
     for (arma::uword i = 0; i < _ulam.n_elem; i++) {
-      ulamptr[i] = _ulam(i);
+      ulamptr.get()[i] = _ulam(i);
     }
     nlam = numeric_cast<int64_t>(_ulam.n_elem);
   }
 
-  auto a0ptr = new double[nlam]();
-  auto captr = new double[nx * nlam]();
-  auto iaptr = new int64_t[nx]();
-  auto ninptr = new int64_t[nlam]();
-  auto rsqptr = new double[nlam]();
-  auto almptr = new double[nlam]();
+  std::unique_ptr<double> a0ptr(new double[nlam]());
+  std::unique_ptr<double> captr(new double[nx * nlam]());
+  std::unique_ptr<int64_t> iaptr(new int64_t[nx]());
+  std::unique_ptr<int64_t> ninptr(new int64_t[nlam]());
+  std::unique_ptr<double> rsqptr(new double[nlam]());
+  std::unique_ptr<double> almptr(new double[nlam]());
 
   // Run ElNet optimization
   elnet_(&ka,
@@ -109,63 +109,51 @@ glm::glm(arma::mat _X,
          &nvars,
          xptr,
          yptr,
-         wptr,
+         wptr.get(),
          &jd,
-         vpptr,
-         clptr,
+         vpptr.get(),
+         clptr.get(),
          &ne,
          &nx,
          &nlam,
          &flmin,
-         ulamptr,
+         ulamptr.get(),
          &thresh,
          &isd,
          &intr,
          &maxit,
          &lmu,
-         a0ptr,
-         captr,
-         iaptr,
-         ninptr,
-         rsqptr,
-         almptr,
+         a0ptr.get(),
+         captr.get(),
+         iaptr.get(),
+         ninptr.get(),
+         rsqptr.get(),
+         almptr.get(),
          &nlp,
          &jerr);
 
   // Create arma vectors from aux memory while at the same time
   // truncating data to reflect actual number of lambdas (solutions)
-  arma::uword u_lmu = numeric_cast<arma::uword>(lmu);
-  arma::uword u_nx = numeric_cast<arma::uword>(nx);
-  a0 = arma::vec(a0ptr, u_lmu);
-  ca = arma::vec(captr, u_nx * u_lmu);
+  auto u_lmu = numeric_cast<arma::uword>(lmu);
+  auto u_nx = numeric_cast<arma::uword>(nx);
+  a0 = arma::vec(a0ptr.get(), u_lmu);
+  ca = arma::vec(captr.get(), u_nx * u_lmu);
   ia = arma::uvec(u_nx);
   for (arma::uword i = 0; i < u_nx; i++) {
-    ia[i] = numeric_cast<arma::uword>(iaptr[i]);
+    ia[i] = numeric_cast<arma::uword>(iaptr.get()[i]);
   }
   nin = arma::uvec(u_lmu);
   for (arma::uword i = 0; i < u_lmu; i++) {
-    nin[i] = numeric_cast<arma::uword>(ninptr[i]);
+    nin[i] = numeric_cast<arma::uword>(ninptr.get()[i]);
   }
-  rsq = arma::vec(rsqptr, u_lmu);
-  alm = arma::vec(almptr, u_lmu);
+  rsq = arma::vec(rsqptr.get(), u_lmu);
+  alm = arma::vec(almptr.get(), u_lmu);
 
   // Fix lambda return
   if (nlam > 1 && flmin < 1) {
     arma::mat lalm = arma::log(alm);
     alm(0) = exp(2 * lalm(1) - lalm(2));
   }
-
-  // Clean up
-  delete[] wptr;
-  delete[] vpptr;
-  delete[] clptr;
-  delete[] a0ptr;
-  delete[] captr;
-  delete[] iaptr;
-  delete[] ninptr;
-  delete[] rsqptr;
-  delete[] almptr;
-  delete[] ulamptr;
 }
 
 void
@@ -176,19 +164,18 @@ glm::calculate_beta()
   sort_order = arma::uvec(1);
   beta_success = false;
   // Create safe unsigned variables to compare to
-  arma::uword u_lmu = 0, u_nx = 0, u_ninmax = 0, u_nlam = 0;
+  arma::uword u_lmu = 0;
+  arma::uword u_nx = 0;
+  arma::uword u_ninmax = 0;
+  arma::uword u_nlam = 0;
 
-  try {
-    u_lmu = boost::numeric_cast<arma::uword>(lmu);
-    u_nx = boost::numeric_cast<arma::uword>(nx);
-    u_nlam = boost::numeric_cast<arma::uword>(nlam);
-    // Maximum coefficients that will enter the model at
-    // any lambda
-    int ninmax = arma::max(nin);
-    u_ninmax = boost::numeric_cast<arma::uword>(ninmax);
-  } catch (boost::numeric::bad_numeric_cast& e) {
-    throw std::runtime_error(e.what());
-  }
+  u_lmu = boost::numeric_cast<arma::uword>(lmu);
+  u_nx = boost::numeric_cast<arma::uword>(nx);
+  u_nlam = boost::numeric_cast<arma::uword>(nlam);
+  // Maximum coefficients that will enter the model at
+  // any lambda
+  int ninmax = arma::max(nin);
+  u_ninmax = boost::numeric_cast<arma::uword>(ninmax);
 
   if (u_ninmax > 0 && u_lmu > 0) {
     // Zero out noise arising from precision issues
@@ -297,8 +284,9 @@ lambda_interp(arma::vec lambda, arma::vec s)
     arma::vec y(lambda.size());
     arma::vec yy;
 
-    for (arma::uword i = 0; i < lambda.size(); i++)
+    for (arma::uword i = 0; i < lambda.size(); i++) {
       y(i) = i;
+    }
 
     interp1(lambda, y, sfrac, yy);
 
@@ -326,7 +314,8 @@ glm::k_fold_cv(arma::uword k)
 {
   // Create sampling vector
   arma::uvec foldid(X.n_rows);
-  arma::uword i = 0, j = 0;
+  arma::uword i = 0;
+  arma::uword j = 0;
   while (i < X.n_rows) {
     foldid(i) = j;
     i++;

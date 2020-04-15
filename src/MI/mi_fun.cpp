@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <armadillo>
 #include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -37,8 +37,8 @@
 #include <unordered_map>
 #include <vector>
 
-using boost::lexical_cast;
 namespace fs = boost::filesystem;
+using boost::numeric_cast;
 
 bool
 sortDesc(const aranode& lhs, const aranode& rhs)
@@ -55,9 +55,9 @@ public:
   void set_num_bins(size_t n) { _num_bins = n; }
   void set_spline_order(size_t s) { _spline_order = s; }
   void set_mode(char x) { _mode = x; }
-  void set_mi_file(std::string x) { _mi_file = x; }
-  void set_targets(std::vector<std::string> x) { _targets = x; }
-  void set_genes(std::vector<std::string> x) { _genes = x; }
+  void set_mi_file(std::string x) { _mi_file = std::move(x); }
+  void set_targets(std::vector<std::string> x) { _targets = std::move(x); }
+  void set_genes(std::vector<std::string> x) { _genes = std::move(x); }
   void use_existing_mi_mat() { _use_existing_mi_mat = true; }
 
 private:
@@ -80,8 +80,8 @@ seidr_mpi_mi::entrypoint()
       for (auto i : _my_indices) {
         uvec.push_back(i);
       }
-      while (check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (check_logs(LOG_NAME "@" + mpi_get_host())) {
+      }
       mi_sub_matrix(_data, _num_bins, _spline_order, uvec, _tempdir, this);
       get_more_work();
     }
@@ -95,7 +95,7 @@ seidr_mpi_mi::finalize()
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
   std::unordered_map<std::string, arma::uword> gene_map;
   arma::uword ctr = 0;
-  for (auto g : _genes) {
+  for (const auto& g : _genes) {
     gene_map[g] = ctr++;
   }
 
@@ -128,11 +128,11 @@ seidr_mpi_mi::finalize()
          it != fs::directory_iterator();
          it++) {
       std::string pstring = it->path().string();
-      if (pstring.find(".") != std::string::npos) {
+      if (pstring.find('.') != std::string::npos) {
         log << "Ignoring unexpected file: " << pstring << '\n';
         log.log(LOG_WARN);
-        while (check_logs(LOG_NAME "@" + mpi_get_host()))
-          ;
+        while (check_logs(LOG_NAME "@" + mpi_get_host())) {
+        }
       } else if (fs::is_regular_file(it->path())) {
         files.push_back((*it).path());
       }
@@ -168,7 +168,7 @@ seidr_mpi_mi::finalize()
 
   std::ofstream ofs(_outfile);
 
-  if (_mi_file != "" && (!_use_existing_mi_mat)) {
+  if (!_mi_file.empty() && (!_use_existing_mi_mat)) {
     std::ofstream mofs;
     mofs.open(_mi_file.c_str());
     log << "Outputting raw MI\n";
@@ -182,8 +182,8 @@ seidr_mpi_mi::finalize()
   }
 
   if (_mode == 2) {
-    if (_targets.size() != 0) {
-      for (auto g : _targets) {
+    if (!_targets.empty()) {
+      for (const auto& g : _targets) {
         arma::uword i;
         try {
           i = gene_map.at(g);
@@ -193,8 +193,9 @@ seidr_mpi_mi::finalize()
           log.send(LOG_ERR);
         }
         for (arma::uword j = 0; j < mi_mat.n_cols; j++) {
-          if (i == j)
+          if (i == j) {
             continue;
+          }
           ofs << _genes[i] << '\t' << _genes[j] << '\t' << mi_mat(i, j) << '\n';
         }
       }
@@ -220,8 +221,8 @@ seidr_mpi_mi::finalize()
       s(i) = arma::stddev(x);
     }
 
-    if (_targets.size() != 0) {
-      for (auto g : _targets) {
+    if (!_targets.empty()) {
+      for (const auto& g : _targets) {
         arma::uword i;
         try {
           i = gene_map.at(g);
@@ -231,8 +232,9 @@ seidr_mpi_mi::finalize()
           log.send(LOG_ERR);
         }
         for (arma::uword j = 0; j < mi_mat.n_cols; j++) {
-          if (i == j)
+          if (i == j) {
             continue;
+          }
           double mi = mi_mat(i, j);
           mi = mi < 0 ? mi * -1 : mi;
           double a = (mi - m(i)) / s(i);
@@ -267,8 +269,9 @@ seidr_mpi_mi::finalize()
     for (arma::uword i = 0; i < mi_mat.n_rows; i++) {
       std::vector<aranode> dc;
       for (arma::uword j = 0; j < mi_mat.n_cols; j++) {
-        if (i != j)
-          dc.push_back(aranode(j, mi_mat(i, j)));
+        if (i != j) {
+          dc.emplace_back(aranode(j, mi_mat(i, j)));
+        }
       }
       std::sort(dc.begin(), dc.end(), sortDesc);
       for (arma::uword j = 0; j < dc.size(); j++) {
@@ -276,8 +279,9 @@ seidr_mpi_mi::finalize()
         arma::uword bi = dc[j].i;
         for (arma::uword k = 0; k < j; k++) {
           double ac = dc[k].v;
-          if (ab >= ac)
+          if (ab >= ac) {
             break;
+          }
           arma::uword ci = dc[k].i;
           double bc = mi_mat(bi, ci);
           if (ab < bc) {
@@ -292,8 +296,8 @@ seidr_mpi_mi::finalize()
         log.send(LOG_INFO);
       }
     }
-    if (_targets.size() != 0) {
-      for (auto g : _targets) {
+    if (!_targets.empty()) {
+      for (const auto& g : _targets) {
         arma::uword i;
         try {
           i = gene_map.at(g);
@@ -303,16 +307,17 @@ seidr_mpi_mi::finalize()
           log.send(LOG_ERR);
         }
         for (arma::uword j = 0; j < mi_mat.n_cols; j++) {
-          if (i == j)
+          if (i == j) {
             continue;
-          double r = (torm(i, j) ? 0 : mi_mat(i, j));
+          }
+          double r = (torm(i, j) != 0 ? 0 : mi_mat(i, j));
           ofs << _genes[i] << '\t' << _genes[j] << '\t' << r << '\n';
         }
       }
     } else {
       for (arma::uword i = 1; i < mi_mat.n_cols; i++) {
         for (arma::uword j = 0; j < i; j++) {
-          double r = (torm(i, j) ? 0 : mi_mat(i, j));
+          double r = (torm(i, j) != 0 ? 0 : mi_mat(i, j));
           ofs << r << (j == i - 1 ? '\n' : '\t');
         }
       }
@@ -330,8 +335,8 @@ knot_vector(size_t spline_order, size_t num_bins)
   size_t int_points = num_bins - spline_order;
 
   for (size_t i = spline_order; i < spline_order + int_points; i++) {
-    double x = (i - spline_order + 1);
-    double y = (int_points + 1);
+    auto x = numeric_cast<double>(i - spline_order + 1);
+    auto y = numeric_cast<double>(int_points + 1);
     ret[i] = x / y;
   }
 
@@ -353,20 +358,24 @@ percentile(arma::vec& data, size_t percentile)
   double N = data.n_elem;
 
   for (size_t i = 0; i < data.n_elem; i++) {
-    double di = (i + 1);
+    auto di = numeric_cast<double>(i + 1);
+    // NOLINTNEXTLINE(readability-magic-numbers)
     p_rank.push_back(round((100 / N) * (di - 0.5)));
   }
 
   // percentile is in ordered list
-  if (percentile <= p_rank[0])
+  if (percentile <= p_rank[0]) {
     return data[0];
-  if (percentile >= p_rank[p_rank.size() - 1])
+  }
+  if (percentile >= p_rank[p_rank.size() - 1]) {
     return data[p_rank.size() - 1];
+  }
 
   auto it = std::lower_bound(p_rank.begin(), p_rank.end(), percentile);
 
-  if ((*it) == percentile)
+  if ((*it) == percentile) {
     return data[std::distance(p_rank.begin(), it)];
+  }
 
   // percentile is not in ordered list
   size_t k2 = std::distance(p_rank.begin(), it);
@@ -374,6 +383,7 @@ percentile(arma::vec& data, size_t percentile)
   double pk = p_rank[k];
   double vk = data[k];
   double vk2 = data[k2];
+  // NOLINTNEXTLINE(readability-magic-numbers)
   return vk + N * ((percentile - pk) / 100) * (vk2 - vk);
 }
 
@@ -383,6 +393,7 @@ percentile(arma::vec& data, size_t percentile)
 double
 iqr(arma::vec& data)
 {
+  // NOLINTNEXTLINE(readability-magic-numbers)
   return percentile(data, 75) - percentile(data, 25);
 }
 
@@ -390,9 +401,11 @@ double
 bin_width(arma::vec& data)
 {
   double s = arma::stddev(data);
+  // NOLINTNEXTLINE(readability-magic-numbers)
   double i = iqr(data) / 1.349;
   double sigma = s < i ? s : i;
   double ns = data.n_elem;
+  // NOLINTNEXTLINE(readability-magic-numbers)
   return pow(ns, (-1.0 / 3.0)) * sigma * 3.49;
 }
 
@@ -423,8 +436,9 @@ to_z(arma::vec& x)
   double mi = arma::min(x);
   double ma = arma::max(x);
   arma::vec z = x;
-  for (arma::vec::iterator i = z.begin(); i != z.end(); i++)
-    (*i) = (((*i) - mi) / (ma - mi));
+  for (double& i : z) {
+    i = ((i - mi) / (ma - mi));
+  }
   return z;
 }
 
@@ -435,10 +449,17 @@ basis_function(size_t i,
                arma::vec& knot_vector,
                size_t num_bins)
 {
-  double d1, n1, d2, n2, e1, e2;
+  double d1 = 0;
+  double n1 = 0;
+  double d2 = 0;
+  double n2 = 0;
+  double e1 = 0;
+  double e2 = 0;
+
   if (p == 1) {
     if ((t >= knot_vector[i] && t < knot_vector[i + 1] &&
          knot_vector[i] < knot_vector[i + 1]) ||
+        // NOLINTNEXTLINE(readability-magic-numbers)
         (fabs(t - knot_vector[i + 1]) < 1e-10 && (i + 1 == num_bins))) {
       return (1);
     }
@@ -450,11 +471,16 @@ basis_function(size_t i,
   d2 = knot_vector[i + p] - knot_vector[i + 1];
   n2 = knot_vector[i + p] - t;
 
+  // NOLINTNEXTLINE(readability-magic-numbers)
   if (d1 < 1e-10 && d2 < 1e-10) {
     return (0);
-  } else if (d1 < 1e-10) {
+  }
+
+  // NOLINTNEXTLINE(readability-magic-numbers)
+  if (d1 < 1e-10) {
     e1 = 0;
     e2 = n2 / d2 * basis_function(i + 1, p - 1, t, knot_vector, num_bins);
+    // NOLINTNEXTLINE(readability-magic-numbers)
   } else if (d2 < 1e-10) {
     e2 = 0;
     e1 = n1 / d1 * basis_function(i, p - 1, t, knot_vector, num_bins);
@@ -491,11 +517,7 @@ find_weights(const arma::mat& gm,
 }
 
 arma::vec
-hist1d(arma::vec& x,
-       arma::vec& knots,
-       arma::vec& weights,
-       size_t spline_order,
-       size_t num_bins)
+hist1d(arma::vec& x, arma::vec& weights, size_t num_bins)
 {
   arma::vec hist(num_bins, arma::fill::zeros);
   for (size_t cur_bin = 0; cur_bin < num_bins; cur_bin++) {
@@ -514,17 +536,12 @@ log2d(double x)
 }
 
 double
-entropy1d(const arma::mat& gm,
-          arma::vec& knots,
-          arma::mat& wm,
-          size_t spline_order,
-          size_t num_bins,
-          size_t i)
+entropy1d(const arma::mat& gm, arma::mat& wm, size_t num_bins, size_t i)
 {
   double H = 0;
   arma::vec weights = wm.col(i);
   arma::vec x = gm.col(i);
-  arma::vec hist = hist1d(x, knots, weights, spline_order, num_bins);
+  arma::vec hist = hist1d(x, weights, num_bins);
   for (size_t cur_bin = 0; cur_bin < num_bins; cur_bin++) {
     if (hist[cur_bin] > 0) {
       H -= hist[cur_bin] * log2d(hist[cur_bin]);
@@ -535,12 +552,9 @@ entropy1d(const arma::mat& gm,
 
 void
 hist2d(arma::vec& x,
-       arma::vec& y,
-       arma::vec& knots,
        arma::vec& wx,
        arma::vec& wy,
        arma::mat& hist,
-       size_t spline_order,
        size_t num_bins)
 {
 
@@ -557,9 +571,7 @@ hist2d(arma::vec& x,
 
 double
 entropy2d(const arma::mat& gm,
-          arma::vec& knots,
           arma::mat& wm,
-          size_t spline_order,
           size_t num_bins,
           size_t xi,
           size_t yi)
@@ -572,7 +584,7 @@ entropy2d(const arma::mat& gm,
   arma::mat hist(num_bins, num_bins, arma::fill::zeros);
   double H = 0;
   double incr;
-  hist2d(x, y, knots, wx, wy, hist, spline_order, num_bins);
+  hist2d(x, wx, wy, hist, num_bins);
 
   for (size_t cur_bin_x = 0; cur_bin_x < num_bins; cur_bin_x++) {
     for (size_t cur_bin_y = 0; cur_bin_y < num_bins; cur_bin_y++) {
@@ -604,7 +616,7 @@ mi_sub_matrix(const arma::mat& gm,
 #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < gm.n_cols; i++) {
     find_weights(gm, knots, weights, spline_order, num_bins, i);
-    entropies(i) = entropy1d(gm, knots, weights, spline_order, num_bins, i);
+    entropies(i) = entropy1d(gm, weights, num_bins, i);
   }
 
   std::string tmpfile = tempfile(tmpdir);
@@ -619,7 +631,7 @@ mi_sub_matrix(const arma::mat& gm,
       std::vector<double> tmp_results;
       for (size_t col = 0; col < row; col++) {
         double e2d =
-          entropy2d(gm, knots, weights, spline_order, num_bins, col, row);
+          entropy2d(gm, weights, num_bins, col, row);
         tmp_results.push_back(entropies(col) + entropies(row) - e2d);
       }
 #pragma omp critical
@@ -673,7 +685,8 @@ mi_full(const arma::mat& gm,
     }
   }
 
-  std::random_shuffle(indices.begin(), indices.end());
+  std::shuffle(
+    indices.begin(), indices.end(), std::mt19937(std::random_device()()));
 
   seidr_mpi_mi mpi(param.bs, gm, indices, genes, param.tempdir, param.outfile);
   mpi.set_spline_order(param.spline_order);
@@ -692,14 +705,14 @@ mi_full(const arma::mat& gm,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {
+      }
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {
+      }
     }
   }
 
