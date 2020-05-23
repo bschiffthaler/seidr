@@ -35,19 +35,19 @@
 #undef DEBUG
 
 #include <boost/program_options.hpp>
-#include <networkit/base/Algorithm.h>
-#include <networkit/centrality/ApproxCloseness.h>
-#include <networkit/centrality/Betweenness.h>
-#include <networkit/centrality/Centrality.h>
-#include <networkit/centrality/Closeness.h>
-#include <networkit/centrality/EigenvectorCentrality.h>
-#include <networkit/centrality/EstimateBetweenness.h>
-#include <networkit/centrality/KPathCentrality.h>
-#include <networkit/centrality/KatzCentrality.h>
-#include <networkit/centrality/PageRank.h>
-#include <networkit/centrality/SpanningEdgeCentrality.h>
-#include <networkit/components/ConnectedComponents.h>
-#include <networkit/graph/Graph.h>
+#include <networkit/base/Algorithm.hpp>
+#include <networkit/centrality/ApproxCloseness.hpp>
+#include <networkit/centrality/Betweenness.hpp>
+#include <networkit/centrality/Centrality.hpp>
+#include <networkit/centrality/Closeness.hpp>
+#include <networkit/centrality/EigenvectorCentrality.hpp>
+#include <networkit/centrality/EstimateBetweenness.hpp>
+#include <networkit/centrality/KPathCentrality.hpp>
+#include <networkit/centrality/KatzCentrality.hpp>
+#include <networkit/centrality/PageRank.hpp>
+#include <networkit/centrality/SpanningEdgeCentrality.hpp>
+#include <networkit/components/ConnectedComponents.hpp>
+#include <networkit/graph/Graph.hpp>
 
 namespace po = boost::program_options;
 

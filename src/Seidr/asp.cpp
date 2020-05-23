@@ -34,8 +34,8 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <networkit/distance/APSP.h>
-#include <networkit/graph/Graph.h>
+#include <networkit/distance/APSP.hpp>
+#include <networkit/graph/Graph.hpp>
 #include <string>
 #include <vector>
 

@@ -39,11 +39,11 @@ namespace po = boost::program_options;
 
 #undef DEBUG
 
-#include <networkit/base/Algorithm.h>
-#include <networkit/components/ConnectedComponents.h>
-#include <networkit/distance/APSP.h>
-#include <networkit/global/ClusteringCoefficient.h>
-#include <networkit/graph/Graph.h>
+#include <networkit/base/Algorithm.hpp>
+#include <networkit/components/ConnectedComponents.hpp>
+#include <networkit/distance/APSP.hpp>
+#include <networkit/global/ClusteringCoefficient.hpp>
+#include <networkit/graph/Graph.hpp>
 
 std::pair<double, double>
 SFT(const NetworKit::Graph& g, uint64_t n_bins)

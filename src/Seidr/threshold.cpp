@@ -41,8 +41,8 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <networkit/global/ClusteringCoefficient.h>
-#include <networkit/graph/Graph.h>
+#include <networkit/global/ClusteringCoefficient.hpp>
+#include <networkit/graph/Graph.hpp>
 #include <string>
 #include <vector>
 
