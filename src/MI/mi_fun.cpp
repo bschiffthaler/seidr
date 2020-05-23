@@ -674,7 +674,8 @@ mi_full(const arma::mat& gm,
 
   fs::path d_out(p_out.parent_path());
 
-  std::vector<uint64_t> indices(gm.n_cols);
+  std::vector<uint64_t> indices;
+  indices.reserve(gm.n_cols);
   for (uint64_t i = 0; i < gm.n_cols; i++) {
     if (param.resuming) {
       if (!in_sorted_range<uint64_t>(i, param.good_idx)) {
