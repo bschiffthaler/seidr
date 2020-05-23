@@ -67,7 +67,7 @@ reheader(const std::vector<std::string>& args)
       po::command_line_parser(args).options(umbrella).positional(p).run(),
       vm);
 
-    if (vm.count("help") != 0) {
+    if (vm.count("help") != 0 || args.empty()) {
       std::cerr << umbrella << '\n';
       return EINVAL;
     }
