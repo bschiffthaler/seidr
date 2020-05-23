@@ -1,6 +1,3 @@
-[submodule "external/networkit"]
-	path = external/networkit
-	url = https://github.com/kit-parco/networkit
 [submodule "external/libbs"]
 	path = external/libbs
 	url = https://github.com/bschiffthaler/libbs
