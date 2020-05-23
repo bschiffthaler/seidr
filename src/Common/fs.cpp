@@ -145,6 +145,15 @@ dirname(const std::string& xname)
   return q.string();
 }
 
+std::string
+basename(const std::string& xname)
+{
+  fs::path p(xname);
+  fs::path q(p.filename());
+  return q.string();
+}
+
+
 bool
 create_directory(const std::string& path)
 {

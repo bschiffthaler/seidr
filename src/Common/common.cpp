@@ -165,7 +165,7 @@ merge_files(const std::string& outfile,
          it != fs::directory_iterator();
          it++) {
       std::string pstring = it->path().string();
-      if (pstring.find('.') != std::string::npos) {
+      if (!is_seidr_tmpfile(pstring)) {
         log << "Ignoring unexpected file: " << pstring << '\n';
         log.log(LOG_WARN);
       } else if (fs::is_regular_file(it->path())) {
@@ -338,4 +338,22 @@ guess_batch_size(uint64_t const& set_size, uint64_t const& task_n)
     return set_size / task_n;
   }
   return (set_size / task_n) + 1;
+}
+
+bool is_seidr_tmpfile(const std::string& path) {
+  const std::string base = basename(path);
+  uint64_t i = 0;
+  for (const char& c : base) {
+    if (i == 4 || i == 9 || i == 14) {
+      if (c != '-') {
+        return false;
+      }
+    } else {
+      if (!((c > 96 && c < 173) || (c > 47 && c < 58))) {
+        return false;
+      }   
+    }
+    i++;
+  }
+  return true;
 }

@@ -38,6 +38,8 @@ std::string
 to_canonical(const std::string& xname);
 std::string
 dirname(const std::string& xname);
+std::string
+basename(const std::string& xname);
 bool
 create_directory(const std::string& path);
 bool
