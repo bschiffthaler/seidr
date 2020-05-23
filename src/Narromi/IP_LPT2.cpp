@@ -86,7 +86,7 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
   CoinPackedMatrix problem_mat(
     true, ia.data(), ja.data(), ar.data(), boost::numeric_cast<int>(lps));
 
-  double const* solution;
+  arma::vec res;
   if (al == "interior-point") {
     auto model = ClpInterior();
     model.setLogLevel(0); // Be quiet
@@ -95,7 +95,7 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
     model.setOptimizationDirection(1); // Minimize
     model.setPrimalTolerance(1e-7);    // Same as GLPK
     model.primalDual();
-    solution = model.primalColumnSolution();
+    res = arma::vec(model.primalColumnSolution(), xf.n_cols + 2 * ns);
   } else {
     auto model = ClpSimplex();
     model.setLogLevel(0); // Be quiet
@@ -104,12 +104,7 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
     model.setOptimizationDirection(1); // Minimize
     model.setPrimalTolerance(1e-7);    // Same as GLPK
     model.initialSolve();
-    solution = model.primalColumnSolution();
-  }
-
-  arma::vec res(xf.n_cols + 2 * ns);
-  for (uint64_t i = 0; i < xf.n_cols + 2 * ns; i++) {
-    res(i) = solution[i];
+    res = arma::vec(model.primalColumnSolution(), xf.n_cols + 2 * ns);
   }
 
   arma::mat fin(1, ng);

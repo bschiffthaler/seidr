@@ -30,6 +30,16 @@
 #define SVM_FULL 0
 #define SVM_PARTIAL 1
 
+constexpr unsigned SVM_DEF_VERBOSITY = 3;
+constexpr arma::uword SVM_DEF_ENSEMBLE = 1000;
+constexpr int SVM_DEF_POLY_DEGREE = 3;
+constexpr double SVM_DEF_EPS = 0.001;
+constexpr double SVM_DEF_GAMMA = 0.01;
+constexpr double SVM_DEF_COEF0 = 0.01;
+constexpr double SVM_DEF_C = 1;
+constexpr double SVM_DEF_P = 0.1;
+constexpr double SVM_DEF_NU = 0.5;
+
 #define LOG_NAME "svm-ensemble"
 
 class seidr_mpi_svm;
@@ -38,7 +48,7 @@ struct seidr_svm_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version) // NOLINT: version
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -89,7 +99,6 @@ struct seidr_svm_param_t
 
 void
 svm(const arma::mat& geneMatrix,
-    const std::vector<std::string>& genes,
     const std::vector<arma::uword>& uvec,
     const std::string& tmpdir,
     svm_parameter& param,

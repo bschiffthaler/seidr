@@ -62,68 +62,55 @@ public:
 };
 
 int
-top(int argc, char* argv[])
+top(const std::vector<std::string>& args)
 {
   logger log(std::cerr, "top");
 
-  // We ignore the first argument
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " top";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  seidr_top_param_t param;
-
-  po::options_description umbrella("Show edges with highest scores");
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description topt("Top Options");
-  topt.add_options()("number,n",
-                     po::value<uint64_t>(&param.ntop)->default_value(10, "10"),
-                     "The number of highest scoring edges to return")(
-    "index,i",
-    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
-    "Score column to use as edge weights");
-
-  po::options_description req("Required [can be positional]");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.infile)->required(),
-                    "Input SeidrFile");
-
-  umbrella.add(req).add(topt).add(opt);
-
-  po::positional_options_description p;
-  p.add("in-file", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
-
   try {
+
+    seidr_top_param_t param;
+
+    po::options_description umbrella("Show edges with highest scores");
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description topt("Top Options");
+    topt.add_options()(
+      "number,n",
+      po::value<uint64_t>(&param.ntop)->default_value(SEIDR_TOP_DEF_NTOP),
+      "The number of highest scoring edges to return")(
+      "index,i",
+      po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+      "Score column to use as edge weights");
+
+    po::options_description req("Required [can be positional]");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.infile)->required(),
+                      "Input SeidrFile");
+
+    umbrella.add(req).add(topt).add(opt);
+
+    po::positional_options_description p;
+    p.add("in-file", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  try {
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
     assert_can_read(param.infile);
@@ -135,51 +122,61 @@ top(int argc, char* argv[])
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
+
+    SeidrFile rf(param.infile.c_str());
+    rf.open("r");
+    SeidrFileHeader h;
+    h.unserialize(rf);
+
+    rf.seek(0);
+
+    make_tpos(param.tpos, h);
+
+    double min = -std::numeric_limits<double>::infinity();
+    double max = min;
+
+    std::shared_ptr<std::ostream> out;
+    if (param.outfile == "-") {
+      out = std::shared_ptr<std::ostream>(&std::cout, no_delete);
+    } else {
+      out =
+        std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    }
+
+    priority_queue pq;
+
+    // NOLINTNEXTLINE: SeidrFileHeader& needs to be declared even if unused
+    rf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
+      double v = e.scores[param.tpos].s;
+      if (v > min) {
+        pq.push(expl_score_t(e, v));
+        if (v > max) {
+          max = v;
+        }
+        min = pq.top().second;
+      }
+      if (pq.size() > param.ntop) {
+        pq.pop();
+      }
+    });
+
+    while (!pq.empty()) {
+      pq.top().first.print(*out, h);
+      pq.pop();
+    }
+
+    rf.close();
+
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
-
-  SeidrFile rf(param.infile.c_str());
-  rf.open("r");
-  SeidrFileHeader h;
-  h.unserialize(rf);
-
-  rf.seek(0);
-
-  make_tpos(param.tpos, h);
-
-  double min = -std::numeric_limits<double>::infinity();
-  double max = min;
-
-  std::shared_ptr<std::ostream> out;
-  if (param.outfile == "-") {
-    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
-  } else {
-    out =
-      std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
-  }
-
-  priority_queue pq;
-
-  rf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
-    double v = e.scores[param.tpos].s;
-    if (v > min) {
-      pq.push(expl_score_t(e, v));
-      if (v > max)
-        max = v;
-      min = pq.top().second;
-    }
-    if (pq.size() > param.ntop)
-      pq.pop();
-  });
-
-  while (!pq.empty()) {
-    pq.top().first.print(*out, h);
-    pq.pop();
-  }
-
-  rf.close();
 
   return 0;
 }

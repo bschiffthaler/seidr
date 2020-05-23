@@ -28,7 +28,9 @@
 #include <common.h>
 // External
 #include <armadillo>
+#include <boost/numeric/conversion/cast.hpp>
 #include <glpk.h>
+#include <memory>
 #include <omp.h>
 
 // Solve linear programming optimisation
@@ -58,9 +60,13 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
 
   // Row index = ia, Col index ij; value ir
   // std::cerr << lps << std::endl;
-  int* ia = (int*)malloc(lps * sizeof(int));
-  int* ja = (int*)malloc(lps * sizeof(int));
-  double* ar = (double*)malloc(lps * sizeof(double));
+  std::unique_ptr<int> ia(new int[lps]);
+  std::unique_ptr<int> ja(new int[lps]);
+  std::unique_ptr<double> ar(new double[lps]);
+
+  // int* ia = (int*)malloc(lps * sizeof(int));
+  // int* ja = (int*)malloc(lps * sizeof(int));
+  // double* ar = (double*)malloc(lps * sizeof(double));
 
   glp_prob* lp;
   lp = glp_create_prob();
@@ -68,7 +74,7 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
 
   glp_add_rows(lp, Y.n_elem);
   for (size_t i = 0; i < Y.n_elem; i++) {
-    glp_set_row_bnds(lp, i + 1, GLP_FX, Y(i), 0.0);
+    glp_set_row_bnds(lp, boost::numeric_cast<int>(i + 1), GLP_FX, Y(i), 0.0);
   }
 
   glp_add_cols(lp, pc);
@@ -77,39 +83,44 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
     glp_set_obj_coef(lp, i, 1.0);
   }
   for (size_t i = 1; i <= ns; i++) {
-    ia[i] = i;
-    ja[i] = i;
-    ar[i] = 1;
+    ia.get()[i] = i;
+    ja.get()[i] = i;
+    ar.get()[i] = 1;
 
-    ia[i + ns] = i;
-    ja[i + ns] = i + ns;
-    ar[i + ns] = -1;
+    ia.get()[i + ns] = i;
+    ja.get()[i + ns] = i + ns;
+    ar.get()[i + ns] = -1;
   }
 
   size_t vo = 2 * ns + 1; // value offset in matrix vectors
   for (size_t i = 0; i < xf.n_rows; i++) {
     for (size_t j = 0; j < xf.n_cols; j++) {
-      ia[vo] = i + 1;
-      ja[vo] = j + 2 * ns + 1;
-      ar[vo] = xf(i, j);
+      ia.get()[vo] = i + 1;
+      ja.get()[vo] = j + 2 * ns + 1;
+      ar.get()[vo] = xf(i, j);
       vo++;
     }
   }
 
-  glp_load_matrix(lp, lps - 1, ia, ja, ar);
+  glp_load_matrix(
+    lp, boost::numeric_cast<int>(lps - 1), ia.get(), ja.get(), ar.get());
 
-  if (al == "interior-point")
+  if (al == "interior-point") {
     glp_interior(lp, &iparm);
-  if (al == "simplex")
+  }
+  if (al == "simplex") {
     // glp_exact(lp, &sparm);
     glp_simplex(lp, &sparm);
+  }
 
   arma::vec res(xf.n_cols + 2 * ns);
   for (size_t i = 0; i < xf.n_cols + 2 * ns; i++) {
-    if (al == "interior-point")
-      res(i) = glp_ipt_col_prim(lp, i + 1);
-    if (al == "simplex")
-      res(i) = glp_get_col_prim(lp, i + 1);
+    if (al == "interior-point") {
+      res(i) = glp_ipt_col_prim(lp, boost::numeric_cast<int>(i + 1));
+    }
+    if (al == "simplex") {
+      res(i) = glp_get_col_prim(lp, boost::numeric_cast<int>(i + 1));
+    }
   }
 
   arma::mat fin(1, ng);
@@ -121,8 +132,8 @@ lp_ipt(const arma::mat& X, const arma::rowvec& Y, const std::string& al)
   /* housekeeping */
   glp_delete_prob(lp);
   glp_free_env();
-  free(ia);
-  free(ja);
-  free(ar);
+  // free(ia);
+  // free(ja);
+  // free(ar);
   return fin;
 }

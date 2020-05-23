@@ -46,9 +46,10 @@ get_desc_stats(seidr_param_describe_t& params)
 
   std::shared_ptr<std::ostream> out;
   if (params.outfile == "-") {
-    out.reset(&std::cout, [](...) {});
+    out.reset(&std::cout, no_delete);
   } else {
-    out.reset(new std::ofstream(params.outfile.c_str()));
+    out =
+      std::shared_ptr<std::ostream>(new std::ofstream(params.outfile.c_str()));
   }
 
   SeidrFile sf(params.el_file.c_str());
@@ -60,7 +61,7 @@ get_desc_stats(seidr_param_describe_t& params)
 
   std::vector<BS::desc_stats> stats;
   for (uint64_t i = 0; i < header.attr.nalgs; i++) {
-    stats.push_back(BS::desc_stats());
+    stats.emplace_back(BS::desc_stats());
   }
 
   sf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
@@ -106,68 +107,59 @@ get_desc_stats(seidr_param_describe_t& params)
 }
 
 int
-describe(int argc, char* argv[])
+describe(const std::vector<std::string>& args)
 {
 
-  LOG_INIT_CERR();
-
-  // Variables used by the function
-  seidr_param_describe_t param;
-
-  // We ignore the first argument
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " describe";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  po::options_description umbrella("Calculate summary statistics for each "
-                                   "algorithm in a SeidrFile");
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description dopt("Describe Options");
-  dopt.add_options()("bins,b",
-                     po::value<uint32_t>(&param.bins)->default_value(25),
-                     "Number of histgram bins")(
-    "parseable,p",
-    po::bool_switch(&param.parseable)->default_value(false),
-    "Print parseable histogram")(
-    "quantiles,q",
-    po::value<std::string>(&param.quantiles)
-      ->default_value("0.05,0.25,0.5,0.75,0.95"),
-    "A comma seaprated string of quantiles [0.05,0.25,0.5,0.75,0.95]");
-
-  po::options_description req("Required Options [can be positional]");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.el_file)->required(),
-                    "Input SeidrFile");
-
-  umbrella.add(req).add(dopt).add(opt);
-
-  po::positional_options_description p;
-  p.add("in-file", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
+  logger log(std::cerr, "describe");
 
   try {
+    // Variables used by the function
+    seidr_param_describe_t param;
+
+    po::options_description umbrella("Calculate summary statistics for each "
+                                     "algorithm in a SeidrFile");
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description dopt("Describe Options");
+    dopt.add_options()(
+      "bins,b",
+      po::value<uint32_t>(&param.bins)->default_value(SEIDR_DESCRIBE_DEF_BINS),
+      "Number of histgram bins")(
+      "parseable,p",
+      po::bool_switch(&param.parseable)->default_value(false),
+      "Print parseable histogram")(
+      "quantiles,q",
+      po::value<std::string>(&param.quantiles)
+        ->default_value("0.05,0.25,0.5,0.75,0.95"),
+      "A comma seaprated string of quantiles [0.05,0.25,0.5,0.75,0.95]");
+
+    po::options_description req("Required Options [can be positional]");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.el_file)->required(),
+                      "Input SeidrFile");
+
+    umbrella.add(req).add(dopt).add(opt);
+
+    po::positional_options_description p;
+    p.add("in-file", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
     param.el_file = to_absolute(param.el_file);
     assert_exists(param.el_file);
@@ -179,12 +171,18 @@ describe(int argc, char* argv[])
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
+    get_desc_stats(param);
+
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
-
-  get_desc_stats(param);
 
   return 0;
 }

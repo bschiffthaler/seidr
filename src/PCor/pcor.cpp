@@ -37,12 +37,13 @@ main(int argc, char** argv)
 
   logger log(std::cerr, "pcor");
 
-  seidr_pcor_param_t param;
-
-  po::options_description umbrella("Partial correlation for Seidr");
-  po::variables_map vm;
-
   try {
+
+    seidr_pcor_param_t param;
+
+    po::options_description umbrella("Partial correlation for Seidr");
+    po::variables_map vm;
+
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "targets,t",
@@ -81,26 +82,16 @@ main(int argc, char** argv)
     po::positional_options_description p;
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    log.set_log_level(param.verbosity);
 
-  try {
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);
     param.gene_file = to_absolute(param.gene_file);
@@ -112,24 +103,19 @@ main(int argc, char** argv)
     assert_can_read(param.gene_file);
     assert_can_read(param.infile);
 
-    if (vm.count("targets")) {
+    if (vm.count("targets") != 0) {
       param.targets_file = to_absolute(param.targets_file);
       assert_exists(param.targets_file);
     }
 
-    if (!param.force)
+    if (!param.force) {
       assert_no_overwrite(param.outfile);
+    }
 
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
+    arma::mat gm;
 
-  arma::mat gm;
-
-  try {
     log(LOG_INFO) << "Loading input matrix...\n";
-    gm.load(param.infile.c_str(), arma::raw_ascii);
+    gm.load(param.infile, arma::raw_ascii);
     std::vector<std::string> genes = read_genes(param.gene_file);
     verify_matrix(gm, genes);
     if (param.do_scale) {
@@ -137,15 +123,16 @@ main(int argc, char** argv)
       scale(gm);
     }
     arma::mat pc = pcor(gm);
-    if (!vm.count("targets")) {
+    if (vm.count("targets") == 0) {
       write_lm(pc, param.outfile, param.abs);
     } else {
       std::vector<std::string> genes = read_genes(param.gene_file);
       std::vector<std::string> targets = read_genes(param.targets_file);
       std::unordered_map<std::string, uint64_t> gene_map;
       uint64_t ctr = 0;
-      for (auto& g : genes)
+      for (auto& g : genes) {
         gene_map[g] = ctr++;
+      }
       std::ofstream ofs(param.outfile, std::ios::out);
       for (auto& t : targets) {
         uint64_t i;
@@ -157,15 +144,22 @@ main(int argc, char** argv)
                        << "is not in the expression matrix\n";
         }
         for (uint64_t j = 0; j < gm.n_cols; j++) {
-          if (i == j)
+          if (i == j) {
             continue;
+          }
           ofs << genes[i] << '\t' << genes[j] << '\t'
               << (param.abs ? fabs(pc(i, j)) : pc(i, j)) << '\n';
         }
       }
     }
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << "[Runtime error]: " << e.what() << '\n';
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
   return 0;

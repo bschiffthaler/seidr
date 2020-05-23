@@ -117,13 +117,17 @@ pcor(arma::mat& X)
 
   arma::vec Is = arma::sqrt(1 / ret.diag());
 
-  for (arma::uword i = 0; i < ret.n_rows; i++)
-    for (arma::uword j = 0; j < ret.n_cols; j++)
+  for (arma::uword i = 0; i < ret.n_rows; i++) {
+    for (arma::uword j = 0; j < ret.n_cols; j++) {
       ret(i, j) *= Is(i);
+    }
+  }
 
-  for (arma::uword i = 0; i < ret.n_rows; i++)
-    for (arma::uword j = 0; j < ret.n_cols; j++)
+  for (arma::uword i = 0; i < ret.n_rows; i++) {
+    for (arma::uword j = 0; j < ret.n_cols; j++) {
       ret(i, j) *= Is(j);
+    }
+  }
 
   log(LOG_INFO) << "Writing data\n";
 
@@ -183,8 +187,9 @@ estimate_lambda(arma::mat& X)
   arma::uvec xs2lhind(xs2w.n_cols - 1);
 
   arma::uword j = 0;
-  for (arma::uword i = xs2w.n_cols - 1; i > 0; i--)
+  for (arma::uword i = xs2w.n_cols - 1; i > 0; i--) {
     xs2rhind(j++) = i;
+  }
 
   xs2lhind = xs2rhind - 1;
 
@@ -210,13 +215,15 @@ estimate_lambda(arma::mat& X)
 }
 
 void
-write_lm(arma::mat gm, std::string outfile, bool abs)
+write_lm(arma::mat& gm, const std::string& outfile, bool abs)
 {
   std::ofstream ofs(outfile, std::ios::out);
-  if (abs)
+  if (abs) {
     gm = arma::abs(gm);
-  if (!ofs)
+  }
+  if (!ofs) {
     throw std::runtime_error("Could not write to file " + outfile);
+  }
 
   for (size_t i = 1; i < gm.n_cols; i++) {
     for (size_t j = 0; j < i; j++) {

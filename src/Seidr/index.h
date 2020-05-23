@@ -19,6 +19,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 
 struct seidr_index_param_t
 {
@@ -28,4 +29,4 @@ struct seidr_index_param_t
 };
 
 int
-index(int argc, char** argv);
+index(const std::vector<std::string>& args);

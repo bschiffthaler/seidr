@@ -17,11 +17,14 @@
  * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string>
+#include <vector>
+
 #pragma once
 
 struct seidr_aggregate_param_t
 {
-  std::vector<std::string> infs;
+  std::vector<std::string> infs{};
   std::string method;
   std::string out_file;
   bool force = false;
@@ -32,4 +35,4 @@ struct seidr_aggregate_param_t
 };
 
 int
-aggregate(int argc, char* argv[]);
+aggregate(const std::vector<std::string>& args);

@@ -19,6 +19,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 
 struct seidr_param_tau_t
 {
@@ -32,4 +33,4 @@ struct seidr_param_tau_t
 };
 
 int
-tau(int argc, char* argv[]);
+tau(const std::vector<std::string>& args);

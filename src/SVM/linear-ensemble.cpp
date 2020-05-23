@@ -46,18 +46,19 @@ main(int argc, char** argv)
 {
 
   SEIDR_MPI_INIT();
-
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
-  arma::mat gene_matrix;
-  std::vector<std::string> genes;
-  std::vector<std::string> targets;
-
-  seidr_llr_param_t param;
-
-  po::options_description umbrella("NIMEFI SVM implementation for Seidr");
-  po::variables_map vm;
   try {
+
+    arma::mat gene_matrix;
+    std::vector<std::string> genes;
+    std::vector<std::string> targets;
+
+    seidr_llr_param_t param;
+
+    po::options_description umbrella("NIMEFI SVM implementation for Seidr");
+    po::variables_map vm;
+
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "force,f",
@@ -77,7 +78,7 @@ main(int argc, char** argv)
       po::value<std::string>(&param.cmd_file),
       "Try to resume job from this file.")(
       "verbosity,v",
-      po::value<unsigned>(&param.verbosity)->default_value(3),
+      po::value<unsigned>(&param.verbosity)->default_value(LLR_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)");
 
     po::options_description mpiopt("MPI Options");
@@ -95,10 +96,10 @@ main(int argc, char** argv)
       "Number of OpenMP threads per MPI task");
 
     po::options_description bootopt("Bootstrap Options");
-    bootopt.add_options()(
-      "ensemble,e",
-      po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
-      "The ensemble size")(
+    bootopt.add_options()("ensemble,e",
+                          po::value<seidr_uword_t>(&param.ensemble_size)
+                            ->default_value(LLR_DEF_ENSEMBLE),
+                          "The ensemble size")(
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
         ->default_value(0, "20% of predictors"),
@@ -132,10 +133,12 @@ main(int argc, char** argv)
       po::value<double>(&param.svparam.C)->default_value(1, "1"),
       "Penalty C value")(
       "tol,l",
-      po::value<double>(&param.svparam.eps)->default_value(0.001, "0.001"),
+      po::value<double>(&param.svparam.eps)
+        ->default_value(LLR_DEF_TOLERANCE, _XSTR(LLR_DEF_TOLERANCE)),
       "Epsilon/tolerance (stopping criterion)")(
       "eps,E",
-      po::value<double>(&param.svparam.p)->default_value(0.1, "0.1"),
+      po::value<double>(&param.svparam.p)
+        ->default_value(LLR_DEF_EPSILON, _XSTR(LLR_DEF_EPSILON)),
       "Epsilon (for EPSILON_SVR)")(
       "solver,S",
       po::value<std::string>(&param.solver)->default_value("L2R_L2LOSS_SVR"),
@@ -147,52 +150,41 @@ main(int argc, char** argv)
     umbrella.add(req).add(svmopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
 
-  log.set_log_level(5);
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  try {
+    seidr_mpi_logger::set_log_level(5); // NOLINT
+
     po::notify(vm);
     assert_mutually_exclusive(vm, { "resume-from", "save-resume" });
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    seidr_mpi_logger::set_log_level(param.verbosity);
 
-  if (vm.count("targets")) {
-    param.mode = SVM_PARTIAL;
-  }
+    if (vm.count("targets") != 0) {
+      param.mode = SVM_PARTIAL;
+    }
 
-  // Normalize paths
-  param.outfile = to_absolute(param.outfile);
-  param.infile = to_absolute(param.infile);
-  param.gene_file = to_absolute(param.gene_file);
+    // Normalize paths
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-  if (param.mode == SVM_PARTIAL) {
-    param.targets_file = to_absolute(param.targets_file);
-  }
+    if (param.mode == SVM_PARTIAL) {
+      param.targets_file = to_absolute(param.targets_file);
+    }
 
-  // Checkpoint/resume information
-  cp_resume<seidr_llr_param_t> cp_res(param, CPR_M);
-  if (vm.count("resume-from") > 0) {
-    assert_exists(param.cmd_file);
-    cp_res.load(param, param.cmd_file);
-  }
+    // Checkpoint/resume information
+    cp_resume<seidr_llr_param_t> cp_res(param, CPR_M);
+    if (vm.count("resume-from") != 0) {
+      assert_exists(param.cmd_file);
+      cp_res.load(param, param.cmd_file);
+    }
 
-  // Check all kinds of FS problems that may arise in the master thread
-  if (rank == 0) {
-    try {
+    // Check all kinds of FS problems that may arise in the master thread
+    if (rank == 0) {
       if (vm.count("resume-from") > 0 && file_exists(param.cmd_file)) {
         log << "Trying to resume from " << param.cmd_file << '\n';
         log.log(LOG_INFO);
@@ -240,22 +232,16 @@ main(int argc, char** argv)
         assert_dir_is_writeable(param.tempdir);
         mpi_sync_tempdir(&param.tempdir);
       }
-    } catch (std::runtime_error& e) {
-      log << e.what() << '\n';
-      log.log(LOG_ERR);
-      return EINVAL;
+    } else {
+      mpi_sync_tempdir(&param.tempdir);
+      if (vm.count("resume-from") > 0) {
+        mpi_sync_cpr_vector(&param.good_idx);
+      }
     }
-  } else {
-    mpi_sync_tempdir(&param.tempdir);
-    if (vm.count("resume-from") > 0) {
-      mpi_sync_cpr_vector(&param.good_idx);
-    }
-  }
 
-  // All threads wait until checks are done
-  SEIDR_MPI_BARRIER();
+    // All threads wait until checks are done
+    SEIDR_MPI_BARRIER();
 
-  try {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(), "--threads");
     omp_set_num_threads(param.nthreads);
     // Get input files
@@ -287,16 +273,17 @@ main(int argc, char** argv)
     }
 
     if (param.min_sample_size == 0) {
-      param.min_sample_size = gene_matrix.n_rows / 5;
+      param.min_sample_size = gene_matrix.n_rows / 5; // NOLINT
     }
     if (param.max_sample_size == 0) {
-      param.max_sample_size = 4 * (gene_matrix.n_rows / 5);
+      param.max_sample_size = 4 * (gene_matrix.n_rows / 5); // NOLINT
     }
     if (param.predictor_sample_size_min == 0) {
-      param.predictor_sample_size_min = (gene_matrix.n_cols - 1) / 5;
+      param.predictor_sample_size_min = (gene_matrix.n_cols - 1) / 5; // NOLINT
     }
     if (param.predictor_sample_size_max == 0) {
-      param.predictor_sample_size_max = 4 * ((gene_matrix.n_cols - 1) / 5);
+      param.predictor_sample_size_max =
+        4 * ((gene_matrix.n_cols - 1) / 5); // NOLINT
     }
 
     // Check if sampling settings are sane
@@ -337,12 +324,12 @@ main(int argc, char** argv)
     }
 
     param.svparam.nr_weight = 0;
-    param.svparam.weight_label = NULL;
-    param.svparam.weight = NULL;
-    param.svparam.init_sol = NULL;
+    param.svparam.weight_label = nullptr;
+    param.svparam.weight = nullptr;
+    param.svparam.init_sol = nullptr;
 
     if (rank == 0) {
-      if (vm.count("save-resume") > 0) {
+      if (vm.count("save-resume") != 0) {
         cp_res.save(param.cmd_file, param);
       }
     }
@@ -359,12 +346,16 @@ main(int argc, char** argv)
       default:
         return 1;
     }
+  } catch (const po::error& e) {
+    log << "[Argument Error]: " << e.what() << '\n';
+    log.log(LOG_ERR);
+    return 1;
   } catch (const std::runtime_error& e) {
-    log << e.what() << '\n';
+    log << "[Runtime Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   } catch (const std::exception& e) {
-    log << e.what() << '\n';
+    log << "[Generic Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   }

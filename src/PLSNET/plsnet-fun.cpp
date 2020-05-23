@@ -41,8 +41,6 @@
 
 namespace fs = boost::filesystem;
 
-std::random_device rd;
-std::mt19937 gen(rd());
 
 class seidr_mpi_plsnet : public seidr_mpi_omp
 {
@@ -59,7 +57,7 @@ private:
   arma::uword _predictor_sample_size = 0;
   arma::uword _ensemble_size = 0;
   arma::uword _ncomp = 0;
-  bool _targeted = 0;
+  bool _targeted = false;
 };
 
 void
@@ -71,10 +69,8 @@ seidr_mpi_plsnet::entrypoint()
     for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME "@" + mpi_get_host()))
-      ; // NOLINT
+    while (check_logs(LOG_NAME "@" + mpi_get_host())) {}
     plsnet(_data,
-           _genes,
            uvec,
            _tempdir,
            _predictor_sample_size,
@@ -93,7 +89,6 @@ seidr_mpi_plsnet::finalize()
 
 void
 plsnet(const arma::mat& geneMatrix,
-       const std::vector<std::string>& genes,
        const std::vector<arma::uword>& uvec,
        const std::string& tmpdir,
        const arma::uword& predictor_sample_size,
@@ -101,6 +96,9 @@ plsnet(const arma::mat& geneMatrix,
        const arma::uword& ncomp,
        seidr_mpi_plsnet* self)
 {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
   std::string tmpfile = tempfile(tmpdir);
   std::ofstream ofs(tmpfile.c_str(), std::ios::out);
@@ -126,9 +124,9 @@ plsnet(const arma::mat& geneMatrix,
     }
 
     ret.zeros();
-    std::seed_seq seeds{ 3, 1, 4, 1, 5, 9, 2, 6, 5 };
+    std::seed_seq seeds SEIDR_DEFAULT_SSEQ;
     gen.seed(seeds);
-    arma::arma_rng::set_seed(314159265);
+    arma::arma_rng::set_seed(SEIDR_DEFAULT_SEED);
 
     for (arma::uword i = 0; i < ensemble_size; i++) {
       // Generate vector of random samples with replacement
@@ -198,14 +196,12 @@ plsnet_full(const arma::mat& GM,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
     }
   }
 
@@ -227,13 +223,13 @@ plsnet_partial(const arma::mat& GM,
   fs::path d_out(p_out.parent_path());
 
   std::vector<uint64_t> positions;
-  for (uint64_t i = 0; i < targets.size(); i++) {
-    uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
+  for (const std::string& target : targets) {
+    uint64_t pos = find(genes.begin(), genes.end(), target) - genes.begin();
     if (pos >= genes.size()) {
-      log << "Gene " << targets[i] << " was not found in the expression set "
+      log << "Gene " << target << " was not found in the expression set "
           << "and will therefore not be considered."
           << " Please check that your expression set and "
-          << "its column names (gene file) contain an entry for " << targets[i]
+          << "its column names (gene file) contain an entry for " << target
           << ".\n";
       log.log(LOG_WARN);
     } else {
@@ -261,14 +257,12 @@ plsnet_partial(const arma::mat& GM,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
     }
   }
 
@@ -324,7 +318,8 @@ simpls(arma::mat& X, arma::vec& Y, arma::uword ncomp)
   arma::mat W = Xloadings;
   // cov.print();
   for (arma::uword i = 0; i < ncomp; i++) {
-    arma::mat U, V;
+    arma::mat U;
+    arma::mat V;
     arma::vec s;
     svd_econ(U, s, V, Cov);
     U = U.col(0);

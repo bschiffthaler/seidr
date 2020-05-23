@@ -24,12 +24,11 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <common.h>
 
-#ifdef SEIDR_SCORE_DOUBLE
+constexpr uint8_t SEIDR_CONVERT_DEF_PREC = 8;
+
 typedef arma::mat mat_t;
-#else
-typedef arma::fmat mat_t;
-#endif
 
 struct seidr_conv_param_t
 {
@@ -62,7 +61,7 @@ parse_aracne(mat_t& m,
              std::istream& ifs,
              char sep);
 void
-write_el(mat_t& m, std::vector<std::string>& g, seidr_score_t fill, char sep);
+write_el(mat_t& m, std::vector<std::string>& g, char sep);
 void
 write_sm(mat_t& m, char sep);
 void
@@ -72,4 +71,4 @@ write_utri(mat_t& m, bool diag, char sep);
 void
 write_aracne(mat_t& m, std::vector<std::string>& g, char sep);
 int
-convert(int argc, char** argv);
+convert(const std::vector<std::string>& args);

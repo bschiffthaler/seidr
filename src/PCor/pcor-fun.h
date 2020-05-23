@@ -40,4 +40,4 @@ pcor(arma::mat& X);
 double
 estimate_lambda(arma::mat& X);
 void
-write_lm(arma::mat gm, std::string outfile, bool abs);
+write_lm(arma::mat& gm, const std::string& outfile, bool abs);

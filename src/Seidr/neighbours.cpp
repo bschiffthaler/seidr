@@ -47,88 +47,78 @@
 namespace po = boost::program_options;
 
 int
-neighbours(int argc, char* argv[])
+neighbours(const std::vector<std::string>& args)
 {
 
   logger log(std::cerr, "neighbours");
 
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " neighbours";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  seidr_neighbours_param_t param;
-
-  po::options_description umbrella(
-    "Get the top N first-degree neighbours for each node or a"
-    " list of nodes");
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "strict,s",
-    po::bool_switch(&param.strict)->default_value(false),
-    "Fail on all issues instead of warning")(
-    "case-insensitive,I",
-    po::bool_switch(&param.case_insensitive)->default_value(false),
-    "Search case insensitive nodes")("help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()(
-    "threads,O",
-    po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
-    "Number of OpenMP threads for parallel sorting");
-
-  po::options_description nopt("Neighbours Options");
-  nopt.add_options()(
-    "index,i",
-    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"))(
-    "neighbours,n",
-    po::value<uint16_t>(&param.n)->default_value(10),
-    "Number of top first-degree neighbours to return")(
-    "genes,g", po::value<std::string>(&param.nodelist), "Gene names to search")(
-    "rank,r",
-    po::bool_switch(&param.trank)->default_value(false),
-    "Use rank instead of score")(
-    "unique,u",
-    po::bool_switch(&param.unique)->default_value(false),
-    "Print only unique edges");
-
-  po::options_description req("Required [can be positional]");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.infile)->required(),
-                    "Input SeidrFile");
-
-  umbrella.add(req).add(nopt).add(ompopt).add(opt);
-
-  po::positional_options_description p;
-  p.add("in-file", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return EINVAL;
-  }
-
   try {
+
+    seidr_neighbours_param_t param;
+
+    po::options_description umbrella(
+      "Get the top N first-degree neighbours for each node or a"
+      " list of nodes");
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "strict,s",
+      po::bool_switch(&param.strict)->default_value(false),
+      "Fail on all issues instead of warning")(
+      "case-insensitive,I",
+      po::bool_switch(&param.case_insensitive)->default_value(false),
+      "Search case insensitive nodes")("help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()(
+      "threads,O",
+      po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
+      "Number of OpenMP threads for parallel sorting");
+
+    po::options_description nopt("Neighbours Options");
+    nopt.add_options()(
+      "index,i",
+      po::value<uint32_t>(&param.tpos)->default_value(0, "last score"))(
+      "neighbours,n",
+      po::value<uint16_t>(&param.n)->default_value(SEIDR_NEIGHBOURS_DEF_NTOP),
+      "Number of top first-degree neighbours to return")(
+      "genes,g",
+      po::value<std::string>(&param.nodelist),
+      "Gene names to search")(
+      "rank,r",
+      po::bool_switch(&param.trank)->default_value(false),
+      "Use rank instead of score")(
+      "unique,u",
+      po::bool_switch(&param.unique)->default_value(false),
+      "Print only unique edges");
+
+    po::options_description req("Required [can be positional]");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.infile)->required(),
+                      "Input SeidrFile");
+
+    umbrella.add(req).add(nopt).add(ompopt).add(opt);
+
+    po::positional_options_description p;
+    p.add("in-file", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(),
+      vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  try {
     set_pstl_threads(param.nthreads);
 
     param.infile = to_absolute(param.infile);
@@ -146,40 +136,37 @@ neighbours(int argc, char* argv[])
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
-    return 1;
-  }
 
-  SeidrFile f(param.infile.c_str());
-  f.open("r");
-  SeidrFileHeader h;
-  h.unserialize(f);
+    SeidrFile f(param.infile.c_str());
+    f.open("r");
+    SeidrFileHeader h;
+    h.unserialize(f);
 
-  make_tpos(param.tpos, h);
+    make_tpos(param.tpos, h);
 
-  std::shared_ptr<std::ostream> out;
-  if (param.outfile == "-")
-    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
-  else
-    out =
-      std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    std::shared_ptr<std::ostream> out;
+    if (param.outfile == "-") {
+      out = std::shared_ptr<std::ostream>(&std::cout, no_delete);
+    }
+    else {
+      out =
+        std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    }
 
-  log(LOG_INFO) << "Reading indexfile...\n";
-  SeidrFile sfi(param.indexfile.c_str());
-  sfi.open("r");
-  SeidrFileIndex index(param.case_insensitive, param.strict);
-  index.unserialize(sfi, h);
-  sfi.close();
+    log(LOG_INFO) << "Reading indexfile...\n";
+    SeidrFile sfi(param.indexfile.c_str());
+    sfi.open("r");
+    SeidrFileIndex index(param.case_insensitive, param.strict);
+    index.unserialize(sfi, h);
+    sfi.close();
 
-  try {
-    if (vm.count("genes")) {
+    if (vm.count("genes") != 0) {
       std::vector<std::string> genes = tokenize_delim(param.nodelist, ",");
       std::vector<SeidrFileEdge> edges_nu;
       std::set<SeidrFileEdge, sfe_score_sort_class> edges_u;
       for (auto& gene : genes) {
         std::vector<offset_t> offsets = index.get_offset_node(gene);
-        if (offsets.size() == 0) {
+        if (offsets.empty()) {
           log(LOG_WARN) << "No edges found for " << gene << '\n';
         }
         std::vector<SeidrFileEdge> edges;
@@ -209,11 +196,11 @@ neighbours(int argc, char* argv[])
         }
       }
       if (param.unique) {
-        for (auto& e : edges_u) {
+        for (const auto& e : edges_u) {
           e.print(h);
         }
       } else {
-        for (auto& e : edges_nu) {
+        for (const auto& e : edges_nu) {
           e.print(h);
         }
       }
@@ -250,7 +237,7 @@ neighbours(int argc, char* argv[])
         }
       }
       if (param.unique) {
-        for (auto& offset : offsets_u) {
+        for (const auto& offset : offsets_u) {
           f.seek(offset.o);
           SeidrFileEdge e;
           e.unserialize(f, h);
@@ -259,7 +246,7 @@ neighbours(int argc, char* argv[])
           e.print(*out, h);
         }
       } else {
-        for (auto& offset : offsets_nu) {
+        for (const auto& offset : offsets_nu) {
           f.seek(offset.o);
           SeidrFileEdge e;
           e.unserialize(f, h);
@@ -269,9 +256,16 @@ neighbours(int argc, char* argv[])
         }
       }
     }
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
+
   return 0;
 }

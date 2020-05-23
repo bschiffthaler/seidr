@@ -19,6 +19,9 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+constexpr uint16_t ADJACENCY_DEF_PRECISION = 8;
 
 struct seidr_param_adjacency_t
 {
@@ -34,4 +37,4 @@ struct seidr_param_adjacency_t
 };
 
 int
-adjacency(int argc, char* argv[]);
+adjacency(const std::vector<std::string>& args); // NOLINT

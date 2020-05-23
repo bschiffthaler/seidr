@@ -39,7 +39,7 @@ http://math.stackexchange.com/questions/524403/
 covariance-matrix-for-2-vectors-with-elements-in-the-plane
 */
 arma::mat
-mcov(arma::colvec x, arma::colvec y)
+mcov(const arma::colvec& x, const arma::colvec& y)
 {
   arma::mat res(2, 2);
   res.zeros();
@@ -61,16 +61,18 @@ matrix determinants of covariance matrices. Straight from
 the MATLAB implementation of narromi.
  */
 double
-cmi(arma::colvec x, arma::colvec y)
+cmi(const arma::colvec& x, const arma::colvec& y)
 {
 
   double c1 = arma::det(arma::cov(x));
   double c2 = arma::det(arma::cov(y));
   double c3 = arma::det(mcov(y, x));
-  double cmiv = fabs(0.5 * log(c1 * c2 / c3));
+  double cmiv =
+    fabs(0.5 * log(c1 * c2 / c3)); // NOLINT(readability-magic-numbers)
 
-  if (std::isnan(cmiv))
-    cmiv = 1.0;
+  if (std::isnan(cmiv)) {
+    cmiv = 10.0; // NOLINT(readability-magic-numbers)
+  }
 
   return cmiv;
 }
@@ -79,7 +81,7 @@ cmi(arma::colvec x, arma::colvec y)
 predictors and return a vector of the MIs.
  */
 arma::vec
-fullMI(arma::mat X, arma::colvec Y)
+fullMI(const arma::mat& X, const arma::colvec& Y)
 {
   arma::vec res(X.n_cols);
   for (size_t f = 0; f < X.n_cols; f++) {
@@ -99,34 +101,36 @@ enable the client to specify the mean mu and the
 standard deviation sigma.
  */
 double
-phi(double x, double mu, double sigma)
+phi(const double& x, const double& mu, const double& sigma)
 {
   // constants
-  double a1 = 0.254829592;
-  double a2 = -0.284496736;
-  double a3 = 1.421413741;
-  double a4 = -1.453152027;
-  double a5 = 1.061405429;
-  double p = 0.3275911;
+  double a1 = 0.254829592;  // NOLINT(readability-magic-numbers)
+  double a2 = -0.284496736; // NOLINT(readability-magic-numbers)
+  double a3 = 1.421413741;  // NOLINT(readability-magic-numbers)
+  double a4 = -1.453152027; // NOLINT(readability-magic-numbers)
+  double a5 = 1.061405429;  // NOLINT(readability-magic-numbers)
+  double p = 0.3275911;     // NOLINT(readability-magic-numbers)
 
   // Save the sign of x
   int sign = 1;
-  if (x < mu)
+  if (x < mu) {
     sign = -1;
-  x = fabs(x - mu) / sqrt(2.0 * sigma * sigma);
+  }
+  double x2 = fabs(x - mu) /
+              sqrt(2.0 * sigma * sigma); // NOLINT(readability-magic-numbers)
 
   // A&S formula 7.1.26
-  double t = 1.0 / (1.0 + p * x);
+  double t = 1.0 / (1.0 + p * x2);
   double y =
-    1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
+    1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x2 * x2);
 
-  return 0.5 * (1.0 + sign * y);
+  return 0.5 * (1.0 + sign * y); // NOLINT(readability-magic-numbers)
 }
 /* Wrapper function to calculate phi for an entire
 vector of data.
  */
 arma::vec
-normcdf(arma::vec x, double mu, double sigma)
+normcdf(const arma::vec& x, const double& mu, const double& sigma)
 {
   arma::vec res(x.n_elem);
   for (size_t i = 0; i < x.n_elem; i++) {

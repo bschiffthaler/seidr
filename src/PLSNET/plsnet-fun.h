@@ -20,6 +20,7 @@
 #pragma once
 
 #include <armadillo>
+#include <common.h>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,12 @@
 #define PLSNET_FULL 0
 #define PLSNET_PARTIAL 1
 
+constexpr unsigned PLSNET_DEF_VERBOSITY = 3;
+constexpr seidr_uword_t PLSNET_DEF_NCOMP = 5;
+constexpr uint64_t PLSNET_DEF_BS = 0;
+constexpr seidr_uword_t PLSNET_DEF_ENSEMBLE = 1000;
+constexpr seidr_uword_t PLSNET_DEF_SAMPLE_SIZE = 0;
+
 #define LOG_NAME "plsnet"
 
 class seidr_mpi_plsnet;
@@ -37,7 +44,9 @@ struct seidr_plsnet_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(
+    Archive& ar,
+    const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -98,7 +107,6 @@ vip(arma::mat& X, arma::vec& Y, arma::uword ncomp);
 
 void
 plsnet(const arma::mat& geneMatrix,
-       const std::vector<std::string>& genes,
        const std::vector<arma::uword>& uvec,
        const std::string& tmpdir,
        const arma::uword& predictor_sample_size,

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 struct seidr_reheader_param_t
 {
@@ -29,4 +30,4 @@ struct seidr_reheader_param_t
 };
 
 int
-reheader(int argc, char** argv);
+reheader(const std::vector<std::string>& args);

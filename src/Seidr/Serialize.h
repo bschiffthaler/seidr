@@ -46,15 +46,53 @@
 // -------1 Edge exists
 // ------1- Edge is directed A->B
 // -----1-- Edge is directed A<-B
-#define EDGE_EXISTS(E) (E & 0x1)
-#define EDGE_IS_DIRECT(E) ((E >> 1) & 0x3)
-#define EDGE_IS_AB(E) ((E >> 1) & 0x1)
-#define EDGE_IS_BA(E) ((E >> 2) & 0x1)
-#define EDGE_SET_EXISTING(E) (E = (E | 0x1))
-#define EDGE_SET_AB(E) (E = ((E | 0x2) & 0xFB))
-#define EDGE_SET_BA(E) (E = ((E | 0x4) & 0xFD))
-#define EDGE_SET_UNDIRECTED(E) (E = (E & 0xF9))
-#define EDGE_SET_MISSING(E) (E = (E & 0xFE))
+
+inline bool
+EDGE_EXISTS(const uint8_t& E)
+{
+  return (E & 0x1) != 0;
+}
+inline bool
+EDGE_IS_DIRECT(const uint8_t& E)
+{
+  return ((E >> 1) & 0x3) != 0;
+}
+inline bool
+EDGE_IS_AB(const uint8_t& E)
+{
+  return ((E >> 1) & 0x1) != 0;
+}
+inline bool
+EDGE_IS_BA(const uint8_t& E)
+{
+  return ((E >> 2) & 0x1) != 0;
+}
+
+inline void
+EDGE_SET_EXISTING(uint8_t& E)
+{
+  (E = (E | 0x1));
+}
+inline void
+EDGE_SET_AB(uint8_t& E)
+{
+  (E = ((E | 0x2) & 0xFB));
+}
+inline void
+EDGE_SET_BA(uint8_t& E)
+{
+  (E = ((E | 0x4) & 0xFD));
+}
+inline void
+EDGE_SET_UNDIRECTED(uint8_t& E)
+{
+  (E = (E & 0xF9));
+}
+inline void
+EDGE_SET_MISSING(uint8_t& E)
+{
+  (E = (E & 0xFE));
+}
 
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
@@ -172,10 +210,10 @@ extern "C"
     std::string err;
     bool operator<(const offset_t& rhs) const
     {
-      if (i == rhs.i)
+      if (i == rhs.i) {
         return j < rhs.j;
-      else
-        return i < rhs.i;
+      }
+      return i < rhs.i;
     }
   };
 
@@ -185,6 +223,7 @@ extern "C"
     // ctor
     SeidrFile(const char* fp)
       : filepath(fp)
+      , bgzfile(nullptr)
       , _closed(0)
       , _opened(0)
     {}
@@ -224,6 +263,8 @@ extern "C"
     std::vector<double> eigenvector;
     std::vector<double> katz;
     void cmd_from_args(char** argv, int argc);
+    void cmd_from_args(const std::vector<std::string>& args,
+                       std::string cmd = "");
     void version_from_char(const char* version);
   };
 

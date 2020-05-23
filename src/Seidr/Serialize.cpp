@@ -356,6 +356,16 @@ extern "C"
     strncpy(attr.cmd, c, HEADER_CMD_SIZE);
   }
 
+  void SeidrFileHeader::cmd_from_args(const std::vector<std::string>& args,
+    std::string cmd)
+  {
+    for (const auto& arg : args) {
+      cmd += " " + arg;
+    }
+    const char* c = cmd.c_str();
+    strncpy(attr.cmd, c, HEADER_CMD_SIZE);
+  }
+
   uint16_t SeidrFileHeader::get_supp_ind(std::string supp_n)
   {
     if (attr.nsupp == 0)

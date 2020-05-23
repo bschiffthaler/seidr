@@ -19,6 +19,11 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+constexpr uint16_t ASP_DEF_PRECISION = 8;
+constexpr double ASP_DEF_MIN_WEIGHT = 1e-8;
+
 struct seidr_asp_param_t
 {
   uint32_t tpos;
@@ -32,4 +37,4 @@ struct seidr_asp_param_t
 };
 
 int
-asp(int argc, char* argv[]);
+asp(const std::vector<std::string>& args);

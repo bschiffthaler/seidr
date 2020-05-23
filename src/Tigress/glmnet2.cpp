@@ -145,39 +145,42 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
   int64_t ne = nvars + 1;
   int64_t nx = nvars;
   int64_t jd = 0;
-  double thresh = 1e-7;
+  double thresh = 1e-7; // NOLINT
   int64_t isd = 1;
   int64_t intr = 1;
   int64_t ka = 1;
-  int64_t maxit = 1e5;
-  double flmin = 0.5;
+  int64_t maxit = 1e5; // NOLINT
+  double flmin = fmin; // NOLINT
   double alpha = 1;
   double* yp = Y.memptr();
   double* xp = X.memptr();
 
-  double* wp = new double[nobs]();
-  for (int64_t i = 0; i < nobs; i++)
-    wp[i] = 1.0;
+  std::unique_ptr<double> wp(new double[nobs]());
+  for (int64_t i = 0; i < nobs; i++) {
+    wp.get()[i] = 1.0;
+  }
 
-  double* vpp = new double[nvars]();
-  for (int64_t i = 0; i < nvars; i++)
-    vpp[i] = 1.0;
+  std::unique_ptr<double> vpp(new double[nvars]());
+  for (int64_t i = 0; i < nvars; i++) {
+    vpp.get()[i] = 1.0;
+  }
 
-  double* clp = new double[2 * nvars]();
-  for (int64_t i = 0; i < 2 * nvars; i++)
-    clp[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35);
+  std::unique_ptr<double> clp(new double[2 * nvars]());
+  for (int64_t i = 0; i < 2 * nvars; i++) {
+    clp.get()[i] = (i % 2 == 0 ? -9.9e35 : 9.9e35); // NOLINT
+  }
 
-  double* ulamp = new double[1](); // ignored
+  std::unique_ptr<double> ulamp(new double[1]()); // ignored
 
   // Allocate memory to fill (by FORTRAN code)
   int64_t lmu = 0;
 
-  double* a0 = new double[nlam]();
-  double* ca = new double[nx * nlam]();
-  int64_t* ia = new int64_t[nx]();
-  int64_t* nin = new int64_t[nlam]();
-  double* rsq = new double[nlam]();
-  double* alm = new double[nlam]();
+  std::unique_ptr<double> a0(new double[nlam]());
+  std::unique_ptr<double> ca(new double[nx * nlam]());
+  std::unique_ptr<int64_t> ia(new int64_t[nx]());
+  std::unique_ptr<int64_t> nin(new int64_t[nlam]());
+  std::unique_ptr<double> rsq(new double[nlam]());
+  std::unique_ptr<double> alm(new double[nlam]());
 
   int64_t nlp = 0;
   int64_t jerr = 0;
@@ -189,49 +192,44 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
          &nvars,
          xp,
          yp,
-         wp,
+         wp.get(),
          &jd,
-         vpp,
-         clp,
+         vpp.get(),
+         clp.get(),
          &ne,
          &nx,
          &nlam,
          &flmin,
-         ulamp,
+         ulamp.get(),
          &thresh,
          &isd,
          &intr,
          &maxit,
          &lmu,
-         a0,
-         ca,
-         ia,
-         nin,
-         rsq,
-         alm,
+         a0.get(),
+         ca.get(),
+         ia.get(),
+         nin.get(),
+         rsq.get(),
+         alm.get(),
          &nlp,
          &jerr);
 
   // Create safe unsigned variables to compare to
-  arma::uword u_lmu = 0, u_nx = 0, u_ninmax = 0, u_nlam = 0, u_nvars = 0;
+  auto u_lmu = boost::numeric_cast<arma::uword>(lmu);
+  auto u_nx = boost::numeric_cast<arma::uword>(nx);
+  auto u_nlam =  boost::numeric_cast<arma::uword>(nlam);
+  auto u_nvars = boost::numeric_cast<arma::uword>(nvars);
 
-  try {
-    u_lmu = boost::numeric_cast<arma::uword>(lmu);
-    u_nx = boost::numeric_cast<arma::uword>(nx);
-    u_nlam = boost::numeric_cast<arma::uword>(nlam);
-    u_nvars = boost::numeric_cast<arma::uword>(nvars);
-    // Maximum coefficients that will enter the model at
-    // any lambda
-    int64_t ninmax = 0;
-    for (arma::uword i = 0; i < u_lmu; i++) {
-      if (nin[i] > ninmax) {
-        ninmax = nin[i];
-      }
+  // Maximum coefficients that will enter the model at
+  // any lambda
+  int64_t ninmax = 0;
+  for (arma::uword i = 0; i < u_lmu; i++) {
+    if (nin.get()[i] > ninmax) {
+      ninmax = nin.get()[i];
     }
-    u_ninmax = boost::numeric_cast<arma::uword>(ninmax);
-  } catch (boost::numeric::bad_numeric_cast& e) {
-    throw std::runtime_error(e.what());
   }
+  auto u_ninmax = boost::numeric_cast<arma::uword>(ninmax);
 
   // Setup return struct
   arma::mat b(u_nvars, u_nlam);
@@ -241,9 +239,9 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
   if (u_ninmax > 0 && u_lmu > 0) {
     // Zero out noise arising from precision issues
     for (arma::uword i = 0; i < u_nx * u_lmu; i++) {
-      double absval = ca[i] < 0 ? (ca[i] * -1) : ca[i];
-      if (absval < 1e-7) {
-        ca[i] = 0;
+      double absval = ca.get()[i] < 0 ? (ca.get()[i] * -1) : ca.get()[i];
+      if (absval < 1e-7) { // NOLINT
+        ca.get()[i] = 0;
       }
     }
     // Create matrix in [feature,nlambda] filled by
@@ -251,7 +249,7 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
     arma::mat cx(u_nx, u_lmu, arma::fill::zeros);
     for (arma::uword i = 0; i < u_lmu; i++) {
       for (arma::uword j = 0; j < u_nx; j++) {
-        cx(j, i) = ca[(i * u_nx) + j];
+        cx(j, i) = ca.get()[(i * u_nx) + j];
       }
     }
     // Subset coefficient matrix to only use values
@@ -263,7 +261,7 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
     // lambda columns excluding the first
     arma::uvec arma_ia(u_ninmax, arma::fill::zeros);
     for (arma::uword i = 0; i < u_ninmax; i++) {
-      arma_ia(i) = ia[i] - 1;
+      arma_ia(i) = ia.get()[i] - 1;
     }
     arma::uvec tcols(cx.n_cols - 1, arma::fill::zeros);
     for (arma::uword i = 0; i < cx.n_cols - 1; i++) {
@@ -276,39 +274,10 @@ glmnet(arma::mat X, arma::vec Y, int64_t nsteps, double fmin)
     b = bx;
     ret.beta = b;
     ret.sort_order = arma_ia;
-    if (u_lmu == u_nlam)
+    if (u_lmu == u_nlam) {
       ret.success = true;
+    }
   }
-
-  delete[] wp;
-  delete[] vpp;
-  delete[] clp;
-  delete[] ulamp;
-  delete[] a0;
-  delete[] ca;
-  delete[] ia;
-  delete[] nin;
-  delete[] rsq;
-  delete[] alm;
 
   return ret;
 }
-
-/*
-int main(int argc, char**argv)
-{
-  arma::mat gm;
-  gm.load("../../example/100_100_expr.tsv");
-  gm = gm.submat(0,0,99,99);
-  arma::uvec pred(99);
-  for(arma::uword i = 1; i < 100; i++)
-    {
-      pred(i - 1) = i;
-    }
-  arma::vec Y = gm.col(0);
-  arma::mat X = gm.cols(pred);
-
-  glm ret = glmnet(X, Y, 6);
-  ret.beta.print();
-  return 0;
-  }*/

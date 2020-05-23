@@ -30,13 +30,20 @@
 
 #define LOG_NAME "narromi"
 
+constexpr unsigned NARROMI_DEF_VERBOSITY = 3;
+constexpr double NARROMI_DEF_ALPHA = 0.05;
+constexpr double NARROMI_DEF_T = 0.6;
+constexpr uint64_t NARROMI_DEF_BS = 0;
+
 class seidr_mpi_narromi;
 
 struct seidr_narromi_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(
+    Archive& ar,
+    const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -55,8 +62,8 @@ struct seidr_narromi_param_t
     ar& BOOST_SERIALIZATION_NVP(al);
   }
   std::string al;
-  double alpha = 0.05;
-  double t = 0.6;
+  double alpha = NARROMI_DEF_ALPHA;
+  double t = NARROMI_DEF_T;
   bool force = false;
   std::string infile;
   std::string gene_file;
@@ -106,12 +113,12 @@ arma::vec
 get_sig(arma::vec z);
 
 void
-full_narromi(const arma::mat& gene_matrix,
+full_narromi(const arma::mat& GM,
              const std::vector<std::string>& genes,
              const seidr_narromi_param_t& param);
 
 void
-partial_narromi(const arma::mat& gene_matrix,
+partial_narromi(const arma::mat& GM,
                 const std::vector<std::string>& genes,
                 const std::vector<std::string>& targets,
                 const seidr_narromi_param_t& param);
@@ -122,6 +129,5 @@ narromi_thread(const arma::mat& gene_matrix,
                const double& alpha,
                const double& t,
                const std::vector<arma::uword>& ind,
-               const std::vector<std::string>& genes,
-               const std::string tmpdir,
+               const std::string& tmpdir,
                seidr_mpi_narromi* self);

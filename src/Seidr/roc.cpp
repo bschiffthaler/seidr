@@ -48,7 +48,7 @@ namespace po = boost::program_options;
 using boost::numeric_cast;
 
 std::vector<std::pair<uint32_t, uint32_t>>
-make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
+make_gold_vec(const std::string& infile, std::map<std::string, uint32_t>& refmap)
 {
   logger log(std::cerr, "ROC::make_gold_vec");
   std::vector<std::pair<uint32_t, uint32_t>> ret;
@@ -57,17 +57,15 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
   std::string line;
   while (std::getline(ifs, line)) {
     std::stringstream ss(line);
-    std::string x, y;
+    std::string x;
+    std::string y;
     ss >> x;
     ss >> y;
 
     auto ptr_a = refmap.find(x);
     auto ptr_b = refmap.find(y);
 
-    if (ptr_a == refmap.end()) {
-      not_found++;
-      continue;
-    } else if (ptr_b == refmap.end()) {
+    if (ptr_a == refmap.end() || ptr_b == refmap.end()) {
       not_found++;
       continue;
     }
@@ -80,7 +78,7 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
       a = b;
       b = c;
     }
-    ret.push_back(std::pair<uint32_t, uint32_t>(a, b));
+    ret.emplace_back(std::pair<uint32_t, uint32_t>(a, b));
   }
   if (not_found > 0) {
     log(LOG_WARN) << not_found << " gold standard edges had at least one "
@@ -90,7 +88,7 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
     double pc_kept =
       numeric_cast<double>(ret.size()) /
       (numeric_cast<double>(ret.size()) + numeric_cast<double>(not_found));
-    if (pc_kept < 0.01) {
+    if (pc_kept < 0.01) { // NOLINT: Magic number cutoff for the warning
       log(LOG_WARN) << "Keeping fewer than 1% of gold standard edges. This "
                        "usually leads to untrustworthy results. "
                        "Fraction of edges kept: "
@@ -102,7 +100,7 @@ make_gold_vec(std::string infile, std::map<std::string, uint32_t>& refmap)
 }
 
 std::vector<MiniEdge>
-filter_tf(std::string tfs,
+filter_tf(const std::string& tfs,
           std::vector<MiniEdge>& nv,
           std::map<std::string, uint32_t>& refmap)
 {
@@ -111,14 +109,16 @@ filter_tf(std::string tfs,
   std::ifstream ifs(tfs.c_str());
 
   std::string line;
-  while (std::getline(ifs, line))
+  while (std::getline(ifs, line)) {
     tfs_mapped.push_back(refmap[line]);
+  }
 
   SORT(tfs_mapped.begin(), tfs_mapped.end());
   for (auto& e : nv) {
     if (std::binary_search(tfs_mapped.begin(), tfs_mapped.end(), e.i) ||
-        std::binary_search(tfs_mapped.begin(), tfs_mapped.end(), e.j))
+        std::binary_search(tfs_mapped.begin(), tfs_mapped.end(), e.j)) {
       ret.push_back(e);
+    }
   }
 
   return ret;
@@ -144,7 +144,8 @@ get_tp_fp(std::vector<std::pair<uint32_t, uint32_t>>& truth,
           std::vector<std::pair<uint32_t, uint32_t>>& tneg,
           std::vector<MiniEdge>& v)
 {
-  uint32_t tp = 0, fp = 0;
+  uint32_t tp = 0;
+  uint32_t fp = 0;
   for (auto& e : v) {
     uint32_t i = e.i;
     uint32_t j = e.j;
@@ -157,7 +158,7 @@ get_tp_fp(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     if (std::binary_search(truth.begin(), truth.end(), x)) {
       tp++;
     } else {
-      if (tneg.size() > 0) {
+      if (tneg.empty()) {
         if (std::binary_search(tneg.begin(), tneg.end(), x)) {
           fp++;
         }
@@ -166,7 +167,7 @@ get_tp_fp(std::vector<std::pair<uint32_t, uint32_t>>& truth,
       }
     }
   }
-  return std::pair<uint32_t, uint32_t>(tp, fp);
+  return {tp, fp};
 }
 
 void
@@ -176,7 +177,8 @@ resize_by_fraction(std::vector<std::pair<uint32_t, uint32_t>>& truth,
                    double& fedg)
 {
   logger log(std::cerr, "ROC::resize_by_fraction");
-  uint32_t tp = 0, fp = 0;
+  uint32_t tp = 0;
+  uint32_t fp = 0;
   uint64_t cnt = 0;
   for (auto& e : v) {
     uint32_t i = e.i;
@@ -190,7 +192,7 @@ resize_by_fraction(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     if (std::binary_search(truth.begin(), truth.end(), x)) {
       tp++;
     } else {
-      if (tneg.size() > 0) {
+      if (! tneg.empty()) {
         if (std::binary_search(tneg.begin(), tneg.end(), x)) {
           fp++;
         }
@@ -218,20 +220,28 @@ print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
           std::pair<uint32_t, uint32_t>& tpfp,
           uint32_t& datap,
           std::ostream& out,
-          std::string algorithm)
+          const std::string& algorithm)
 {
   logger log(std::cerr, "ROC");
-  uint32_t tp = 0, fp = 0;
+  uint32_t tp = 0;
+  uint32_t fp = 0;
   uint32_t cnt = 0;
   uint32_t ne = v.size();
   uint32_t intervx = 0;
   arma::uvec intervy = arma::linspace<arma::uvec>(0, ne, datap);
   out << "#TP/FP\t" << tpfp.first << '\t' << tpfp.second << '\n';
 
-  // For on-the-fly integration -> AUC
-  double y_i = 0, y_j = 0, a_i = 0, a_j = 0;
-  double x_i = 0, x_j = 0, b_i = 0, b_j = 0;
-  double auc = 0, aupr = 0;
+  // For on-the-fly trapezoid integration -> AUC & AUPR
+  double y_i = 0;
+  double y_j = 0;
+  double a_i = 0;
+  double a_j = 0;
+  double x_i = 0;
+  double x_j = 0;
+  double b_i = 0;
+  double b_j = 0;
+  double auc = 0;
+  double aupr = 0;
 
   for (auto& e : v) {
     cnt++;
@@ -246,7 +256,7 @@ print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     if (std::binary_search(truth.begin(), truth.end(), x)) {
       tp++;
     } else {
-      if (tneg.size() > 0) {
+      if (! tneg.empty()) {
         if (std::binary_search(tneg.begin(), tneg.end(), x)) {
           fp++;
         }
@@ -259,7 +269,7 @@ print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     double ppv = numeric_cast<double>(tp) / numeric_cast<double>(cnt);
     if (cnt >= intervy[intervx]) {
       out << tpr << '\t' << fpr << '\t' << ppv;
-      if (algorithm != "") {
+      if (! algorithm.empty()) {
         out << '\t' << algorithm << '\n';
       } else {
         out << '\n';
@@ -285,98 +295,85 @@ print_roc(std::vector<std::pair<uint32_t, uint32_t>>& truth,
 }
 
 int
-roc(int argc, char* argv[])
+roc(const std::vector<std::string>& args)
 {
 
-  logger log(std::cerr, "ROC");
-
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " roc";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  seidr_roc_param_t param;
-
-  po::options_description umbrella(
-    "Calculate ROC curves of predictions in SeidrFiles given true edges");
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()(
-    "threads,O",
-    po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
-    "Number of OpenMP threads for parallel sorting");
-
-  po::options_description ropt("ROC Options");
-  ropt.add_options()(
-    "index,i",
-    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
-    "Index of score to use")(
-    "edges,e",
-    po::value<uint32_t>(&param.nedg)->default_value(0, "all"),
-    "Number of top edges to consider")(
-    "fraction,E",
-    po::value<double>(&param.fedg)->default_value(-1, "all"),
-    "Fraction of gold standard edges to include")(
-    "points,p",
-    po::value<uint32_t>(&param.datap)->default_value(0, "all"),
-    "Number of data points to print")(
-    "tfs,t",
-    po::value<std::string>(&param.tfs),
-    "List of transcription factors to consider")(
-    "neg,x",
-    po::value<std::string>(&param.gold_neg)->default_value("", ""),
-    "True negative edges")("all,a",
-                           po::bool_switch(&param.all)->default_value(false),
-                           "Calculate ROC for all scores in the SeidrFile");
-
-  po::options_description req("Required");
-  req.add_options()("gold,g",
-                    po::value<std::string>(&param.gold),
-                    "Gold standard (true edges) input file")(
-    "network,n",
-    po::value<std::string>(&param.infile)->required(),
-    "Input SeidrFile [can be positional]");
-
-  umbrella.add(req).add(ropt).add(ompopt).add(opt);
-
-  po::positional_options_description p;
-  p.add("network", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") > 0 || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
+  logger log(std::cerr, "roc");
 
   try {
+
+    seidr_roc_param_t param;
+
+    po::options_description umbrella(
+      "Calculate ROC curves of predictions in SeidrFiles given true edges");
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()(
+      "threads,O",
+      po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
+      "Number of OpenMP threads for parallel sorting");
+
+    po::options_description ropt("ROC Options");
+    ropt.add_options()(
+      "index,i",
+      po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+      "Index of score to use")(
+      "edges,e",
+      po::value<uint32_t>(&param.nedg)->default_value(0, "all"),
+      "Number of top edges to consider")(
+      "fraction,E",
+      po::value<double>(&param.fedg)->default_value(-1, "all"),
+      "Fraction of gold standard edges to include")(
+      "points,p",
+      po::value<uint32_t>(&param.datap)->default_value(0, "all"),
+      "Number of data points to print")(
+      "tfs,t",
+      po::value<std::string>(&param.tfs),
+      "List of transcription factors to consider")(
+      "neg,x",
+      po::value<std::string>(&param.gold_neg)->default_value("", ""),
+      "True negative edges")("all,a",
+                             po::bool_switch(&param.all)->default_value(false),
+                             "Calculate ROC for all scores in the SeidrFile");
+
+    po::options_description req("Required");
+    req.add_options()("gold,g",
+                      po::value<std::string>(&param.gold),
+                      "Gold standard (true edges) input file")(
+      "network,n",
+      po::value<std::string>(&param.infile)->required(),
+      "Input SeidrFile [can be positional]");
+
+    umbrella.add(req).add(ropt).add(ompopt).add(opt);
+
+    po::positional_options_description p;
+    p.add("network", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
-
-  try {
 
     if (vm["edges"].defaulted() && vm["points"].defaulted()) {
       log(LOG_INFO)
-        << "Defaulting to keeping all edges and 1000 output steps\n";
-      param.datap = 1000;
+        << "Defaulting to keeping all edges and " _XSTR(SEIDR_ROC_DEF_DATAP)
+        " output steps\n";
+      param.datap = SEIDR_ROC_DEF_DATAP;
     }
 
     set_pstl_threads(param.nthreads);
@@ -393,7 +390,7 @@ roc(int argc, char* argv[])
       assert_can_read(param.tfs);
     }
 
-    if (param.gold_neg != "") {
+    if (!param.gold_neg.empty()) {
       param.gold_neg = to_absolute(param.gold_neg);
       assert_exists(param.gold_neg);
       assert_can_read(param.gold_neg);
@@ -406,12 +403,7 @@ roc(int argc, char* argv[])
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
-    return 1;
-  }
 
-  try {
     SeidrFile f(param.infile.c_str());
     f.open("r");
     SeidrFileHeader h;
@@ -425,13 +417,13 @@ roc(int argc, char* argv[])
 
     auto gv = make_gold_vec(param.gold, refmap);
     std::vector<std::pair<uint32_t, uint32_t>> ngv;
-    if (param.gold_neg != "") {
+    if (!param.gold_neg.empty()) {
       ngv = make_gold_vec(param.gold_neg, refmap);
     }
 
     std::shared_ptr<std::ostream> out;
     if (param.outfile == "-") {
-      out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
+      out = std::shared_ptr<std::ostream>(&std::cout, no_delete);
     } else {
       out =
         std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
@@ -444,8 +436,8 @@ roc(int argc, char* argv[])
       auto nv = read_network_minimal(h, f, -1, param.tpos);
       SORTWCOMP(nv.begin(),
                 nv.end(),
-                me_score_sort_abs); // TODO: sort on rank, this is not robust
-      if (param.tfs != "") {
+                me_score_sort_abs); // TODO(bs): sort on rank, this is not robust
+      if (!param.tfs.empty()) {
         nv = filter_tf(param.tfs, nv, refmap);
       }
       if (param.nedg != 0) {
@@ -467,8 +459,8 @@ roc(int argc, char* argv[])
         auto nv = read_network_minimal(h, f, -1, i);
         SORTWCOMP(nv.begin(),
                   nv.end(),
-                  me_score_sort_abs); // TODO: sort on rank, this is not robust
-        if (param.tfs != "") {
+                  me_score_sort_abs); // TODO(bs): sort on rank, this is not robust
+        if (!param.tfs.empty()) {
           nv = filter_tf(param.tfs, nv, refmap);
         }
         if (param.nedg != 0) {
@@ -480,8 +472,8 @@ roc(int argc, char* argv[])
         auto tpfp = get_tp_fp(gv, ngv, nv);
         auto metrics =
           print_roc(gv, ngv, nv, tpfp, param.datap, *out, h.algs[i]);
-        aucs.push_back(std::make_pair(metrics.first, h.algs[i]));
-        auprs.push_back(std::make_pair(metrics.second, h.algs[i]));
+        aucs.emplace_back(std::make_pair(metrics.first, h.algs[i]));
+        auprs.emplace_back(std::make_pair(metrics.second, h.algs[i]));
       }
       for (uint64_t i = 0; i < aucs.size(); i++) {
         *out << "#AUC: " << aucs[i].first << '\t' << aucs[i].second << '\n';
@@ -490,9 +482,17 @@ roc(int argc, char* argv[])
     }
 
     f.close();
-    return 0;
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return errno;
+
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
+    return 1;
   }
+
+  return 0;
 }

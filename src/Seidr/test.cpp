@@ -34,7 +34,7 @@
 #include <vector>
 
 int
-test(int argc, char* argv[])
+test(const std::vector<std::string>& args)
 {
 
   // logger log(std::cerr, "test");

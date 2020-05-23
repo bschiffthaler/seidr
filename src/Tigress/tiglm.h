@@ -22,6 +22,7 @@
 #include <armadillo>
 #include <string>
 #include <vector>
+#include <common.h>
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -33,11 +34,19 @@
 
 class seidr_mpi_tigress;
 
+constexpr unsigned TIGRESS_DEF_VERBOSITY = 3;
+constexpr double TIGRESS_DEF_FMIN = 0.3;
+constexpr seidr_uword_t TIGRESS_DEF_NSTEPS = 10;
+constexpr seidr_uword_t TIGRESS_DEF_ENSEMBLE = 1000;
+constexpr double TIGRESS_SAMPLE_MIN = 0.2;
+constexpr double TIGRESS_SAMPLE_MAX = 1;
+
+
 struct seidr_tigress_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version) // NOLINT
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -64,14 +73,14 @@ struct seidr_tigress_param_t
   bool force = false;
   char row_delim = '\n';
   char field_delim = '\t';
-  uint64_t bs = 20;
+  uint64_t bs;
   size_t mode = TIGLM_FULL;
   std::string outfile = "";
-  seidr_uword_t boot = 1000;
-  double fmin = 0.3;
-  seidr_uword_t nsteps = 7;
+  seidr_uword_t boot;
+  double fmin;
+  seidr_uword_t nsteps;
   std::string tempdir = "";
-  unsigned verbosity = 3;
+  unsigned verbosity;
   bool resuming;
   int nthreads;
   std::vector<uint64_t> good_idx;
@@ -92,11 +101,11 @@ tiglm(const arma::mat& geneMatrix,
       const bool& allow_low_var,
       seidr_mpi_tigress* self);
 void
-tiglm_full(const arma::mat& gene_matrix,
+tiglm_full(const arma::mat& GM,
            const std::vector<std::string>& genes,
            const seidr_tigress_param_t& param);
 void
-tiglm_partial(const arma::mat& gene_matrix,
+tiglm_partial(const arma::mat& GM,
               const std::vector<std::string>& genes,
               const std::vector<std::string>& targets,
               const seidr_tigress_param_t& param);

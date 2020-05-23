@@ -19,6 +19,9 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+constexpr uint16_t SEIDR_NEIGHBOURS_DEF_NTOP = 10;
 
 struct seidr_neighbours_param_t
 {
@@ -37,4 +40,4 @@ struct seidr_neighbours_param_t
 };
 
 int
-neighbours(int argc, char* argv[]);
+neighbours(const std::vector<std::string>& args);

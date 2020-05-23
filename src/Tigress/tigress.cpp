@@ -47,15 +47,17 @@ main(int argc, char** argv)
 
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
-  arma::mat gene_matrix;
-  std::vector<std::string> genes;
-  std::vector<std::string> targets;
-
-  seidr_tigress_param_t param;
-
-  po::options_description umbrella("TIGRESS implementation for Seidr");
-  po::variables_map vm;
   try {
+
+    arma::mat gene_matrix;
+    std::vector<std::string> genes;
+    std::vector<std::string> targets;
+
+    seidr_tigress_param_t param;
+
+    po::options_description umbrella("TIGRESS implementation for Seidr");
+    po::variables_map vm;
+
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "targets,t",
@@ -72,7 +74,8 @@ main(int argc, char** argv)
       po::value<std::string>(&param.cmd_file),
       "Try to resume job from this file.")(
       "verbosity,v",
-      po::value<unsigned>(&param.verbosity)->default_value(3),
+      po::value<unsigned>(&param.verbosity)
+        ->default_value(TIGRESS_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)")(
       "force,f",
       po::bool_switch(&param.force)->default_value(false),
@@ -83,10 +86,12 @@ main(int argc, char** argv)
                          po::bool_switch(&param.do_scale)->default_value(false),
                          "Transform data to z-scores")(
       "nlambda,n",
-      po::value<seidr_uword_t>(&param.nsteps)->default_value(10),
+      po::value<seidr_uword_t>(&param.nsteps)
+        ->default_value(TIGRESS_DEF_NSTEPS),
       "The maximum number of lambda values")(
       "min-lambda,l",
-      po::value<double>(&param.fmin)->default_value(0.3, "0.3"),
+      po::value<double>(&param.fmin)
+        ->default_value(TIGRESS_DEF_FMIN, _XSTR(TIGRESS_DEF_FMIN)),
       "The minimum lambda as a fraction of the maximum.")(
       "allow-low-var",
       po::bool_switch(&param.allow_low_var)->default_value(false),
@@ -107,10 +112,10 @@ main(int argc, char** argv)
       "Number of OpenMP threads per MPI task");
 
     po::options_description bootopt("Bootstrap Options");
-    bootopt.add_options()(
-      "ensemble,e",
-      po::value<seidr_uword_t>(&param.boot)->default_value(1000),
-      "The ensemble size");
+    bootopt.add_options()("ensemble,e",
+                          po::value<seidr_uword_t>(&param.boot)
+                            ->default_value(TIGRESS_DEF_ENSEMBLE),
+                          "The ensemble size");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -123,50 +128,39 @@ main(int argc, char** argv)
     umbrella.add(req).add(algopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  log.set_log_level(5);
+    seidr_mpi_logger::set_log_level(LOG_DEBUG);
 
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    seidr_mpi_logger::set_log_level(param.verbosity);
 
-  if (vm.count("targets"))
-    param.mode = TIGLM_PARTIAL;
+    if (vm.count("targets") != 0) {
+      param.mode = TIGLM_PARTIAL;
+    }
 
-  // Normalize paths
-  param.outfile = to_absolute(param.outfile);
-  param.infile = to_absolute(param.infile);
-  param.gene_file = to_absolute(param.gene_file);
+    // Normalize paths
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-  if (param.mode == TIGLM_PARTIAL) {
-    param.targets_file = to_absolute(param.targets_file);
-  }
+    if (param.mode == TIGLM_PARTIAL) {
+      param.targets_file = to_absolute(param.targets_file);
+    }
 
-  cp_resume<seidr_tigress_param_t> cp_res(param, CPR_M);
-  if (vm.count("resume-from") > 0) {
-    assert_exists(param.cmd_file);
-    cp_res.load(param, param.cmd_file);
-  }
+    cp_resume<seidr_tigress_param_t> cp_res(param, CPR_M);
+    if (vm.count("resume-from") > 0) {
+      assert_exists(param.cmd_file);
+      cp_res.load(param, param.cmd_file);
+    }
 
-  // Check all kinds of FS problems that may arise in the master thread
-  if (rank == 0) {
-    try {
+    // Check all kinds of FS problems that may arise in the master thread
+    if (rank == 0) {
       if (vm.count("resume-from") > 0 && file_exists(param.cmd_file)) {
         log << "Trying to resume from " << param.cmd_file << '\n';
         log.log(LOG_INFO);
@@ -188,13 +182,15 @@ main(int argc, char** argv)
           assert_can_read(param.targets_file);
         }
 
-        if (!param.force)
+        if (!param.force) {
           assert_no_overwrite(param.outfile);
+        }
 
-        if (!vm.count("tempdir"))
+        if (vm.count("tempdir") == 0) {
           param.tempdir = tempfile(dirname(param.outfile));
-        else
+        } else {
           param.tempdir = tempfile(to_absolute(param.tempdir));
+        }
         if (dir_exists(param.tempdir)) {
           if (param.force) {
             log << "Removing previous temp files.\n";
@@ -210,22 +206,16 @@ main(int argc, char** argv)
         assert_dir_is_writeable(param.tempdir);
         mpi_sync_tempdir(&param.tempdir);
       }
-    } catch (std::runtime_error& e) {
-      log << e.what() << '\n';
-      log.log(LOG_ERR);
-      return EINVAL;
+    } else {
+      mpi_sync_tempdir(&param.tempdir);
+      if (vm.count("resume-from") > 0) {
+        mpi_sync_cpr_vector(&param.good_idx);
+      }
     }
-  } else {
-    mpi_sync_tempdir(&param.tempdir);
-    if (vm.count("resume-from") > 0) {
-      mpi_sync_cpr_vector(&param.good_idx);
-    }
-  }
 
-  // All threads wait until checks are done
-  SEIDR_MPI_BARRIER();
+    // All threads wait until checks are done
+    SEIDR_MPI_BARRIER();
 
-  try {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(), "--threads");
     log << "Setting " << param.nthreads << " OMP threads\n";
     log.send(LOG_DEBUG);
@@ -285,15 +275,19 @@ main(int argc, char** argv)
       default:
         return 1;
     }
-
+  } catch (const po::error& e) {
+    log << "[Argument Error]: " << e.what() << '\n';
+    log.log(LOG_ERR);
+    return 1;
   } catch (const std::runtime_error& e) {
-    log << e.what() << '\n';
+    log << "[Runtime Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   } catch (const std::exception& e) {
-    log << e.what() << '\n';
+    log << "[Generic Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   }
+
   return 0;
 }

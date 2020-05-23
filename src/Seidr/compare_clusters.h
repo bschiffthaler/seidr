@@ -24,14 +24,18 @@
 #include <string>
 #include <vector>
 
+constexpr double SEIDR_COMPARE_CLUST_DEF_ALPHA = 0.1;
+constexpr uint64_t SEIDR_COMPARE_CLUST_DEF_MIN_MEMBERS = 20;
+constexpr uint64_t SEIDR_COMPARE_CLUST_DEF_MAX_MEMBERS = 200;
+
 struct seidr_cc_param_t
 {
   std::string in_left;
   std::string in_right;
   std::string delim;
-  double alpha = 0.05;
-  unsigned long min_members = 20;
-  unsigned long max_members = 100;
+  double alpha = SEIDR_COMPARE_CLUST_DEF_ALPHA;
+  uint64_t min_members = SEIDR_COMPARE_CLUST_DEF_MIN_MEMBERS;
+  uint64_t max_members = SEIDR_COMPARE_CLUST_DEF_MAX_MEMBERS ;
   std::string file_out;
   bool force;
 };
@@ -39,12 +43,12 @@ struct seidr_cc_param_t
 struct result
 {
   double pval = 0;
-  unsigned long mpat = 0;
-  unsigned long npat = 0;
-  unsigned long mt = 0;
-  unsigned long nt = 0;
-  unsigned long lhs = 0;
-  unsigned long rhs = 0;
+  uint64_t mpat = 0;
+  uint64_t npat = 0;
+  uint64_t mt = 0;
+  uint64_t nt = 0;
+  uint64_t lhs = 0;
+  uint64_t rhs = 0;
 };
 
 class cluster
@@ -70,7 +74,7 @@ public:
     _has_parent = true;
   }
   // logical
-  bool has_parent() { return _has_parent; }
+  bool has_parent() const { return _has_parent; }
   // utility
   void sort_members();
   void make_unique();
@@ -98,7 +102,7 @@ cluster::make_unique()
 
 struct prank
 {
-  unsigned long orig_pos;
+  uint64_t orig_pos;
   double cmin;
   double val;
   friend bool operator<(const prank& a, const prank& b);
@@ -111,17 +115,17 @@ operator<(const prank& a, const prank& b)
 }
 
 double
-log10_sigma_t(unsigned long m,
-              unsigned long n,
-              unsigned long mt,
-              unsigned long nt);
+log10_sigma_t(uint64_t m,
+              uint64_t n,
+              uint64_t mt,
+              uint64_t nt);
 result
 test(cluster& lhs, cluster& rhs);
 double
-log10_binom_coef(unsigned long n, unsigned long k);
+log10_binom_coef(uint64_t n, uint64_t k);
 std::vector<double>
 bh_adjust(std::vector<double> pvals);
 int
-cluster_enrichment(int argc, char** argv);
+cluster_enrichment(const std::vector<std::string>& args);
 double
-div_as_double(unsigned long lhs, unsigned long rhs);
+div_as_double(uint64_t lhs, uint64_t rhs);

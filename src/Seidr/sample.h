@@ -19,6 +19,9 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+constexpr uint16_t SEIDR_SAMPLE_DEF_PREC = 8;
 
 struct seidr_sample_param_t
 {
@@ -32,4 +35,4 @@ struct seidr_sample_param_t
 };
 
 int
-sample(int argc, char* argv[]);
+sample(const std::vector<std::string>& args);

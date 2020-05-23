@@ -17,6 +17,11 @@
  * along with Seidr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string>
+#include <vector>
+
+constexpr uint32_t SEIDR_ROC_DEF_DATAP = 1000;
+
 #pragma once
 struct seidr_roc_param_t
 {
@@ -35,4 +40,4 @@ struct seidr_roc_param_t
 };
 
 int
-roc(int argc, char* argv[]);
+roc(const std::vector<std::string>& args);

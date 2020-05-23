@@ -82,6 +82,7 @@ sf_sort(const thresh_t& a, const thresh_t& b)
 bool
 cc_sort(const thresh_t& a, const thresh_t& b)
 {
+  // NOLINTNEXTLINE: "Magic number" required for math
   return std::abs(0.5 - a.data.at("cc")) < std::abs(0.5 - b.data.at("cc"));
 }
 bool
@@ -91,7 +92,7 @@ t_sort(const thresh_t& a, const thresh_t& b)
 }
 
 void
-get_ranks(std::vector<thresh_t>& v, std::string s)
+get_ranks(std::vector<thresh_t>& v, const std::string& s)
 {
   std::string tr;
   tr = s + "r";
@@ -151,21 +152,23 @@ check_one(std::vector<MiniEdge>& ev,
   }
 
   uint64_t nid = 0;
-  for (auto& x : id_remap)
+  for (auto& x : id_remap) {
     x.second = nid++;
+  }
 
   log(LOG_DEBUG) << "Creating networkit graph\n";
 
   NetworKit::Graph g(id_remap.size(), false, false);
-  for (uint64_t i = 0; i < stop; i++)
+  for (uint64_t i = 0; i < stop; i++) {
     g.addEdge(id_remap[ev[i].i], id_remap[ev[i].j]);
+  }
 
   auto ne = g.numberOfEdges();
   auto nv = g.numberOfNodes();
 
   log(LOG_DEBUG) << "Calculating stats\n";
 
-  std::map<long int, uint64_t> deg_map;
+  std::map<int64_t, uint64_t> deg_map;
   for (uint64_t i = 0; i < nv; i++) {
     double x = g.degree(i);
     auto it = deg_map.find(x);
@@ -175,11 +178,13 @@ check_one(std::vector<MiniEdge>& ev,
     deg_map[x]++;
   }
 
-  std::vector<double> x, y;
+  std::vector<double> x;
+  std::vector<double> y;
   double dnv = nv;
   for (auto& it : deg_map) {
-    double d = log10(it.first + 1);
-    double pd = log10((it.second + 1) / (dnv + 1));
+    double d = log10(boost::numeric_cast<double>(it.first + 1));
+    double pd = log10(boost::numeric_cast<double>(it.second + 1) /
+                      boost::numeric_cast<double>(dnv + 1));
     x.push_back(d);
     y.push_back(pd);
   }
@@ -188,8 +193,7 @@ check_one(std::vector<MiniEdge>& ev,
                           arma::conv_to<arma::vec>::from(y));
   double rsqu = arma::as_scalar(arma::pow(c, 2));
 
-  NetworKit::ClusteringCoefficient cc;
-  double trans = cc.exactGlobal(g);
+  double trans = NetworKit::ClusteringCoefficient::exactGlobal(g);
 
   out << thresh << '\t' << nv << '\t' << ne << '\t' << rsqu << '\t' << trans
       << '\n';
@@ -221,85 +225,74 @@ make_steps(double min, double max, uint32_t nsteps, bool rank)
 }
 
 int
-threshold(int argc, char** argv)
+threshold(const std::vector<std::string>& args)
 {
   logger log(std::cerr, "threshold");
 
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " threshold";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  seidr_threshold_param_t param;
-
-  po::options_description umbrella(
-    "Pick hard network threshold according to topology");
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description ompopt("OpenMP Options");
-  ompopt.add_options()(
-    "threads,O",
-    po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
-    "Number of OpenMP threads for parallel sorting");
-
-  po::options_description topt("Threshold Options");
-  topt.add_options()("min,m",
-                     po::value<double>(&param.min)->default_value(0.0, "0"),
-                     "Lowest threshold value to check")(
-    "max,M",
-    po::value<double>(&param.max)->default_value(1.0, "0"),
-    "Highest threshold value to check")(
-    "index,i",
-    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
-    "Score column to use as edge weights")(
-    "nsteps,n",
-    po::value<uint32_t>(&param.nsteps)->default_value(100),
-    "Number of breaks to create for testing");
-
-  po::options_description fopt("Formatting Options");
-  fopt.add_options()("precision,p",
-                     po::value<uint16_t>(&param.precision)->default_value(8),
-                     "Number of decimal points to print");
-
-  po::options_description req("Required [can be positional]");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.infile)->required(),
-                    "Input SeidrFile");
-
-  umbrella.add(req).add(topt).add(fopt).add(ompopt).add(opt);
-
-  po::positional_options_description p;
-  p.add("in-file", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
-
   try {
+
+    seidr_threshold_param_t param;
+
+    po::options_description umbrella(
+      "Pick hard network threshold according to topology");
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description ompopt("OpenMP Options");
+    ompopt.add_options()(
+      "threads,O",
+      po::value<int>(&param.nthreads)->default_value(GET_MAX_PSTL_THREADS()),
+      "Number of OpenMP threads for parallel sorting");
+
+    po::options_description topt("Threshold Options");
+    topt.add_options()("min,m",
+                       po::value<double>(&param.min)->default_value(0.0, "0"),
+                       "Lowest threshold value to check")(
+      "max,M",
+      po::value<double>(&param.max)->default_value(1.0, "0"),
+      "Highest threshold value to check")(
+      "index,i",
+      po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+      "Score column to use as edge weights")(
+      "nsteps,n",
+      po::value<uint32_t>(&param.nsteps)
+        ->default_value(SEIDR_THRESHOLD_DEF_NSTEP),
+      "Number of breaks to create for testing");
+
+    po::options_description fopt("Formatting Options");
+    fopt.add_options()("precision,p",
+                       po::value<uint16_t>(&param.precision)
+                         ->default_value(SEIDR_THRESHOLD_DEF_PREC),
+                       "Number of decimal points to print");
+
+    po::options_description req("Required [can be positional]");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.infile)->required(),
+                      "Input SeidrFile");
+
+    umbrella.add(req).add(topt).add(fopt).add(ompopt).add(opt);
+
+    po::positional_options_description p;
+    p.add("in-file", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  try {
     set_pstl_threads(param.nthreads);
     param.infile = to_absolute(param.infile);
     assert_exists(param.infile);
@@ -312,72 +305,83 @@ threshold(int argc, char** argv)
       }
       assert_dir_is_writeable(dirname(param.outfile));
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
+
+    std::shared_ptr<std::ostream> out;
+    if (param.outfile == "-") {
+      out = std::shared_ptr<std::ostream>(&std::cout, no_delete);
+    } else {
+      out =
+        std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    }
+
+    SeidrFile rf(param.infile.c_str());
+    rf.open("r");
+
+    SeidrFileHeader h;
+    h.unserialize(rf);
+
+    make_tpos(param.tpos, h);
+
+    log(LOG_INFO) << "Starting analysis\n";
+    log(LOG_INFO) << "Creating vector of thresholds\n";
+    std::vector<double> steps =
+      make_steps(param.min, param.max, param.nsteps, param.trank);
+
+    log(LOG_INFO) << "Reading network with "
+                  << (param.trank ? "ranks < " : "scores > ") << steps[0]
+                  << '\n';
+    std::vector<MiniEdge> edges =
+      read_network_minimal(h, rf, steps[0], param.tpos, param.trank);
+    log(LOG_INFO) << "Read " << edges.size() << " edges\n";
+    log(LOG_INFO) << "Sorting network\n";
+
+    if (param.trank) {
+      SORTWCOMP(edges.begin(), edges.end(), me_rank_sort);
+    } else {
+      SORTWCOMP(edges.begin(), edges.end(), me_score_sort);
+    }
+
+    uint64_t stop = 0;
+
+    std::vector<thresh_t> tvec;
+
+    log(LOG_INFO) << "Starting topology assesment\n";
+    out->precision(param.precision);
+    for (auto it = steps.rbegin(); it != steps.rend(); it++) {
+      log(LOG_INFO) << "Current threshold:" << *it << "\n";
+      tvec.push_back(check_one(edges, *it, stop, param.trank, *out));
+    }
+
+    get_ranks(tvec, "nn");
+    get_ranks(tvec, "ne");
+    get_ranks(tvec, "sf");
+    get_ranks(tvec, "cc");
+
+    double cut =
+      tvec[0].data["nnr"] + tvec[0].data["sfr"] + tvec[0].data["ccr"];
+    thresh_t final = tvec[0];
+    for (auto& t : tvec) {
+      if (t.data["nnr"] + t.data["sfr"] + t.data["ccr"] < cut) {
+        final = t;
+      }
+    }
+
+    log(LOG_INFO) << "Suggested threshold: " << final.data["t"] << "("
+                  << final.data["nnr"] << ',' << final.data["sfr"] << ','
+                  << final.data["ccr"] << ")" << '\n';
+
+    rf.close();
+
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
-
-  std::shared_ptr<std::ostream> out;
-  if (param.outfile == "-")
-    out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
-  else
-    out =
-      std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
-
-  SeidrFile rf(param.infile.c_str());
-  rf.open("r");
-
-  SeidrFileHeader h;
-  h.unserialize(rf);
-
-  make_tpos(param.tpos, h);
-
-  log(LOG_INFO) << "Starting analysis\n";
-  log(LOG_INFO) << "Creating vector of thresholds\n";
-  std::vector<double> steps =
-    make_steps(param.min, param.max, param.nsteps, param.trank);
-
-  log(LOG_INFO) << "Reading network with "
-                << (param.trank ? "ranks < " : "scores > ") << steps[0] << '\n';
-  std::vector<MiniEdge> edges =
-    read_network_minimal(h, rf, steps[0], param.tpos, param.trank);
-  log(LOG_INFO) << "Read " << edges.size() << " edges\n";
-  log(LOG_INFO) << "Sorting network\n";
-
-  if (param.trank) {
-    SORTWCOMP(edges.begin(), edges.end(), me_rank_sort);
-  } else {
-    SORTWCOMP(edges.begin(), edges.end(), me_score_sort);
-  }
-
-  uint64_t stop = 0;
-
-  std::vector<thresh_t> tvec;
-
-  log(LOG_INFO) << "Starting topology assesment\n";
-  out->precision(param.precision);
-  for (auto it = steps.rbegin(); it != steps.rend(); it++) {
-    log(LOG_INFO) << "Current threshold:" << *it << "\n";
-    tvec.push_back(check_one(edges, *it, stop, param.trank, *out));
-  }
-
-  get_ranks(tvec, "nn");
-  get_ranks(tvec, "ne");
-  get_ranks(tvec, "sf");
-  get_ranks(tvec, "cc");
-
-  double cut = tvec[0].data["nnr"] + tvec[0].data["sfr"] + tvec[0].data["ccr"];
-  thresh_t final = tvec[0];
-  for (auto& t : tvec) {
-    if (t.data["nnr"] + t.data["sfr"] + t.data["ccr"] < cut)
-      final = t;
-  }
-
-  log(LOG_INFO) << "Suggested threshold: " << final.data["t"] << "("
-                << final.data["nnr"] << ',' << final.data["sfr"] << ','
-                << final.data["ccr"] << ")" << '\n';
-
-  rf.close();
 
   return 0;
 }

@@ -19,6 +19,10 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+constexpr uint32_t SEIDR_DESCRIBE_DEF_BINS = 25;
+
 
 struct seidr_param_describe_t
 {
@@ -31,4 +35,4 @@ struct seidr_param_describe_t
 };
 
 int
-describe(int argc, char* argv[]);
+describe(const std::vector<std::string>& args);

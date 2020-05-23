@@ -20,7 +20,9 @@
 #pragma once
 
 #include <BSlogger.hpp>
+#include <string>
 #include <vector>
+#include <common.h>
 
 #define PRINTING_MOD 100000000
 
@@ -61,10 +63,12 @@ public:
   }
   friend bool operator<(const edge& lhs, const edge& rhs)
   {
-    if (lhs.i < rhs.i)
+    if (lhs.i < rhs.i) {
       return true;
-    if (lhs.i == rhs.i)
+    }
+    if (lhs.i == rhs.i) {
       return lhs.j < rhs.j;
+    }
     return false;
   }
 };
@@ -77,12 +81,9 @@ struct reduced_edge
 
 struct shadow_t
 {
-  shadow_t(void)
-    : found(0)
-    , offset(0)
-  {}
-  uint8_t found = 0;
-  uint64_t offset = 0;
+  shadow_t() = default;
+  uint8_t found{0};
+  uint64_t offset{0};
 };
 
 class comb_hash
@@ -113,11 +114,11 @@ public:
 class read_logger
 {
 public:
-  read_logger(logger& l, size_t n = 100000)
+  explicit read_logger(logger& l, size_t n = PRINTING_MOD)
     : _i(0)
     , _n(n)
     , _l(l){};
-  read_logger operator++(int);
+  read_logger operator++(int); // NOLINT: Overlaps with readability-const-return-type
   read_logger& operator++();
   size_t _i;
   size_t _n;
@@ -125,15 +126,15 @@ public:
 };
 
 bool
-ascending(const edge a, const edge b);
+ascending(const edge& a, const edge& b);
 bool
-descending(const edge a, const edge b);
+descending(const edge& a, const edge& b);
 bool
-abs_ascending(const edge a, const edge b);
+abs_ascending(const edge& a, const edge& b);
 bool
-abs_descending(const edge a, const edge b);
+abs_descending(const edge& a, const edge& b);
 void
 rank_vector(std::vector<edge>&, bool, bool);
 
 int
-import(int argc, char* argv[]);
+import(const std::vector<std::string>& args);

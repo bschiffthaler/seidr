@@ -18,5 +18,9 @@
  */
 
 #pragma once
+
+#include <vector>
+#include <string>
+
 int
-test(int argc, char* argv[]);
+test(const std::vector<std::string>& args);

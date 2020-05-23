@@ -34,11 +34,18 @@
 
 class seidr_mpi_svm;
 
+constexpr unsigned LLR_DEF_VERBOSITY = 3;
+constexpr arma::uword LLR_DEF_ENSEMBLE = 1000;
+constexpr double LLR_DEF_TOLERANCE = 0.001;
+constexpr double LLR_DEF_EPSILON = 0.1;
+
+
+
 struct seidr_llr_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version)
+  void serialize(Archive& ar, const unsigned int version) // NOLINT
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -87,7 +94,6 @@ struct seidr_llr_param_t
 
 void
 svm(const arma::mat& geneMatrix,
-    const std::vector<std::string>& genes,
     const std::vector<arma::uword>& uvec,
     const std::string& tmpdir,
     parameter& param,

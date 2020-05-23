@@ -49,16 +49,17 @@ main(int argc, char** argv)
 
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
-  arma::mat gene_matrix;
-  std::vector<std::string> genes;
-  std::vector<std::string> targets;
-
-  seidr_svm_param_t param;
-
-  po::options_description umbrella("NIMEFI SVM implementation for Seidr");
-  po::variables_map vm;
-
   try {
+
+    arma::mat gene_matrix;
+    std::vector<std::string> genes;
+    std::vector<std::string> targets;
+
+    seidr_svm_param_t param;
+
+    po::options_description umbrella("NIMEFI SVM implementation for Seidr");
+    po::variables_map vm;
+
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "force,f",
@@ -78,7 +79,7 @@ main(int argc, char** argv)
       po::value<std::string>(&param.cmd_file),
       "Try to resume job from this file.")(
       "verbosity,v",
-      po::value<unsigned>(&param.verbosity)->default_value(3),
+      po::value<unsigned>(&param.verbosity)->default_value(SVM_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)");
 
     po::options_description mpiopt("MPI Options");
@@ -98,7 +99,7 @@ main(int argc, char** argv)
     po::options_description bootopt("Bootstrap Options");
     bootopt.add_options()(
       "ensemble,e",
-      po::value<seidr_uword_t>(&param.ensemble_size)->default_value(1000),
+      po::value<seidr_uword_t>(&param.ensemble_size)->default_value(SVM_DEF_ENSEMBLE),
       "The ensemble size")(
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
@@ -136,25 +137,25 @@ main(int argc, char** argv)
       po::value<std::string>(&param.kernel)->default_value("LINEAR"),
       "SVM kernel [LINEAR, POLY, RBF, SIGMOID]")(
       "degree,d",
-      po::value<int>(&param.svparam.degree)->default_value(3),
+      po::value<int>(&param.svparam.degree)->default_value(SVM_DEF_POLY_DEGREE),
       "Polynomial degree (for POLY kernel)")(
       "gamma,G",
-      po::value<double>(&param.svparam.gamma)->default_value(0.01, "0.01"),
+      po::value<double>(&param.svparam.gamma)->default_value(SVM_DEF_GAMMA, _XSTR(SVM_DEF_GAMMA)),
       "Kernel coefficient for POLY/RBF/SIGMOID kernels")(
       "coef,c",
-      po::value<double>(&param.svparam.coef0)->default_value(0.01, "0.01"),
+      po::value<double>(&param.svparam.coef0)->default_value(SVM_DEF_COEF0, _XSTR(SVM_DEF_COEF0)),
       "Independent term in kernel function (for POLY/SIGMOID kernels)")(
       "nu,n",
-      po::value<double>(&param.svparam.nu)->default_value(0.5, "0.5"),
+      po::value<double>(&param.svparam.nu)->default_value(SVM_DEF_NU, _XSTR(SVM_DEF_NU)),
       "nu value (for NU_SVR)")(
       "penalty,C",
-      po::value<double>(&param.svparam.C)->default_value(1, "1"),
+      po::value<double>(&param.svparam.C)->default_value(SVM_DEF_C, _XSTR(SVM_DEF_C)),
       "Penalty C value")(
       "tol,l",
-      po::value<double>(&param.svparam.eps)->default_value(0.001, "0.001"),
+      po::value<double>(&param.svparam.eps)->default_value(SVM_DEF_EPS, _XSTR(SVM_DEF_EPS)),
       "Epsilon/tolerance (stopping criterion)")(
       "eps,E",
-      po::value<double>(&param.svparam.p)->default_value(0.1, "0.1"),
+      po::value<double>(&param.svparam.p)->default_value(SVM_DEF_P, _XSTR(SVM_DEF_P)),
       "Epsilon (for EPSILON_SVR)")(
       "shrinking,S",
       po::value<int>(&param.svparam.shrinking)->default_value(1),
@@ -165,50 +166,39 @@ main(int argc, char** argv)
     umbrella.add(req).add(svmopt).add(bootopt).add(mpiopt).add(ompopt).add(opt);
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  log.set_log_level(5);
+    seidr_mpi_logger::set_log_level(LOG_DEBUG);
 
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log << "Argument exception: " << e.what() << '\n';
-    log.send(LOG_ERR);
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    seidr_mpi_logger::set_log_level(param.verbosity);
 
-  if (vm.count("targets"))
-    param.mode = SVM_PARTIAL;
+    if (vm.count("targets") != 0) {
+      param.mode = SVM_PARTIAL;
+    }
 
-  // Normalize paths
-  param.outfile = to_absolute(param.outfile);
-  param.infile = to_absolute(param.infile);
-  param.gene_file = to_absolute(param.gene_file);
+    // Normalize paths
+    param.outfile = to_absolute(param.outfile);
+    param.infile = to_absolute(param.infile);
+    param.gene_file = to_absolute(param.gene_file);
 
-  if (param.mode == SVM_PARTIAL) {
-    param.targets_file = to_absolute(param.targets_file);
-  }
+    if (param.mode == SVM_PARTIAL) {
+      param.targets_file = to_absolute(param.targets_file);
+    }
 
-  cp_resume<seidr_svm_param_t> cp_res(param, CPR_M);
-  if (vm.count("resume-from") > 0) {
-    assert_exists(param.cmd_file);
-    cp_res.load(param, param.cmd_file);
-  }
+    cp_resume<seidr_svm_param_t> cp_res(param, CPR_M);
+    if (vm.count("resume-from") > 0) {
+      assert_exists(param.cmd_file);
+      cp_res.load(param, param.cmd_file);
+    }
 
-  // Check all kinds of FS problems that may arise in the master thread
-  if (rank == 0) {
-    try {
+    // Check all kinds of FS problems that may arise in the master thread
+    if (rank == 0) {
       if (vm.count("resume-from") > 0 && file_exists(param.cmd_file)) {
         log << "Trying to resume from " << param.cmd_file << '\n';
         log.log(LOG_INFO);
@@ -230,13 +220,15 @@ main(int argc, char** argv)
           assert_can_read(param.targets_file);
         }
 
-        if (!param.force)
+        if (!param.force) {
           assert_no_overwrite(param.outfile);
+        }
 
-        if (!vm.count("tempdir"))
+        if (vm.count("tempdir") == 0) {
           param.tempdir = tempfile(dirname(param.outfile));
-        else
+        } else {
           param.tempdir = tempfile(to_absolute(param.tempdir));
+        }
         if (dir_exists(param.tempdir)) {
           if (param.force) {
             log << "Removing previous temp files.\n";
@@ -255,22 +247,16 @@ main(int argc, char** argv)
         assert_dir_is_writeable(param.tempdir);
         mpi_sync_tempdir(&param.tempdir);
       }
-    } catch (std::runtime_error& e) {
-      log << e.what() << '\n';
-      log.log(LOG_ERR);
-      return EINVAL;
+    } else {
+      mpi_sync_tempdir(&param.tempdir);
+      if (vm.count("resume-from") > 0) {
+        mpi_sync_cpr_vector(&param.good_idx);
+      }
     }
-  } else {
-    mpi_sync_tempdir(&param.tempdir);
-    if (vm.count("resume-from") > 0) {
-      mpi_sync_cpr_vector(&param.good_idx);
-    }
-  }
 
-  // All threads wait until checks are done
-  SEIDR_MPI_BARRIER();
+    // All threads wait until checks are done
+    SEIDR_MPI_BARRIER();
 
-  try {
     assert_in_range<int>(param.nthreads, 1, omp_get_max_threads(), "--threads");
     omp_set_num_threads(param.nthreads);
     // Get input files
@@ -301,33 +287,42 @@ main(int argc, char** argv)
       log.log(LOG_INFO);
     }
 
-    if (param.min_sample_size == 0)
-      param.min_sample_size = gene_matrix.n_rows / 5;
-    if (param.max_sample_size == 0)
-      param.max_sample_size = 4 * (gene_matrix.n_rows / 5);
-    if (param.predictor_sample_size_min == 0)
-      param.predictor_sample_size_min = (gene_matrix.n_cols - 1) / 5;
-    if (param.predictor_sample_size_max == 0)
-      param.predictor_sample_size_max = 4 * ((gene_matrix.n_cols - 1) / 5);
+    if (param.min_sample_size == 0) {
+      param.min_sample_size = gene_matrix.n_rows / 5; // NOLINT
+    }
+    if (param.max_sample_size == 0) {
+      param.max_sample_size = 4 * (gene_matrix.n_rows / 5); // NOLINT
+    }
+    if (param.predictor_sample_size_min == 0) {
+      param.predictor_sample_size_min = (gene_matrix.n_cols - 1) / 5; // NOLINT
+    }
+    if (param.predictor_sample_size_max == 0) {
+      param.predictor_sample_size_max = 4 * ((gene_matrix.n_cols - 1) / 5); // NOLINT
+    }
 
     // Check if sampling settings are sane
-    if (param.min_sample_size > param.max_sample_size)
+    if (param.min_sample_size > param.max_sample_size) {
       throw std::runtime_error("Minimum experiment sample size can't be "
                                "larger than maximum");
-    if (param.max_sample_size > gene_matrix.n_rows)
+    }
+    if (param.max_sample_size > gene_matrix.n_rows) {
       throw std::runtime_error("Maximum experiment sample size can't be "
                                "larger than number of experiments");
-    if (param.predictor_sample_size_min > param.predictor_sample_size_max)
+    }
+    if (param.predictor_sample_size_min > param.predictor_sample_size_max) {
       throw std::runtime_error("Minimum predictor sample size can't be "
                                "larger than maximum");
-    if (param.predictor_sample_size_max > gene_matrix.n_cols - 1)
+    }
+    if (param.predictor_sample_size_max > gene_matrix.n_cols - 1) {
       throw std::runtime_error("Maximum predictor sample size can't be "
                                "larger than the number of genes - 1");
+    }
 
     if (param.min_sample_size == 0 || param.max_sample_size == 0 ||
         param.predictor_sample_size_min == 0 ||
-        param.predictor_sample_size_max == 0)
+        param.predictor_sample_size_max == 0) {
       throw std::runtime_error("None of the sampling settings should be 0");
+    }
 
     if (param.kernel == "LINEAR") {
       param.svparam.kernel_type = LINEAR;
@@ -348,11 +343,11 @@ main(int argc, char** argv)
       param.svparam.svm_type = NU_SVR;
     }
 
-    param.svparam.cache_size = 256;
+    param.svparam.cache_size = 256; // NOLINT
     param.svparam.probability = 0;
     param.svparam.nr_weight = 0;
-    param.svparam.weight_label = NULL;
-    param.svparam.weight = NULL;
+    param.svparam.weight_label = nullptr;
+    param.svparam.weight = nullptr;
 
     if (rank == 0) {
       if (vm.count("save-resume") > 0) {
@@ -372,12 +367,16 @@ main(int argc, char** argv)
       default:
         return EINVAL;
     }
+  } catch (const po::error& e) {
+    log << "[Argument Error]: " << e.what() << '\n';
+    log.log(LOG_ERR);
+    return 1;
   } catch (const std::runtime_error& e) {
-    log << e.what() << '\n';
+    log << "[Runtime Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   } catch (const std::exception& e) {
-    log << e.what() << '\n';
+    log << "[Generic Error]: " << e.what() << '\n';
     log.log(LOG_ERR);
     return 1;
   }

@@ -26,6 +26,7 @@
 #include <fs.h>
 #include <sample.h>
 // External
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/program_options.hpp>
 #include <bs/simple_sample.h>
 #include <bs/vitter_d.h>
@@ -36,8 +37,8 @@ namespace po = boost::program_options;
 uint64_t
 prop_to_nedges(double prop, uint64_t n)
 {
-  double nd = static_cast<double>(n) * prop;
-  uint64_t ret = static_cast<uint64_t>(round(nd));
+  auto nd = boost::numeric_cast<double>(n) * prop;
+  auto ret = boost::numeric_cast<uint64_t>(round(nd));
   return ret;
 }
 
@@ -52,8 +53,8 @@ sample_wo_repl(const seidr_sample_param_t& param,
   header.unserialize(sf);
   sf.close();
   sf.open("r");
-  uint64_t nedges;
-  if (vm.count("nedges")) {
+  uint64_t nedges = 0;
+  if (vm.count("nedges") != 0) {
     if (param.nedges > header.attr.edges) {
       throw std::runtime_error("Can't sample " + std::to_string(param.nedges) +
                                " edges when the network only contains " +
@@ -73,10 +74,10 @@ sample_wo_repl(const seidr_sample_param_t& param,
   sf.each_edge_exit_early([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     if (cur == ctr) {
       e.print(out, h);
-      if (vd.end())
+      if (vd.end()) {
         return true;
-      else
-        cur = vd.next();
+      }
+      cur = vd.next();
     }
     ctr++;
     return false;
@@ -96,8 +97,8 @@ sample_w_repl(const seidr_sample_param_t& param,
   header.unserialize(sf);
   sf.close();
   sf.open("r");
-  uint64_t nedges;
-  if (vm.count("nedges")) {
+  uint64_t nedges = 0;
+  if (vm.count("nedges") != 0) {
     nedges = param.nedges;
   } else {
     nedges = prop_to_nedges(param.prop, header.attr.edges);
@@ -112,10 +113,10 @@ sample_w_repl(const seidr_sample_param_t& param,
   sf.each_edge_exit_early([&](SeidrFileEdge& e, SeidrFileHeader& h) {
     while (cur == ctr) {
       e.print(out, h);
-      if (ss.end())
+      if (ss.end()) {
         return true;
-      else
-        cur = ss.next();
+      }
+      cur = ss.next();
     }
     ctr++;
     return false;
@@ -125,100 +126,94 @@ sample_w_repl(const seidr_sample_param_t& param,
 }
 
 int
-sample(int argc, char* argv[])
+sample(const std::vector<std::string>& args)
 {
 
   logger log(std::cerr, "sample");
 
-  // Variables used by the function
-  seidr_sample_param_t param;
-
-  // We ignore the first argument
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " sample";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
-
-  po::options_description umbrella;
-
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "outfile,o",
-    po::value<std::string>(&param.outfile)->default_value("-"),
-    "Output file name ['-' for stdout]");
-
-  po::options_description sopt("Sample options");
-  sopt.add_options()("replacement,r",
-                     po::bool_switch(&param.replacement)->default_value(false),
-                     "Sample with replacement")(
-    "precision,p",
-    po::value<uint16_t>(&param.prec)->default_value(8),
-    "Number of significant digits to report")(
-    "nedges,n",
-    po::value<uint64_t>(&param.nedges),
-    "Number of edges to sample")("fraction,F",
-                                 po::value<double>(&param.prop),
-                                 "Fraction of edges to sample");
-
-  po::options_description req("Required");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.el_file)->required(),
-                    "Input SeidrFile");
-
-  umbrella.add(req).add(sopt).add(opt);
-
-  po::positional_options_description p;
-  p.add("in-file", 1);
-
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
-
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
-
   try {
+
+    // Variables used by the function
+    seidr_sample_param_t param;
+
+    po::options_description umbrella;
+
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "outfile,o",
+      po::value<std::string>(&param.outfile)->default_value("-"),
+      "Output file name ['-' for stdout]");
+
+    po::options_description sopt("Sample options");
+    sopt.add_options()(
+      "replacement,r",
+      po::bool_switch(&param.replacement)->default_value(false),
+      "Sample with replacement")(
+      "precision,p",
+      po::value<uint16_t>(&param.prec)->default_value(SEIDR_SAMPLE_DEF_PREC),
+      "Number of significant digits to report")(
+      "nedges,n",
+      po::value<uint64_t>(&param.nedges),
+      "Number of edges to sample")("fraction,F",
+                                   po::value<double>(&param.prop),
+                                   "Fraction of edges to sample");
+
+    po::options_description req("Required");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.el_file)->required(),
+                      "Input SeidrFile");
+
+    umbrella.add(req).add(sopt).add(opt);
+
+    po::positional_options_description p;
+    p.add("in-file", 1);
+
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(),
+      vm);
+
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  try {
     // Check a bunch of sanity things
     assert_exists(param.el_file);
     assert_can_read(param.el_file);
 
-    if (vm.count("nedges") && vm.count("fraction"))
+    if (vm.count("nedges") != 0 && vm.count("fraction") != 0) {
       throw std::runtime_error(
         "Supply either --fraction or --nedges, not both");
+    }
 
-    if ((!vm.count("nedges")) && (!vm.count("fraction")))
+    if ((vm.count("nedges") == 0) && (vm.count("fraction") == 0)) {
       throw std::runtime_error("Supply either --fraction or --nedges");
+    }
 
-    if (vm.count("fraction")) {
-      if (!param.replacement && (param.prop < 0 || param.prop > 1))
+    if (vm.count("fraction") != 0) {
+      if (!param.replacement && (param.prop < 0 || param.prop > 1)) {
         throw std::runtime_error("Fraction must be in [0, 1] if sampling "
                                  "without replacement");
-      if (param.replacement && param.prop < 0)
+      }
+      if (param.replacement && param.prop < 0) {
         throw std::runtime_error("Fraction must be > 0");
+      }
     }
 
     std::shared_ptr<std::ostream> out;
-    if (param.outfile == "-")
-      out = std::shared_ptr<std::ostream>(&std::cout, [](void*) {});
-    else
+    if (param.outfile == "-") {
+      out = std::shared_ptr<std::ostream>(&std::cout, no_delete);
+    }
+    else {
       out =
         std::shared_ptr<std::ostream>(new std::ofstream(param.outfile.c_str()));
+    }
 
     // Start main function
     if (!param.replacement) {
@@ -226,8 +221,14 @@ sample(int argc, char* argv[])
     } else {
       sample_w_repl(param, vm, *out);
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
 

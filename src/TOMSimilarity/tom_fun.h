@@ -21,6 +21,11 @@
 
 #include <armadillo>
 #include <vector>
+#include <string>
+
+constexpr unsigned TOM_DEF_VERBOSITY = 3;
+constexpr uint64_t TOM_DEF_MAX_POW = 30;
+constexpr double TOM_DEF_FIT = 0.8;
 
 struct edge
 {
@@ -55,11 +60,11 @@ struct seidr_tom_param_t
 
 double
 scale_free_fit(const arma::mat& gm,
-               const uint64_t p,
-               const uint64_t nbreaks,
-               const tom_cor_t cor);
+               const uint64_t& p,
+               const uint64_t& nbreaks,
+               const tom_cor_t& cor);
 arma::mat
-tom_similarity(arma::mat& gm, const uint64_t p, const tom_cor_t cor);
+tom_similarity(arma::mat& gm, const uint64_t& p, const tom_cor_t& cor);
 bool
 ascending(edge a, edge b);
 void

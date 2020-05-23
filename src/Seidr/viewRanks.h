@@ -25,7 +25,7 @@
 #include <vector>
 
 int
-view(int argc, char* argv[]);
+view(const std::vector<std::string>& args);
 
 struct seidr_param_view_t
 {

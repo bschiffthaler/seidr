@@ -18,6 +18,10 @@
  */
 
 #pragma once
+#include <string>
+#include <vector>
+
+constexpr uint64_t SEIDR_GRAPHSTATS_DEF_SFT_NBINS = 200;
 
 struct seidr_graphstat_param_t
 {
@@ -28,4 +32,4 @@ struct seidr_graphstat_param_t
 };
 
 int
-graphstats(int argc, char** argv);
+graphstats(const std::vector<std::string>& args);

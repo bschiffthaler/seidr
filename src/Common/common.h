@@ -24,10 +24,10 @@
 #include <armadillo>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <random>
 
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
@@ -84,7 +84,10 @@ using seidr_mat_t = arma::mat;
 using seidr_uword_t = arma::uword;
 using tokenizer = boost::tokenizer<boost::char_separator<char>>;
 
-#define SEIDR_DEFAULT_SSEQ {3, 1, 4, 1, 5, 9, 2, 6, 5}
+#define SEIDR_DEFAULT_SSEQ                                                     \
+  {                                                                            \
+    3, 1, 4, 1, 5, 9, 2, 6, 5                                                  \
+  }
 #define SEIDR_DEFAULT_SEED 314159265
 
 // Set difference for a single number
@@ -196,5 +199,26 @@ assert_arg_constraint(std::vector<T> allowed, T arg)
 
 uint64_t
 get_mpi_nthread();
+
 uint64_t
 guess_batch_size(uint64_t const& set_size, uint64_t const& task_n);
+
+// Prepare args to be passed to boost::po subprograms
+inline std::vector<std::string>
+shift_args(const int& argc, char* argv[])
+{
+  std::vector<std::string> args;
+  if (argc < 2) {
+    return args;
+  }
+  for (int i = 2; i < argc; i++) {
+    args.push_back(argv[i]);
+  }
+  return args;
+}
+
+// Use for shared_ptr in case the object cannot be deleted
+// e.g. std::cout
+inline void
+no_delete(void*)
+{}

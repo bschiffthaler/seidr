@@ -111,54 +111,55 @@ main(int argc, char* argv[])
   }
 
   std::string task = argv[1];
+  auto args = shift_args(argc, argv);
 
   int ret;
 
   try {
     if (task == "adjacency") {
-      ret = adjacency(argc, argv);
+      ret = adjacency(args);
     } else if (task == "aggregate") {
-      ret = aggregate(argc, argv);
+      ret = aggregate(args);
     } else if (task == "asp") {
-      ret = asp(argc, argv);
+      ret = asp(args);
     } else if (task == "backbone") {
-      ret = backbone(argc, argv);
+      ret = backbone(args);
     } else if (task == "cluster-enrichment") {
-      ret = cluster_enrichment(argc, argv);
+      ret = cluster_enrichment(args);
     } else if (task == "compare") {
-      ret = compare(argc, argv);
+      ret = compare(args);
     } else if (task == "convert") {
-      ret = convert(argc, argv);
+      ret = convert(args);
     } else if (task == "describe") {
-      ret = describe(argc, argv);
+      ret = describe(args);
     } else if (task == "graphstats") {
-      ret = graphstats(argc, argv);
+      ret = graphstats(args);
     } else if (task == "import") {
-      ret = import(argc, argv);
+      ret = import(args);
     } else if (task == "index") {
-      ret = index(argc, argv);
+      ret = index(args);
     } else if (task == "neighbours") {
-      ret = neighbours(argc, argv);
+      ret = neighbours(args);
     } else if (task == "reheader") {
-      ret = reheader(argc, argv);
+      ret = reheader(args);
     } else if (task == "resolve") {
-      ret = resolve(argc, argv);
+      ret = resolve(args);
     } else if (task == "roc") {
-      ret = roc(argc, argv);
+      ret = roc(args);
     } else if (task == "sample") {
-      ret = sample(argc, argv);
+      ret = sample(args);
     } else if (task == "stats") {
-      ret = stats(argc, argv);
+      ret = stats(args);
     } else if (task == "tau") {
-      ret = tau(argc, argv);
+      ret = tau(args);
     } else if (task == "threshold") {
-      ret = threshold(argc, argv);
+      ret = threshold(args);
     } else if (task == "top") {
-      ret = top(argc, argv);
+      ret = top(args);
     } else if (task == "view") {
-      ret = view(argc, argv);
+      ret = view(args);
     } else if (task == "test") {
-      ret = test(argc, argv);
+      ret = test(args);
     }
 
     else {

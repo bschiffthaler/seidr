@@ -21,6 +21,9 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
+
+constexpr uint64_t SEIDR_TOP_DEF_NTOP = 10;
 
 struct seidr_top_param_t
 {
@@ -32,4 +35,4 @@ struct seidr_top_param_t
 };
 
 int
-top(int argc, char** argv);
+top(const std::vector<std::string>& args);

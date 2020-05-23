@@ -38,12 +38,14 @@ main(int argc, char** argv)
 {
   logger log(std::cerr, "TOMSimilarity");
 
-  seidr_tom_param_t param;
-
-  po::options_description umbrella("Topological overlap matrix as implemented "
-                                   "in WGCNA");
-  po::variables_map vm;
   try {
+
+    seidr_tom_param_t param;
+
+    po::options_description umbrella(
+      "Topological overlap matrix as implemented "
+      "in WGCNA");
+    po::variables_map vm;
     po::options_description opt("Common Options");
     opt.add_options()("help,h", "Show this help message")(
       "targets,t",
@@ -55,7 +57,7 @@ main(int argc, char** argv)
       po::value<std::string>(&param.outfile)->default_value("tom_scores.tsv"),
       "Output file path")(
       "verbosity,v",
-      po::value<unsigned>(&param.verbosity)->default_value(3),
+      po::value<unsigned>(&param.verbosity)->default_value(TOM_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)")(
       "force,f",
       po::bool_switch(&param.force)->default_value(false),
@@ -76,10 +78,10 @@ main(int argc, char** argv)
       po::value<uint64_t>(&param.sft)->default_value(0),
       "Soft threshold to apply (0 for autodetection)")(
       "max-power,M",
-      po::value<uint64_t>(&param.max_power)->default_value(30),
+      po::value<uint64_t>(&param.max_power)->default_value(TOM_DEF_MAX_POW),
       "Maximum power to check for SFT test in auto detection mode")(
       "sft-cutoff,S",
-      po::value<double>(&param.sft_cutoff)->default_value(0.8, "0.8"),
+      po::value<double>(&param.sft_cutoff)->default_value(TOM_DEF_FIT, _XSTR(TOM_DEF_FIT)),
       "Soft threshold R^2 cutoff in autodetection mode")(
       "tom-type,T",
       po::value<std::string>(&param.tom_type)->default_value("signed"),
@@ -95,29 +97,19 @@ main(int argc, char** argv)
 
     umbrella.add(req).add(algopt).add(opt);
 
-    po::positional_options_description p;
+    po::positional_options_description pos;
 
     po::store(po::command_line_parser(argc, argv).options(umbrella).run(), vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  if (vm.count("help") > 0 || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 1;
-  }
+    if (vm.count("help") != 0 || argc == 1) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
 
-  try {
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << "Argument exception: " << e.what() << '\n';
-    return 22;
-  }
 
-  log.set_log_level(param.verbosity);
+    log.set_log_level(param.verbosity);
 
-  try {
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);
     param.gene_file = to_absolute(param.gene_file);
@@ -145,14 +137,9 @@ main(int argc, char** argv)
     assert_arg_constraint<std::string>(
       { "unsigned", "signed", "signed-hybrid" }, param.tom_type);
     assert_in_range<double>(param.sft_cutoff, 0, 1, "sft-cutoff");
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  arma::mat gm;
+    arma::mat gm;
 
-  try {
     gm.load(param.infile, arma::raw_ascii);
     std::vector<std::string> genes = read_genes(param.gene_file);
     verify_matrix(gm, genes);
@@ -179,10 +166,10 @@ main(int argc, char** argv)
     if (p == 0) {
       for (uint64_t i = 2; i <= param.max_power; i += 2) {
         log(LOG_INFO) << "Checking scale free fit. SFT = " << i << '\n';
-        double sft = scale_free_fit(gm, i, 10, tt);
+        double sft = scale_free_fit(gm, i, 10, tt); // NOLINT
         p = i;
         log(LOG_INFO) << "SFT (" << i << ") = " << sft << '\n';
-        if (sft > 0.8) {
+        if (sft > param.sft_cutoff) {
           log(LOG_INFO) << "Power " << i << " satisfied fit.\n";
           break;
         }
@@ -221,9 +208,16 @@ main(int argc, char** argv)
         }
       }
     }
-  } catch (std::runtime_error& e) {
-    log(LOG_ERR) << e.what() << '\n';
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
     return 1;
   }
+
   return 0;
 }

@@ -41,15 +41,12 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-static const std::map<char, uint8_t> op_prec_char = {
-  { '<', 10 }, { '>', 10 }, { '=', 9 },  { '&', 5 },  { '|', 4 }, { '(', 0 },
-  { ')', 0 },  { '+', 12 }, { '-', 12 }, { '/', 13 }, { '*', 13 }
-};
+static std::map<char, uint8_t> op_prec_char;
 
 // The filter is implemented as a stack machine, so the easiest way is to
 // first conver the filter string to postfix notation
 std::vector<std::string>
-infix_to_postfix(std::string str)
+infix_to_postfix(const std::string& str)
 {
   std::stack<char> opstack;
   std::vector<std::string> postfix;
@@ -100,7 +97,7 @@ infix_to_postfix(std::string str)
 
 // Execute the postfix filter stack
 double
-eval_postfix(const std::vector<std::string> pf, const SeidrFileEdge& e)
+eval_postfix(const std::vector<std::string>& pf, const SeidrFileEdge& e)
 {
   std::stack<double> stack;
   for (auto s : pf) {
@@ -124,13 +121,13 @@ eval_postfix(const std::vector<std::string> pf, const SeidrFileEdge& e)
       char op = s[0];
       switch (op) {
         case '<':
-          stack.push(b < a);
+          stack.push(static_cast<double>(b < a));
           break;
         case '>':
-          stack.push(b > a);
+          stack.push(static_cast<double>(b > a));
           break;
         case '=':
-          stack.push(almost_equal(a, b));
+          stack.push(static_cast<double>(almost_equal(a, b)));
           break;
         case '+':
           stack.push(a + b);
@@ -145,10 +142,15 @@ eval_postfix(const std::vector<std::string> pf, const SeidrFileEdge& e)
           stack.push(a * b);
           break;
         case '|':
-          stack.push(a || b);
+          stack.push(
+            static_cast<double>(!almost_equal(a, 0) || !almost_equal(b, 0)));
           break;
         case '&':
-          stack.push(a && b);
+          stack.push(
+            static_cast<double>(!almost_equal(a, 0) && !almost_equal(b, 0)));
+          break;
+        default:
+          throw std::runtime_error("Unknown op: " + std::to_string(op));
           break;
       }
     }
@@ -164,18 +166,24 @@ print_centrality(const seidr_param_view_t& param,
 {
   if (param.titles) {
     std::vector<std::string> headers = { "Node" };
-    if (h.attr.pagerank_calc)
-      headers.push_back("PageRank");
-    if (h.attr.closeness_calc)
-      headers.push_back("Closeness");
-    if (h.attr.betweenness_calc)
-      headers.push_back("Betweenness");
-    if (h.attr.strength_calc)
-      headers.push_back("Strength");
-    if (h.attr.eigenvector_calc)
-      headers.push_back("Eigenvector");
-    if (h.attr.katz_calc)
-      headers.push_back("Katz");
+    if (h.attr.pagerank_calc != 0) {
+      headers.emplace_back("PageRank");
+    }
+    if (h.attr.closeness_calc != 0) {
+      headers.emplace_back("Closeness");
+    }
+    if (h.attr.betweenness_calc != 0) {
+      headers.emplace_back("Betweenness");
+    }
+    if (h.attr.strength_calc != 0) {
+      headers.emplace_back("Strength");
+    }
+    if (h.attr.eigenvector_calc != 0) {
+      headers.emplace_back("Eigenvector");
+    }
+    if (h.attr.katz_calc != 0) {
+      headers.emplace_back("Katz");
+    }
     for (uint32_t i = 0; i < headers.size(); i++) {
       out << headers[i] << (i == headers.size() - 1 ? '\n' : '\t');
     }
@@ -195,8 +203,9 @@ finish_binary(const seidr_param_view_t& param, SeidrFileHeader& hh)
   of2.open("w");
   double ne = hh.attr.edges;
   double nn = hh.attr.nodes;
-  if (ne < ((nn * (nn - 1) / 2) * 0.66))
+  if (ne < ((nn * (nn - 1) / 2) * 0.66)) { // NOLINT: Magic number sane here
     hh.attr.dense = 0;
+  }
   hh.serialize(of2);
 
   uint32_t i = 1;
@@ -205,7 +214,7 @@ finish_binary(const seidr_param_view_t& param, SeidrFileHeader& hh)
     SeidrFileEdge e;
     e.unserialize(tf, th);
 
-    if (hh.attr.dense) {
+    if (hh.attr.dense != 0) {
       while (i != e.index.i && j != e.index.j) {
         SeidrFileEdge eo;
         eo.serialize(tf, th);
@@ -287,7 +296,7 @@ max_lines_reached(const po::variables_map& vm,
                   const uint64_t& nlines,
                   const seidr_param_view_t& param)
 {
-  if (vm.count("lines")) {
+  if (vm.count("lines") != 0) {
     if (nlines >= param.nlines) {
       return true;
     }
@@ -330,36 +339,44 @@ print_titles(const seidr_param_view_t& param,
   out << "Source\tTarget\tType\t";
   for (uint16_t i = 0; i < h.attr.nalgs; i++) {
     out << h.algs[i] << "_score" << param.delim << h.algs[i] << "_rank";
-    if (i == h.attr.nalgs - 1 && h.attr.nsupp == 0 && (!param.full))
+    if (i == h.attr.nalgs - 1 && h.attr.nsupp == 0 && (!param.full)) {
       out << '\n';
-    else
+    } else {
       out << '\t';
+    }
   }
   for (uint16_t i = 0; i < h.attr.nsupp; i++) {
     out << h.supp[i];
-    if (i == h.attr.nsupp - 1 && (!param.full))
+    if (i == h.attr.nsupp - 1 && (!param.full)) {
       out << '\n';
-    else if (i == h.attr.nsupp - 1 && param.full)
+    } else if (i == h.attr.nsupp - 1 && param.full) {
       out << '\t';
-    else
+    } else {
       out << param.sc_delim;
+    }
   }
   if (param.full) {
     std::stringstream ost;
-    if (h.attr.pagerank_calc)
+    if (h.attr.pagerank_calc != 0) {
       ost << "PageRank_Source\tPageRank_target\t";
-    if (h.attr.closeness_calc)
+    }
+    if (h.attr.closeness_calc != 0) {
       ost << "Closeness_Source\tCloseness_target\t";
-    if (h.attr.betweenness_calc)
+    }
+    if (h.attr.betweenness_calc != 0) {
       ost << "Betweenness_Source\tBetweenness_target\t";
-    if (h.attr.strength_calc)
+    }
+    if (h.attr.strength_calc != 0) {
       ost << "Strength_Source\tStrength_target\t";
-    if (h.attr.eigenvector_calc)
+    }
+    if (h.attr.eigenvector_calc != 0) {
       ost << "Eigenvector_Source\tEigenvector_target\t";
-    if (h.attr.katz_calc)
+    }
+    if (h.attr.katz_calc != 0) {
       ost << "Katz_Source\tKatz_target\t";
+    }
     std::string ox = ost.str();
-    if (ox.size() > 0) {
+    if (!ox.empty()) {
       ox.back() = '\n';
     } else {
       ox += '\n';
@@ -369,125 +386,117 @@ print_titles(const seidr_param_view_t& param,
 }
 
 int
-view(int argc, char* argv[])
+view(const std::vector<std::string>& args)
 {
 
   logger log(std::cerr, "view");
 
-  seidr_param_view_t param;
-  uint64_t lines_printed = 0;
+  try {
 
-  // We ignore the first argument
-  const char* args[argc - 1];
-  std::string pr(argv[0]);
-  pr += " view";
-  args[0] = pr.c_str();
-  for (int i = 2; i < argc; i++)
-    args[i - 1] = argv[i];
-  argc--;
+    // NOLINTNEXTLINE: Magic numbers sane
+    op_prec_char = { { '<', 10 }, { '>', 10 }, { '=', 9 }, { '&', 5 },
+                     { '|', 4 },  { '(', 0 },  { ')', 0 }, { '+', 12 }, // NOLINT
+                     { '-', 12 }, { '/', 13 }, { '*', 13 } }; // NOLINT
 
-  po::options_description umbrella("View and filter contents of SeidrFiles");
+    seidr_param_view_t param;
+    uint64_t lines_printed = 0;
 
-  po::options_description opt("Common Options");
-  opt.add_options()("force,f",
-                    po::bool_switch(&param.force)->default_value(false),
-                    "Force overwrite output file if it exists")(
-    "help,h", "Show this help message")(
-    "strict,s",
-    po::bool_switch(&param.strict)->default_value(false),
-    "Fail on all issues instead of warning")(
-    "case-insensitive,I",
-    po::bool_switch(&param.case_insensitive)->default_value(false),
-    "Search case insensitive nodes")(
-    "tempdir,T",
-    po::value<std::string>(&param.tempdir)->default_value("", "auto"),
-    "Directory to store temporary data");
+    po::options_description umbrella("View and filter contents of SeidrFiles");
 
-  po::options_description fopt("Filter Options");
-  fopt.add_options()(
-    "threshold,t",
-    po::value<double>(&param.threshold)
-      ->default_value(-std::numeric_limits<double>::infinity()),
-    "Only print edges with a weight >= t")(
-    "threshold-rank,r",
-    po::bool_switch(&param.trank)->default_value(false),
-    "Threshold edges with a rank of <= t instead")(
-    "index,i",
-    po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
-    "Score column to use as edge weights")(
-    "filter,F",
-    po::value<std::string>(&param.filter),
-    "Supply a filter function to select edges")(
-    "nodelist,n",
-    po::value<std::string>(&param.nodes),
-    "Include only these nodes")(
-    "lines,l", po::value<uint32_t>(&param.nlines), "View only first l results");
+    po::options_description opt("Common Options");
+    opt.add_options()("force,f",
+                      po::bool_switch(&param.force)->default_value(false),
+                      "Force overwrite output file if it exists")(
+      "help,h", "Show this help message")(
+      "strict,s",
+      po::bool_switch(&param.strict)->default_value(false),
+      "Fail on all issues instead of warning")(
+      "case-insensitive,I",
+      po::bool_switch(&param.case_insensitive)->default_value(false),
+      "Search case insensitive nodes")(
+      "tempdir,T",
+      po::value<std::string>(&param.tempdir)->default_value("", "auto"),
+      "Directory to store temporary data");
 
-  po::options_description Fopt("Formatting Options");
-  Fopt.add_options()("no-names,N",
-                     po::bool_switch(&param.no_names)->default_value(false),
-                     "Print node index instead of name")(
-    "column-headers,c",
-    po::bool_switch(&param.titles)->default_value(false),
-    "Print column headers")("tags,a",
-                            po::bool_switch(&param.tags)->default_value(false),
-                            "Print supplementary information tags")(
-    "dense,D",
-    po::bool_switch(&param.full)->default_value(false),
-    "Print as much information as possible for each edge")(
-    "sc-delim,s",
-    po::value<std::string>(&param.sc_delim)->default_value(";"),
-    "Delimiter for supplementary tags")(
-    "delim,d",
-    po::value<std::string>(&param.delim)->default_value(";"),
-    "Delimiter for scores/ranks");
+    po::options_description fopt("Filter Options");
+    fopt.add_options()(
+      "threshold,t",
+      po::value<double>(&param.threshold)
+        ->default_value(-std::numeric_limits<double>::infinity()),
+      "Only print edges with a weight >= t")(
+      "threshold-rank,r",
+      po::bool_switch(&param.trank)->default_value(false),
+      "Threshold edges with a rank of <= t instead")(
+      "index,i",
+      po::value<uint32_t>(&param.tpos)->default_value(0, "last score"),
+      "Score column to use as edge weights")(
+      "filter,F",
+      po::value<std::string>(&param.filter),
+      "Supply a filter function to select edges")(
+      "nodelist,n",
+      po::value<std::string>(&param.nodes),
+      "Include only these nodes")("lines,l",
+                                  po::value<uint32_t>(&param.nlines),
+                                  "View only first l results");
 
-  po::options_description oopt("Output Options");
-  oopt.add_options()("outfile,o",
-                     po::value<std::string>(&param.ot_file)->default_value("-"),
-                     "Output file name ['-' for stdout]")(
-    "binary,b",
-    po::bool_switch(&param.binout)->default_value(false),
-    "Output binary SeidrFile");
+    po::options_description Fopt("Formatting Options");
+    Fopt.add_options()("no-names,N",
+                       po::bool_switch(&param.no_names)->default_value(false),
+                       "Print node index instead of name")(
+      "column-headers,c",
+      po::bool_switch(&param.titles)->default_value(false),
+      "Print column headers")(
+      "tags,a",
+      po::bool_switch(&param.tags)->default_value(false),
+      "Print supplementary information tags")(
+      "dense,D",
+      po::bool_switch(&param.full)->default_value(false),
+      "Print as much information as possible for each edge")(
+      "sc-delim,s",
+      po::value<std::string>(&param.sc_delim)->default_value(";"),
+      "Delimiter for supplementary tags")(
+      "delim,d",
+      po::value<std::string>(&param.delim)->default_value(";"),
+      "Delimiter for scores/ranks");
 
-  po::options_description ocopt("View metadata");
-  ocopt.add_options()("header,H",
-                      po::bool_switch(&param.header)->default_value(false),
-                      "Print file header as text")(
-    "centrality,C",
-    po::bool_switch(&param.centrality)->default_value(false),
-    "Print node centrality scores if present");
+    po::options_description oopt("Output Options");
+    oopt.add_options()(
+      "outfile,o",
+      po::value<std::string>(&param.ot_file)->default_value("-"),
+      "Output file name ['-' for stdout]")(
+      "binary,b",
+      po::bool_switch(&param.binout)->default_value(false),
+      "Output binary SeidrFile");
 
-  po::options_description req("Required [can be positional]");
-  req.add_options()("in-file",
-                    po::value<std::string>(&param.el_file)->required(),
-                    "Input SeidrFile");
+    po::options_description ocopt("View metadata");
+    ocopt.add_options()("header,H",
+                        po::bool_switch(&param.header)->default_value(false),
+                        "Print file header as text")(
+      "centrality,C",
+      po::bool_switch(&param.centrality)->default_value(false),
+      "Print node centrality scores if present");
 
-  umbrella.add(req).add(fopt).add(Fopt).add(ocopt).add(oopt).add(opt);
+    po::options_description req("Required [can be positional]");
+    req.add_options()("in-file",
+                      po::value<std::string>(&param.el_file)->required(),
+                      "Input SeidrFile");
 
-  po::positional_options_description p;
-  p.add("in-file", 1);
+    umbrella.add(req).add(fopt).add(Fopt).add(ocopt).add(oopt).add(opt);
 
-  po::variables_map vm;
-  po::store(
-    po::command_line_parser(argc, args).options(umbrella).positional(p).run(),
-    vm);
+    po::positional_options_description p;
+    p.add("in-file", 1);
 
-  if (vm.count("help") || argc == 1) {
-    std::cerr << umbrella << '\n';
-    return 22;
-  }
+    po::variables_map vm;
+    po::store(
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
 
-  try // Argument sanity
-  {
+    if (vm.count("help") != 0) {
+      std::cerr << umbrella << '\n';
+      return 1;
+    }
+
     po::notify(vm);
-  } catch (std::exception& e) {
-    log(LOG_ERR) << e.what() << '\n';
-    return 1;
-  }
 
-  try // General sanity checks
-  {
     param.el_file = to_absolute(param.el_file);
     assert_exists(param.el_file);
     assert_can_read(param.el_file);
@@ -501,7 +510,7 @@ view(int argc, char* argv[])
     }
 
     param.indexfile = param.el_file + ".sfi";
-    if (vm.count("nodelist") && (!file_exists(param.indexfile))) {
+    if (vm.count("nodelist") != 0 && (!file_exists(param.indexfile))) {
       throw std::runtime_error("SeidrFile index " + param.indexfile +
                                " must exist when using --nodelist");
     }
@@ -515,103 +524,73 @@ view(int argc, char* argv[])
       throw std::runtime_error("Writing binary output to stdout is currently "
                                "not supported");
     }
-  } catch (std::runtime_error& except) {
-    log(LOG_ERR) << except.what() << '\n';
-    return 1;
-  }
 
-  SeidrFile rf(param.el_file.c_str());
-  rf.open("r");
-  SeidrFileHeader h;
-  h.unserialize(rf);
+    SeidrFile rf(param.el_file.c_str());
+    rf.open("r");
+    SeidrFileHeader h;
+    h.unserialize(rf);
 
-  std::vector<std::string> pf;
-  bool do_filter = false;
-  if (vm.count("filter")) {
-    pf = infix_to_postfix(param.filter);
-    do_filter = true;
-  }
-
-  make_tpos(param.tpos, h);
-
-  // Prepare binary output structures
-  SeidrFileHeader hh = h;
-  hh.attr.edges = 0;
-  hh.attr.dense = 0;
-  param.tempfile = tempfile(param.tempdir);
-  SeidrFile of(param.tempfile.c_str());
-  if (param.binout) {
-    of.open("w");
-    hh.serialize(of);
-  }
-  // Prepare textual output structures
-  std::shared_ptr<std::ostream> out(&std::cout, [](...) {});
-  if (param.ot_file != "-" && (!param.binout)) {
-    out.reset(new std::ofstream(param.ot_file.c_str()));
-  }
-
-  // Print only header
-  if (param.header) {
-    h.print(*out);
-    return 0;
-  }
-  // Print centrality measures
-  if (param.centrality) {
-    print_centrality(param, h, *out);
-    return 0;
-  }
-  // Print titles if requested
-  if (param.titles) {
-    print_titles(param, h, *out);
-  }
-  if (param.nodes != "") {
-    if (file_exists(param.nodes)) {
-      param.nodelist = read_genes(param.nodes, '\n', '\t');
-    } else {
-      param.nodelist = tokenize_delim(param.nodes, ",");
+    std::vector<std::string> pf;
+    bool do_filter = false;
+    if (vm.count("filter") != 0) {
+      pf = infix_to_postfix(param.filter);
+      do_filter = true;
     }
 
-    SeidrFile sfi(param.indexfile.c_str());
-    sfi.open("r");
-    SeidrFileIndex index(param.case_insensitive, param.strict);
-    index.unserialize(sfi, h);
-    sfi.close();
-    std::set<offset_t> nodeset = index.get_offset_nodelist(param.nodelist);
+    make_tpos(param.tpos, h);
 
-    for (const offset_t& o : nodeset) {
-      if (o.o > 0) {
-        rf.seek(o.o);
-        SeidrFileEdge e;
-        e.unserialize(rf, h);
-        e.index.i = o.i;
-        e.index.j = o.j;
-        if (print_and_check_maxl(e,
-                                 h,
-                                 *out,
-                                 pf,
-                                 param,
-                                 of,
-                                 hh,
-                                 do_filter,
-                                 lines_printed,
-                                 rf,
-                                 vm)) {
-          return 0;
-        }
+    // Prepare binary output structures
+    SeidrFileHeader hh = h;
+    hh.attr.edges = 0;
+    hh.attr.dense = 0;
+    param.tempfile = tempfile(param.tempdir);
+    SeidrFile of(param.tempfile.c_str());
+    if (param.binout) {
+      of.open("w");
+      hh.serialize(of);
+    }
+    // Prepare textual output structures
+    std::shared_ptr<std::ostream> out(&std::cout, no_delete);
+    if (param.ot_file != "-" && (!param.binout)) {
+      out =
+        std::shared_ptr<std::ostream>(new std::ofstream(param.ot_file.c_str()));
+    }
+
+    // Print only header
+    if (param.header) {
+      h.print(*out);
+      return 0;
+    }
+    // Print centrality measures
+    if (param.centrality) {
+      print_centrality(param, h, *out);
+      return 0;
+    }
+    // Print titles if requested
+    if (param.titles) {
+      print_titles(param, h, *out);
+    }
+    if (!param.nodes.empty()) {
+      if (file_exists(param.nodes)) {
+        param.nodelist = read_genes(param.nodes, '\n', '\t');
       } else {
-        if (o.o > -99) {
-          log(LOG_WARN) << o.err << '\n';
-        }
+        param.nodelist = tokenize_delim(param.nodes, ",");
       }
-    }
-  } else if (h.attr.dense) {
-    for (uint64_t i = 1; i < h.attr.nodes; i++) {
-      for (uint64_t j = 0; j < i; j++) {
-        SeidrFileEdge e;
-        e.unserialize(rf, h);
-        e.index.i = i;
-        e.index.j = j;
-        if (EDGE_EXISTS(e.attr.flag)) {
+
+      SeidrFile sfi(param.indexfile.c_str());
+      sfi.open("r");
+      SeidrFileIndex index(param.case_insensitive, param.strict);
+      index.unserialize(sfi, h);
+      sfi.close();
+      std::set<offset_t> nodeset = index.get_offset_nodelist(param.nodelist);
+
+      for (const offset_t& o : nodeset) {
+        if (o.o > 0) {
+          rf.seek(o.o);
+          SeidrFileEdge e;
+          e.unserialize(rf, h);
+          e.index.i = o.i;
+          e.index.j = o.j;
           if (print_and_check_maxl(e,
                                    h,
                                    *out,
@@ -625,27 +604,76 @@ view(int argc, char* argv[])
                                    vm)) {
             return 0;
           }
+        } else {
+          if (o.o > -99) { // NOLINT: Magic number is sane here
+            log(LOG_WARN) << o.err << '\n';
+          }
+        }
+      }
+    } else if (h.attr.dense != 0) {
+      for (uint64_t i = 1; i < h.attr.nodes; i++) {
+        for (uint64_t j = 0; j < i; j++) {
+          SeidrFileEdge e;
+          e.unserialize(rf, h);
+          e.index.i = i;
+          e.index.j = j;
+          if (EDGE_EXISTS(e.attr.flag)) {
+            if (print_and_check_maxl(e,
+                                     h,
+                                     *out,
+                                     pf,
+                                     param,
+                                     of,
+                                     hh,
+                                     do_filter,
+                                     lines_printed,
+                                     rf,
+                                     vm)) {
+              return 0;
+            }
+          }
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < h.attr.edges; i++) {
+        SeidrFileEdge e;
+        e.unserialize(rf, h);
+        if (print_and_check_maxl(e,
+                                 h,
+                                 *out,
+                                 pf,
+                                 param,
+                                 of,
+                                 hh,
+                                 do_filter,
+                                 lines_printed,
+                                 rf,
+                                 vm)) {
+          return 0;
         }
       }
     }
-  } else {
-    for (uint64_t i = 0; i < h.attr.edges; i++) {
-      SeidrFileEdge e;
-      e.unserialize(rf, h);
-      if (print_and_check_maxl(
-            e, h, *out, pf, param, of, hh, do_filter, lines_printed, rf, vm)) {
-        return 0;
-      }
+
+    rf.close();
+
+    if (param.binout) {
+      of.close();
     }
+
+    if (param.binout) {
+      finish_binary(param, hh);
+    }
+
+  } catch (const po::error& e) {
+    log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::runtime_error& e) {
+    log(LOG_ERR) << "[Runtime Error]: " << e.what() << '\n';
+    return 1;
+  } catch (const std::exception& e) {
+    log(LOG_ERR) << "[Generic Error]: " << e.what() << '\n';
+    return 1;
   }
-
-  rf.close();
-
-  if (param.binout)
-    of.close();
-
-  if (param.binout)
-    finish_binary(param, hh);
 
   return 0;
 }

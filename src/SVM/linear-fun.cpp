@@ -41,11 +41,8 @@
 
 namespace fs = boost::filesystem;
 
-std::random_device rd;
-std::mt19937 gen(rd());
-
 void
-print_null(const char* s)
+print_null(const char* s) // NOLINT(clang-diagnostic-unused-parameter)
 {}
 
 class seidr_mpi_svm : public seidr_mpi_omp
@@ -69,13 +66,13 @@ public:
   void set_targeted(bool x) { _targeted = x; }
 
 private:
-  parameter _param;
+  parameter _param{};
   arma::uword _min_sample_size = 0;
   arma::uword _max_sample_size = 0;
   arma::uword _predictor_sample_size_min = 0;
   arma::uword _predictor_sample_size_max = 0;
   arma::uword _ensemble_size = 0;
-  bool _targeted = 0;
+  bool _targeted = false;
 };
 
 void
@@ -87,10 +84,8 @@ seidr_mpi_svm::entrypoint()
     for (auto i : _my_indices) {
       uvec.push_back(i);
     }
-    while (check_logs(LOG_NAME "@" + mpi_get_host()))
-      ; // NOLINT
+    while (check_logs(LOG_NAME "@" + mpi_get_host())) {} // NOLINT
     svm(_data,
-        _genes,
         uvec,
         _tempdir,
         _param,
@@ -112,7 +107,6 @@ seidr_mpi_svm::finalize()
 
 void
 svm(const arma::mat& geneMatrix,
-    const std::vector<std::string>& genes,
     const std::vector<arma::uword>& uvec,
     const std::string& tmpdir,
     parameter& param,
@@ -123,6 +117,8 @@ svm(const arma::mat& geneMatrix,
     const arma::uword& ensemble_size,
     seidr_mpi_svm* self)
 {
+  std::random_device rd;
+  std::mt19937 gen(rd());
 
   seidr_mpi_logger log(LOG_NAME "@" + mpi_get_host());
 
@@ -148,10 +144,10 @@ svm(const arma::mat& geneMatrix,
     samples(i) = i;
   }
 
-#pragma omp parallel for schedule(dynamic)
-  for (uint64_t i = 0; i < uvec.size(); i++) {
+#pragma omp parallel for schedule(dynamic) // NOLINT
+  for (uint64_t i = 0; i < uvec.size(); i++) { // NOLINT
     arma::vec ret(geneMatrix.n_cols);
-    auto& target = uvec[i];
+    const auto& target = uvec[i];
     arma::uvec pred(geneMatrix.n_cols - 1);
     arma::uword j = 0;
     for (arma::uword i = 0; i < geneMatrix.n_cols; i++) {
@@ -164,9 +160,9 @@ svm(const arma::mat& geneMatrix,
 
     // Ensure all genes have the same initial seed such that
     // sample sizes are identical
-    std::seed_seq sseq{ 3, 1, 4, 1, 5, 9, 2, 6, 5 };
+    std::seed_seq sseq SEIDR_DEFAULT_SSEQ;
     gen.seed(sseq);
-    arma::arma_rng::set_seed(314159265);
+    arma::arma_rng::set_seed(SEIDR_DEFAULT_SEED);
     for (arma::uword boot = 0; boot < ensemble_size; boot++) {
       // Randomly select a number of predictor genes in range
       // predictor_sample_size_min to predictor_sample_size_max
@@ -190,10 +186,10 @@ svm(const arma::mat& geneMatrix,
       arma::mat pred_mat = geneMatrix.submat(sample_sub, pred_sub);
 
       // Set up SVM problem struct sparse node notation
-      feature_node** nodes = SEIDR_MALLOC(feature_node*, pred_mat.n_rows);
+      feature_node** nodes = SEIDR_MALLOC(feature_node*, pred_mat.n_rows); // NOLINT
 
       for (arma::uword i = 0; i < pred_mat.n_rows; i++) {
-        nodes[i] = SEIDR_MALLOC(feature_node, pred_mat.n_cols + 2);
+        nodes[i] = SEIDR_MALLOC(feature_node, pred_mat.n_cols + 2); // NOLINT
       }
 
       for (arma::uword i = 0; i < pred_mat.n_rows; i++) {
@@ -209,7 +205,7 @@ svm(const arma::mat& geneMatrix,
           double y = pred_mat(i, j);
           // Do not add zeros to the problem
           if (!almost_equal(y, 0)) {
-            nodes[i][t] = feature_node{ x, y };
+            nodes[i][t] = feature_node{ x, y }; // NOLINT
             t++;
           }
         }
@@ -219,11 +215,10 @@ svm(const arma::mat& geneMatrix,
         } catch (boost::numeric::bad_numeric_cast& e) {
           throw std::runtime_error(e.what());
         }
-        nodes[i][t] = feature_node{ bias_index, 1 };
+        nodes[i][t] = feature_node{ bias_index, 1 }; // NOLINT
         t++;
         // The end of the nodes is signified by a node with index -1
-        nodes[i][t] = feature_node{ -1, 0 };
-        // std::cout << "Final t:" << t << '\n';
+        nodes[i][t] = feature_node{ -1, 0 }; // NOLINT
       }
 
       // Get target expression and make sure we have the same samples
@@ -245,7 +240,7 @@ svm(const arma::mat& geneMatrix,
 
       // Check parameters of the model
       const char* error_msg = check_parameter(&prob, &param);
-      if (error_msg) {
+      if (error_msg != nullptr) {
         std::string msg(error_msg);
         throw std::runtime_error(msg);
       }
@@ -255,7 +250,7 @@ svm(const arma::mat& geneMatrix,
       // Extract support vector coefficients and indices
       arma::mat coefs(1, nfeats - 1);
       for (int i = 0; i < nfeats - 1; i++) {
-        coefs(0, i) = mod->w[i];
+        coefs(0, i) = mod->w[i]; // NOLINT
       }
 
       // arma::mat pred_transp = pred_mat.t();
@@ -275,7 +270,7 @@ svm(const arma::mat& geneMatrix,
 
       // Zero out weights vector and set top 20th values to 1
       weights.zeros();
-      arma::uword rt = pred_mat.n_cols / 20;
+      arma::uword rt = pred_mat.n_cols / 20; // NOLINT
       for (arma::uword i = 0; i <= rt; i++) {
         weights(sort_index(i)) = 1;
       }
@@ -285,17 +280,11 @@ svm(const arma::mat& geneMatrix,
       ret.elem(pred_sub) += weights;
 
       // Free memory of SVM problem and model
-      free_and_destroy_model(&mod);
-      // delete[] sv_indices;
-      // std::cout << "Freeing " << pred_mat.n_rows << " nodes*\n";
+      free_and_destroy_model(&mod); // NOLINT
       for (arma::uword i = 0; i < pred_mat.n_rows; i++) {
-        // std::cout << i;
-        free(nodes[i]);
-        // std::cout << "..";
+        free(nodes[i]); // NOLINT
       }
-      // std::cout << "\nFreed nodes*\n";
-      free(nodes);
-      // std::cout << "Freed nodes**\n";
+      free(nodes); // NOLINT
     }
 
 #pragma omp critical
@@ -349,14 +338,12 @@ svm_full(const arma::mat& GM,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {} // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {} // NOLINT
     }
   }
 
@@ -378,13 +365,13 @@ svm_partial(const arma::mat& GM,
   fs::path d_out(p_out.parent_path());
 
   std::vector<uint64_t> positions;
-  for (uint64_t i = 0; i < targets.size(); i++) {
-    uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
+  for (const auto& target : targets) {
+    uint64_t pos = find(genes.begin(), genes.end(), target) - genes.begin();
     if (pos >= genes.size()) {
-      log << "Gene " << targets[i] << " was not found in the expression set "
+      log << "Gene " << target << " was not found in the expression set "
           << "and will therefore not be considered."
           << " Please check that your expression set and "
-          << "its column names (gene file) contain an entry for " << targets[i]
+          << "its column names (gene file) contain an entry for " << target
           << ".\n";
       log.log(LOG_WARN);
     } else {
@@ -415,14 +402,12 @@ svm_partial(const arma::mat& GM,
 #pragma omp critical
   {
     if (mpi.rank() == 0) {
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {} // NOLINT
       mpi.finalize_pbar();
       log << "Finalizing...\n";
       log.send(LOG_INFO);
       mpi.finalize();
-      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host()))
-        ; // NOLINT
+      while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {} // NOLINT
     }
   }
 

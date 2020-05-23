@@ -20,6 +20,10 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
+constexpr uint16_t SEIDR_THRESHOLD_DEF_PREC = 8;
+constexpr uint32_t SEIDR_THRESHOLD_DEF_NSTEP = 100;
 
 struct seidr_threshold_param_t
 {
@@ -36,4 +40,4 @@ struct seidr_threshold_param_t
 };
 
 int
-threshold(int argc, char** argv);
+threshold(const std::vector<std::string>& args);

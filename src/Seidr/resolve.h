@@ -19,6 +19,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 
 struct seidr_resolve_param_t
 {
@@ -30,4 +31,4 @@ struct seidr_resolve_param_t
 };
 
 int
-resolve(int argc, char* argv[]);
+resolve(const std::vector<std::string>& args);

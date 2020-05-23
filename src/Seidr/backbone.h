@@ -19,6 +19,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 
 struct seidr_backbone_param_t
 {
@@ -32,4 +33,4 @@ struct seidr_backbone_param_t
 };
 
 int
-backbone(int argc, char* argv[]);
+backbone(const std::vector<std::string>& args);

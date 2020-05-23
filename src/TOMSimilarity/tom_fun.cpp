@@ -45,7 +45,7 @@ rank_vector(std::vector<edge>& ev)
   size_t pos = 0;
   double prev = it->w;
   size_t start = 0;
-  double rank;
+  double rank = 0;
   while (it != ev.end()) {
     it++;
     pos++;
@@ -104,24 +104,23 @@ write_lm(arma::mat& gm, const std::string& outfile, bool abs)
 
 double
 scale_free_fit(const arma::mat& gm,
-               const uint64_t p,
-               const uint64_t nbreaks,
-               const tom_cor_t cor)
+               const uint64_t& p,
+               const uint64_t& nbreaks,
+               const tom_cor_t& cor)
 {
-  double pd = numeric_cast<double>(p);
+  auto pd = numeric_cast<double>(p);
   arma::mat gm_copy;
   if (cor == UNSIGNED) {
     gm_copy = arma::pow(arma::abs(gm), pd);
   } else if (cor == SIGNED) {
-    gm_copy = arma::pow(((gm + 1) * 0.5), pd);
+    gm_copy = arma::pow(((gm + 1) * 0.5), pd); // NOLINT
   } else if (cor == SIGNED_HYBRID) {
     gm_copy = gm;
     gm_copy.transform([](double x) -> double {
       if (x < 0) {
         return 0;
-      } else {
-        return x;
       }
+      return x;
     });
     gm_copy = arma::pow(gm_copy, pd);
   }
@@ -167,7 +166,7 @@ scale_free_fit(const arma::mat& gm,
   // Calculate mid points of bins
   arma::vec midpoints(nbreaks, arma::fill::zeros);
   for (arma::uword i = 0; i < (breaks.n_elem - 1); i++) {
-    midpoints(i) = ((breaks(i) + breaks(i + 1)) / 2.0);
+    midpoints(i) = ((breaks(i) + breaks(i + 1)) / 2.0); // NOLINT
   }
 
   // R^2 is the correlation of P(k) ~ k
@@ -176,20 +175,19 @@ scale_free_fit(const arma::mat& gm,
 }
 
 arma::mat
-tom_similarity(arma::mat& gm, const uint64_t p, const tom_cor_t cor)
+tom_similarity(arma::mat& gm, const uint64_t& p, const tom_cor_t& cor)
 {
-  double pd = numeric_cast<double>(p);
+  auto pd = numeric_cast<double>(p);
   if (cor == UNSIGNED) {
     gm = arma::pow(arma::abs(gm), pd);
   } else if (cor == SIGNED) {
-    gm = arma::pow(((gm + 1) * 0.5), pd);
+    gm = arma::pow(((gm + 1) * 0.5), pd); // NOLINT
   } else if (cor == SIGNED_HYBRID) {
     gm.transform([](double x) -> double {
       if (x < 0) {
         return 0;
-      } else {
-        return x;
       }
+      return x;
     });
     gm = arma::pow(gm, pd);
   }
@@ -231,7 +229,7 @@ bicor(const arma::mat& gm)
     double me = arma::median(col);
     arma::vec w(col.n_elem, arma::fill::zeros);
     for (arma::uword i = 0; i < col.n_elem; i++) {
-      double xi = ((col(i) - me) / (9 * ma));
+      double xi = ((col(i) - me) / (9 * ma)); // NOLINT
       if (fabs(xi) > 1) {
         w(i) = 0;
       } else {

@@ -18,6 +18,10 @@
  */
 
 #pragma once
+#include <string>
+#include <vector>
+
+constexpr double SEIDR_STATS_DEF_SAMPLES = 0.1;
 
 struct seidr_stats_param_t
 {
@@ -32,4 +36,4 @@ struct seidr_stats_param_t
 };
 
 int
-stats(int argc, char** argv);
+stats(const std::vector<std::string>& args);
