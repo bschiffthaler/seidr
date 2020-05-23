@@ -66,7 +66,7 @@ main(int argc, char** argv)
       " of genes of interest. The network will only be"
       " calculated using these as the sources of potential connections.")(
       "outfile,o",
-      po::value<std::string>(&param.outfile)->default_value("elnet_scores.tsv"),
+      po::value<std::string>(&param.outfile)->default_value("tigress_scores.tsv"),
       "Output file path")("save-resume",
                           po::value<std::string>(&param.cmd_file),
                           "Path to a file that stores job resume info.")(
