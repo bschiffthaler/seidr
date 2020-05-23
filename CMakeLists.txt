@@ -190,7 +190,7 @@ add_library(seidr-glmnet STATIC external/glmnet/src/glmnet5dp.f)
 
 add_library(seidr-bgzf STATIC external/bgzf/bgzf.c)
 
-# Build a custom library from the networkit sources
+# Build a custom library from the ranger and networkit sources
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 
 # Build executables: Seidr
@@ -222,7 +222,14 @@ add_executable(
   src/Seidr/viewRanks.cpp
   src/Seidr/seidr.cpp)
 target_include_directories(
-  seidr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/deps/include src/Seidr)
+  seidr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/deps/include
+                ${CMAKE_CURRENT_BINARY_DIR}/NetworKit/include
+                src/Seidr)
+target_link_directories(
+  seidr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/NetworKit/lib
+                ${CMAKE_CURRENT_BINARY_DIR}/NetworKit/lib64
+  )
+add_dependencies(seidr NetworKit)
 
 # Tigress
 add_executable(tigress src/Tigress/tiglm.cpp src/Tigress/tigress.cpp
@@ -307,6 +314,7 @@ target_link_libraries(tigress PUBLIC seidr-glmnet)
 target_link_libraries(el-ensemble PUBLIC seidr-glmnet)
 
 target_link_libraries(seidr PUBLIC networkit)
+target_link_libraries(seidr PUBLIC tlx)
 
 target_link_libraries(seidr PUBLIC bs)
 
