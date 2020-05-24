@@ -221,7 +221,7 @@ main(int argc, char** argv)
     std::vector<std::string> genes = read_genes(param.gene_file);
     verify_matrix(gene_matrix, genes);
     if (param.num_bins == 0) {
-      arma::uvec bc = bin_count(gene_matrix, 1);
+      auto bc = arma::conv_to<arma::vec>::from(bin_count(gene_matrix, 1));
 
       double s = arma::stddev(bc);
       param.num_bins = arma::median(bc);
@@ -231,7 +231,7 @@ main(int argc, char** argv)
                                  " is too low.");
       }
       if (param.num_bins > MI_WARN_BINS) {
-        log << "Bin count " << param.num_bins
+        log << "Bin count " << param.num_bins << ", stddev: " << s
             << " is high and might use a high amount of memory.\n";
         log.log(LOG_WARN);
       } else {
