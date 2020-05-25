@@ -614,7 +614,7 @@ aggregate(const std::vector<std::string>& args)
             edges_read[k]++;
             // If the last edge in a sparse network was read, do not attempt a
             // file read
-            if (header_vec[k].attr.dense != 0 &&
+            if (header_vec[k].attr.dense == 0 &&
                 edges_read[k] > header_vec[k].attr.edges) {
               get_next[k] = 0;
               SeidrFileEdge e;
@@ -624,7 +624,7 @@ aggregate(const std::vector<std::string>& args)
             } else {
               SeidrFileEdge e;
               e.unserialize(infile_vec[k], header_vec[k]);
-              if (header_vec[k].attr.dense == 0) {
+              if (header_vec[k].attr.dense != 0) {
                 e.index.i = i;
                 e.index.j = j;
               }
