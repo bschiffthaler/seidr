@@ -261,6 +261,10 @@ verify_matrix(const arma::mat& inp, const std::vector<std::string>& genes)
 void
 verify_matrix(const arma::mat& inp)
 {
+  if (inp.n_rows == 0 || inp.n_cols == 0) {
+    throw std::runtime_error("Armadillo couldn't parse input data. Please check that"
+      " all data is numeric without 'NA', 'NAN' etc.");
+  }
   if (!inp.is_finite()) {
     throw std::runtime_error("Not all elements in input matrix are finite.");
   }
