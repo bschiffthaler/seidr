@@ -158,7 +158,7 @@ get_tp_fp(std::vector<std::pair<uint32_t, uint32_t>>& truth,
     if (std::binary_search(truth.begin(), truth.end(), x)) {
       tp++;
     } else {
-      if (tneg.empty()) {
+      if (! tneg.empty()) {
         if (std::binary_search(tneg.begin(), tneg.end(), x)) {
           fp++;
         }
