@@ -141,7 +141,7 @@ el_ensemble(const arma::mat& geneMatrix,
 
   std::uniform_int_distribution<> sample_gen(min_sample_size, max_sample_size);
   std::uniform_int_distribution<> predictor_gen(predictor_sample_size_min,
-                                                predictor_sample_size_max);
+      predictor_sample_size_max);
 
   seidr_score_t fensemble_size = 0;
 
@@ -155,7 +155,7 @@ el_ensemble(const arma::mat& geneMatrix,
     samples(i) = i;
   }
 
-#pragma omp parallel for default(shared) schedule(dynamic)
+  #pragma omp parallel for default(shared) schedule(dynamic)
   for (uint64_t i = 0; i < uvec.size(); i++) // NOLINT
   {
     arma::vec ret(geneMatrix.n_cols);
@@ -250,12 +250,16 @@ el_ensemble(const arma::mat& geneMatrix,
       } catch (std::exception& e) {
         reshuf++;
         bool should_break = false;
-#pragma omp critical
+        #pragma omp critical
         {
+#ifdef DEBUG
+          log << "Exception in G" << target << ": " << e.what() << '\n';
+          log.send(LOG_DEBUG);
+#endif
           if (reshuf > boot / 3) {
             log
-              << "Gene " << genes[target] << " was too low variance "
-              << "and ancountered too many reshuffles. All output will be 0.\n";
+                << "Gene " << genes[target] << " was too low variance "
+                << "and ancountered too many reshuffles. All output will be 0.\n";
             log.send(LOG_WARN);
             ret.zeros();
             should_break = true;
@@ -266,7 +270,7 @@ el_ensemble(const arma::mat& geneMatrix,
         }
       }
     }
-#pragma omp critical
+    #pragma omp critical
     {
       while (self->check_logs(LOG_NAME "@" + mpi_get_host())) {}
       self->increment_pbar();
@@ -310,7 +314,7 @@ el_full(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
-#pragma omp critical
+  #pragma omp critical
   {
     if (mpi.rank() == 0) {
       while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}
@@ -335,13 +339,13 @@ el_partial(const arma::mat& GM,
   for (uint64_t i = 0; i < targets.size(); i++) {
     uint64_t pos = find(genes.begin(), genes.end(), targets[i]) - genes.begin();
     if (pos >= genes.size()) {
-#pragma omp critical
+      #pragma omp critical
       {
         log << "Gene " << targets[i] << " was not found in the expression set "
-            << "and will therefore not be considered."
-            << " Please check that your expression set and "
-            << "its column names (gene file) contain an entry for "
-            << targets[i] << ".\n";
+        << "and will therefore not be considered."
+        << " Please check that your expression set and "
+        << "its column names (gene file) contain an entry for "
+        << targets[i] << ".\n";
         log.send(LOG_WARN);
       }
     } else {
@@ -371,7 +375,7 @@ el_partial(const arma::mat& GM,
 
   SEIDR_MPI_BARRIER();
   mpi.remove_queue_file();
-#pragma omp critical
+  #pragma omp critical
   {
     if (mpi.rank() == 0) {
       while (mpi.check_logs(LOG_NAME "@" + mpi_get_host())) {}

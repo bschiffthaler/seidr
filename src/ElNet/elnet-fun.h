@@ -20,9 +20,9 @@
 #pragma once
 
 #include <armadillo>
+#include <common.h>
 #include <string>
 #include <vector>
-#include <common.h>
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>

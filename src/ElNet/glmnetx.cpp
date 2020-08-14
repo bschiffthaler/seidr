@@ -258,6 +258,9 @@ lambda_interp_t
 lambda_interp(arma::vec lambda, arma::vec s)
 {
   lambda_interp_t ret;
+  if (! lambda.is_finite()) {
+    throw std::runtime_error("Bad interpolation: lambda not finite");
+  }
   if (lambda.size() == 1) {
     arma::uvec left(s.size(), arma::fill::ones);
     ret.left = left;
@@ -288,7 +291,7 @@ lambda_interp(arma::vec lambda, arma::vec s)
       y(i) = i;
     }
 
-    interp1(lambda, y, sfrac, yy);
+    arma::interp1(lambda, y, sfrac, yy);
 
     arma::uvec l = arma::conv_to<arma::uvec>::from(arma::floor(yy));
     arma::uvec r = arma::conv_to<arma::uvec>::from(arma::ceil(yy));
