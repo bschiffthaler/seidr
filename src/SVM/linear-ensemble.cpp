@@ -103,19 +103,19 @@ main(int argc, char** argv)
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
         ->default_value(0, "20% of predictors"),
-      "The minimum number of predictors to be sampled.")(
+      "The minimum absolute number of predictors (genes) to be sampled.")(
       "max-predictor-size,P",
       po::value<seidr_uword_t>(&param.predictor_sample_size_max)
         ->default_value(0, "80% of predictors"),
-      "The maximum number of predictors to be sampled")(
+      "The maximum absolute number of predictors (genes) to be sampled")(
       "min-experiment-size,x",
       po::value<seidr_uword_t>(&param.min_sample_size)
         ->default_value(0, "20% of experiments"),
-      "The minimum number of experiments to be sampled")(
+      "The minimum absolute number of experiments (samples) to be sampled")(
       "max-experiment-size,X",
       po::value<seidr_uword_t>(&param.max_sample_size)
         ->default_value(0, "80% of experiments"),
-      "The maximum number of experiments to be sampled");
+      "The maximum absolute number of experiments (samples) to be sampled");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -200,6 +200,8 @@ main(int argc, char** argv)
         assert_exists(param.gene_file);
         assert_can_read(param.gene_file);
         assert_can_read(param.infile);
+        assert_no_cr(param.gene_file);
+        assert_no_cr(param.infile);
 
         if (param.mode == SVM_PARTIAL) {
           assert_exists(param.targets_file);

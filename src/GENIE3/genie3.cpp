@@ -177,6 +177,8 @@ main(int argc, char** argv)
         assert_exists(param.gene_file);
         assert_can_read(param.gene_file);
         assert_can_read(param.infile);
+        assert_no_cr(param.gene_file);
+        assert_no_cr(param.infile);
 
         if (param.mode == GENIE3_PARTIAL) {
           assert_exists(param.targets_file);

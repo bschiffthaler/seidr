@@ -315,6 +315,7 @@ convert(const std::vector<std::string>& args)
       param.infile = to_absolute(param.infile);
       assert_exists(param.infile);
       assert_can_read(param.infile);
+      assert_no_cr(param.infile);
     }
 
     if (param.outfile != "-") {

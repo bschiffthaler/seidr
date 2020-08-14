@@ -62,7 +62,7 @@ public:
   // resulting network
   uint32_p reindex(SeidrFileHeader& h, SeidrFileEdge& e)
   {
-    return {map_c.at(h.nodes[e.index.i]), map_c.at(h.nodes[e.index.j])};
+    return { map_c.at(h.nodes[e.index.i]), map_c.at(h.nodes[e.index.j]) };
   }
   // Get a vector of new node names after calculating the
   // set union of nodes of both networks

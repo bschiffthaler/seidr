@@ -219,7 +219,8 @@ shift_args(const int& argc, char* argv[])
 
 // Check for filepattern of seidr temp files
 // [a-z]-[a-z]-[a-z]-[a-z]
-bool is_seidr_tmpfile(const std::string& path);
+bool
+is_seidr_tmpfile(const std::string& path);
 
 // Use for shared_ptr in case the object cannot be deleted
 // e.g. std::cout

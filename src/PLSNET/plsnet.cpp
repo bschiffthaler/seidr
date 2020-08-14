@@ -112,7 +112,7 @@ main(int argc, char** argv)
       "predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size)
         ->default_value(PLSNET_DEF_SAMPLE_SIZE, "sqrt(m)"),
-      "The number of predictors to be sampled.");
+      "The number of predictors (genes) to be sampled.");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -172,6 +172,8 @@ main(int argc, char** argv)
         assert_exists(param.gene_file);
         assert_can_read(param.gene_file);
         assert_can_read(param.infile);
+        assert_no_cr(param.gene_file);
+        assert_no_cr(param.infile);
 
         if (param.mode == PLSNET_PARTIAL) {
           assert_exists(param.targets_file);

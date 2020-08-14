@@ -68,3 +68,5 @@ void
 assert_no_overwrite(const std::string& fname);
 void
 assert_can_read(const std::string& fname);
+void
+assert_no_cr(const std::string& infile, uint64_t nlines = 5);

@@ -39,8 +39,6 @@ constexpr arma::uword LLR_DEF_ENSEMBLE = 1000;
 constexpr double LLR_DEF_TOLERANCE = 0.001;
 constexpr double LLR_DEF_EPSILON = 0.1;
 
-
-
 struct seidr_llr_param_t
 {
   friend class boost::serialization::access;

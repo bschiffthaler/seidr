@@ -51,7 +51,9 @@ struct seidr_genie3_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
+  void serialize(
+    Archive& ar,
+    const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);

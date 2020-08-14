@@ -20,11 +20,11 @@
 #pragma once
 
 #include <armadillo>
+#include <common.h>
 #include <fstream>
 #include <map>
 #include <string>
 #include <vector>
-#include <common.h>
 
 constexpr uint8_t SEIDR_CONVERT_DEF_PREC = 8;
 

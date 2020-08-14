@@ -20,8 +20,8 @@
 #pragma once
 
 #include <armadillo>
-#include <vector>
 #include <string>
+#include <vector>
 
 constexpr unsigned TOM_DEF_VERBOSITY = 3;
 constexpr uint64_t TOM_DEF_MAX_POW = 30;

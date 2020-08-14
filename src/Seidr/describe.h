@@ -23,7 +23,6 @@
 
 constexpr uint32_t SEIDR_DESCRIBE_DEF_BINS = 25;
 
-
 struct seidr_param_describe_t
 {
   std::string el_file;

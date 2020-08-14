@@ -204,7 +204,7 @@ class seidr_mpi_logger
 {
 public:
   seidr_mpi_logger();
-  explicit seidr_mpi_logger(const std::string & nam);
+  explicit seidr_mpi_logger(const std::string& nam);
   template<typename T>
   friend seidr_mpi_logger& operator<<(seidr_mpi_logger& lhs, const T& rhs);
   void send(unsigned ll);

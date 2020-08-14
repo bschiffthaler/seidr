@@ -68,6 +68,7 @@ get_i(arma::uword ind, size_t s)
 std::vector<std::string>
 read_genes(const std::string& input, char row_delim, char field_delim)
 {
+  assert_no_cr(input);
   std::vector<std::string> res;
   const char rd = row_delim;
   const char fd = field_delim;
@@ -193,7 +194,7 @@ merge_files(const std::string& outfile,
 
     std::ifstream ifs;
     std::string file_path;
-    for (auto & it : rmap) {
+    for (auto& it : rmap) {
       if (file_path.empty()) // First iteration
       {
         file_path = it.second.second;
@@ -262,7 +263,8 @@ void
 verify_matrix(const arma::mat& inp)
 {
   if (inp.n_rows == 0 || inp.n_cols == 0) {
-    throw std::runtime_error("Armadillo couldn't parse input data. Please check that"
+    throw std::runtime_error(
+      "Armadillo couldn't parse input data. Please check that"
       " all data is numeric without 'NA', 'NAN' etc.");
   }
   if (!inp.is_finite()) {
@@ -344,7 +346,9 @@ guess_batch_size(uint64_t const& set_size, uint64_t const& task_n)
   return (set_size / task_n) + 1;
 }
 
-bool is_seidr_tmpfile(const std::string& path) {
+bool
+is_seidr_tmpfile(const std::string& path)
+{
   const std::string base = basename(path);
   uint64_t i = 0;
   for (const char& c : base) {
@@ -355,7 +359,7 @@ bool is_seidr_tmpfile(const std::string& path) {
     } else {
       if (!((c > 96 && c < 173) || (c > 47 && c < 58))) {
         return false;
-      }   
+      }
     }
     i++;
   }

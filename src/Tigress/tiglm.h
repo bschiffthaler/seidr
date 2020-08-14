@@ -20,9 +20,9 @@
 #pragma once
 
 #include <armadillo>
+#include <common.h>
 #include <string>
 #include <vector>
-#include <common.h>
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -40,7 +40,6 @@ constexpr seidr_uword_t TIGRESS_DEF_NSTEPS = 10;
 constexpr seidr_uword_t TIGRESS_DEF_ENSEMBLE = 1000;
 constexpr double TIGRESS_SAMPLE_MIN = 0.2;
 constexpr double TIGRESS_SAMPLE_MAX = 1;
-
 
 struct seidr_tigress_param_t
 {

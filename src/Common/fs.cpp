@@ -60,6 +60,22 @@ assert_no_overwrite(const std::string& fname)
 }
 
 void
+assert_no_cr(const std::string& infile, uint64_t nlines)
+{
+  std::ifstream ifs(infile.c_str(), std::ios::in);
+  std::string line;
+  uint64_t ctr = 0;
+  while (std::getline(ifs, line) && ctr < nlines) {
+    if (line.back() == '\r') {
+      throw std::runtime_error(
+        "Found CR character in " + infile +
+        ". Please convert the file to UNIX format first.");
+    }
+    ctr++;
+  }
+}
+
+void
 assert_can_read(const std::string& fname)
 {
   if (!file_can_read(fname)) {
@@ -152,7 +168,6 @@ basename(const std::string& xname)
   fs::path q(p.filename());
   return q.string();
 }
-
 
 bool
 create_directory(const std::string& path)

@@ -104,6 +104,8 @@ main(int argc, char** argv)
     assert_exists(param.gene_file);
     assert_can_read(param.gene_file);
     assert_can_read(param.infile);
+    assert_no_cr(param.gene_file);
+    assert_no_cr(param.infile);
 
     if (vm.count("targets") > 0) {
       param.targets_file = to_absolute(param.targets_file);

@@ -35,7 +35,7 @@ struct seidr_cc_param_t
   std::string delim;
   double alpha = SEIDR_COMPARE_CLUST_DEF_ALPHA;
   uint64_t min_members = SEIDR_COMPARE_CLUST_DEF_MIN_MEMBERS;
-  uint64_t max_members = SEIDR_COMPARE_CLUST_DEF_MAX_MEMBERS ;
+  uint64_t max_members = SEIDR_COMPARE_CLUST_DEF_MAX_MEMBERS;
   std::string file_out;
   bool force;
 };
@@ -115,10 +115,7 @@ operator<(const prank& a, const prank& b)
 }
 
 double
-log10_sigma_t(uint64_t m,
-              uint64_t n,
-              uint64_t mt,
-              uint64_t nt);
+log10_sigma_t(uint64_t m, uint64_t n, uint64_t mt, uint64_t nt);
 result
 test(cluster& lhs, cluster& rhs);
 double

@@ -165,6 +165,8 @@ main(int argc, char** argv)
         assert_exists(param.gene_file);
         assert_can_read(param.gene_file);
         assert_can_read(param.infile);
+        assert_no_cr(param.gene_file);
+        assert_no_cr(param.infile);
 
         if (vm.count("targets") != 0) {
           log << "Targets selected, but this algorithm will still need to "

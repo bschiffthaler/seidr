@@ -46,8 +46,8 @@ public:
                     uint64_t poll_interval = DEFAULT_POLL_INTERVAL,
                     uint64_t width = DEFAULT_BAR_WIDTH,
                     std::string unit = "units")
-    : _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit)),
-    _rank(0)
+    : _pbar(progbar_fancy<T>(f, max, poll_interval, width, unit))
+    , _rank(0)
   {}
   seidr_mpi_progbar& operator++()
   {

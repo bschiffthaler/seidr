@@ -20,9 +20,9 @@
 #pragma once
 
 #include <BSlogger.hpp>
+#include <common.h>
 #include <string>
 #include <vector>
-#include <common.h>
 
 #define PRINTING_MOD 100000000
 
@@ -82,8 +82,8 @@ struct reduced_edge
 struct shadow_t
 {
   shadow_t() = default;
-  uint8_t found{0};
-  uint64_t offset{0};
+  uint8_t found{ 0 };
+  uint64_t offset{ 0 };
 };
 
 class comb_hash
@@ -118,7 +118,8 @@ public:
     : _i(0)
     , _n(n)
     , _l(l){};
-  read_logger operator++(int); // NOLINT: Overlaps with readability-const-return-type
+  read_logger operator++(
+    int); // NOLINT: Overlaps with readability-const-return-type
   read_logger& operator++();
   size_t _i;
   size_t _n;

@@ -55,7 +55,9 @@ struct seidr_mi_param_t
 {
   friend class boost::serialization::access;
   template<typename Archive>
-  void serialize(Archive& ar, const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
+  void serialize(
+    Archive& ar,
+    const unsigned int version) // NOLINT(clang-diagnostic-unused-parameter)
   {
     ar& BOOST_SERIALIZATION_NVP(infile);
     ar& BOOST_SERIALIZATION_NVP(gene_file);
@@ -119,16 +121,11 @@ find_weights(const arma::mat& gm,
              size_t num_bins,
              size_t i);
 arma::vec
-hist1d(arma::vec& x,
-       arma::vec& weights,
-       size_t num_bins);
+hist1d(arma::vec& x, arma::vec& weights, size_t num_bins);
 double
 log2d(double x);
 double
-entropy1d(const arma::mat& gm,
-          arma::mat& wm,
-          size_t num_bins,
-          size_t i);
+entropy1d(const arma::mat& gm, arma::mat& wm, size_t num_bins, size_t i);
 void
 hist2d(arma::vec& x,
        arma::vec& wx,
