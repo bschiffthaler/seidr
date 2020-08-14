@@ -43,7 +43,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
 set(SEIDR_MINOR_VERSION 13)
-set(SEIDR_PATCH_VERSION 1)
+set(SEIDR_PATCH_VERSION 2)
 set(SEIDR_VERSION
     ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
 
@@ -80,9 +80,9 @@ if(CMAKE_OPTIMIZATION_LEVEL)
 endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE
-    "-DARMA_NO_DEBUG -DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
+    "-DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
 set(CMAKE_Fortran_FLAGS_RELEASE
-    "-DARMA_NO_DEBUG -DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
+    "-DNDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE}")
 
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO
     "-DDEBUG ${CMAKE_OPTIMIZATION_LEVEL_PRIVATE} -g")
@@ -191,6 +191,7 @@ add_library(seidr-glmnet STATIC external/glmnet/src/glmnet5dp.f)
 add_library(seidr-bgzf STATIC external/bgzf/bgzf.c)
 
 # Build a custom library from the ranger and networkit sources
+set(NETWORKIT_VERSION "7.0")
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 
 # Build executables: Seidr
@@ -568,6 +569,7 @@ install(
 
 message(STATUS "Summary:")
 message(STATUS "  Seidr version: ${SEIDR_VERSION}")
+message(STATUS "  NetworKit version: ${NETWORKIT_VERSION}")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 if(SEIDR_WITH_MPI)
   message(STATUS "  MPI: Yes")
