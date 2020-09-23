@@ -33,8 +33,10 @@
 #include <vector>
 
 #undef DEBUG
+#undef INFO
 
 #include <boost/program_options.hpp>
+#include <networkit/auxiliary/Log.hpp>
 #include <networkit/base/Algorithm.hpp>
 #include <networkit/centrality/ApproxCloseness.hpp>
 #include <networkit/centrality/Betweenness.hpp>
@@ -44,6 +46,7 @@
 #include <networkit/centrality/EstimateBetweenness.hpp>
 #include <networkit/centrality/KPathCentrality.hpp>
 #include <networkit/centrality/KatzCentrality.hpp>
+#include <networkit/centrality/LaplacianCentrality.hpp>
 #include <networkit/centrality/PageRank.hpp>
 #include <networkit/centrality/SpanningEdgeCentrality.hpp>
 #include <networkit/components/ConnectedComponents.hpp>
@@ -62,6 +65,9 @@ int
 stats(const std::vector<std::string>& args)
 {
   logger log(std::cerr, "stats");
+
+  // Turn off NetworKit's logging
+  Aux::Log::setLogLevel("QUIET");
 
   try {
 
@@ -85,12 +91,15 @@ stats(const std::vector<std::string>& args)
       "Use N samples for approximations")(
       "metrics,m",
       po::value<std::string>(&param.metrics)
-        ->default_value("PR,CLO,BTW,STR,EV,KTZ,SEC,EBC"),
+        ->default_value("PR,CLO,BTW,STR,EV,KTZ,LPC,SEC,EBC"),
       "String describing metrics to calculate")(
       "exact,e",
       po::bool_switch(&param.exact)->default_value(false),
       "Calculate exact stats.")(
-      "weight-rank,r",
+      "weight-is-distance",
+      po::bool_switch(&param.w_is_dist)->default_value(false),
+      "Edge weight represents a distance (rather than similarity).")(
+      "weight-rank",
       po::bool_switch(&param.trank)->default_value(false),
       "Set weight value to rank rather than score");
 
@@ -106,8 +115,7 @@ stats(const std::vector<std::string>& args)
 
     po::variables_map vm;
     po::store(
-      po::command_line_parser(args).options(umbrella).positional(p).run(),
-      vm);
+      po::command_line_parser(args).options(umbrella).positional(p).run(), vm);
 
     if (vm.count("help") != 0 || args.empty()) {
       std::cerr << umbrella << '\n';
@@ -121,7 +129,8 @@ stats(const std::vector<std::string>& args)
     assert_can_read(param.infile);
     for (const auto& metric : tokenize_delim(param.metrics, ",")) {
       assert_arg_constraint<std::string>(
-        { "PR", "CLO", "BTW", "STR", "EV", "KTZ", "SEC", "EBC" }, metric);
+        { "PR", "CLO", "BTW", "STR", "EV", "KTZ", "SEC", "EBC", "LPC" },
+        metric);
     }
 
     SeidrFile rf(param.infile.c_str());
@@ -130,36 +139,37 @@ stats(const std::vector<std::string>& args)
     SeidrFileHeader h;
     h.unserialize(rf);
 
-    if (h.attr.pagerank_calc == 1 && in_string("PR", param.metrics)) {
-      log(LOG_WARN) << "Found previous PageRank calculation. Deleting...\n";
-      h.attr.pagerank_calc = 0;
-      h.pagerank.clear();
-    }
-    if (h.attr.closeness_calc == 1 && in_string("CLO", param.metrics)) {
-      log(LOG_WARN) << "Found previous closeness calculation. Deleting...\n";
-      h.attr.closeness_calc = 0;
-      h.closeness.clear();
-    }
-    if (h.attr.betweenness_calc == 1 && in_string("BTW", param.metrics)) {
-      log(LOG_WARN) << "Found previous betweenness calculation. Deleting...\n";
-      h.attr.betweenness_calc = 0;
-      h.betweenness.clear();
-    }
-    if (h.attr.strength_calc == 1 && in_string("STR", param.metrics)) {
-      log(LOG_WARN) << "Found previous strength calculation. Deleting...\n";
-      h.attr.strength_calc = 0;
-      h.strength.clear();
-    }
-    if (h.attr.eigenvector_calc == 1 && in_string("EV", param.metrics)) {
-      log(LOG_WARN) << "Found previous eigenvector calculation. Deleting...\n";
-      h.attr.eigenvector_calc = 0;
-      h.eigenvector.clear();
-    }
-    if (h.attr.katz_calc == 1 && in_string("KTZ", param.metrics)) {
-      log(LOG_WARN) << "Found previous katz calculation. Deleting...\n";
-      h.attr.katz_calc = 0;
-      h.katz.clear();
-    }
+    // if (h.attr.pagerank_calc == 1 && in_string("PR", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous PageRank calculation. Deleting...\n";
+    //   h.attr.pagerank_calc = 0;
+    //   h.pagerank.clear();
+    // }
+    // if (h.attr.closeness_calc == 1 && in_string("CLO", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous closeness calculation. Deleting...\n";
+    //   h.attr.closeness_calc = 0;
+    //   h.closeness.clear();
+    // }
+    // if (h.attr.betweenness_calc == 1 && in_string("BTW", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous betweenness calculation.
+    //   Deleting...\n"; h.attr.betweenness_calc = 0; h.betweenness.clear();
+    // }
+    // if (h.attr.strength_calc == 1 && in_string("STR", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous strength calculation. Deleting...\n";
+    //   h.attr.strength_calc = 0;
+    //   h.strength.clear();
+    // }
+    // if (h.attr.eigenvector_calc == 1 && in_string("EV", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous eigenvector calculation.
+    //   Deleting...\n"; h.attr.eigenvector_calc = 0; h.eigenvector.clear();
+    // }
+    // if (h.attr.katz_calc == 1 && in_string("KTZ", param.metrics)) {
+    //   log(LOG_WARN) << "Found previous katz calculation. Deleting...\n";
+    //   h.attr.katz_calc = 0;
+    //   h.katz.clear();
+    // }
+
+    std::vector<std::string> centrality_names;
+    std::vector<double> centrality_data;
 
     if (!param.exact && param.nsamples == 0) {
       param.nsamples = boost::numeric_cast<uint64_t>(
@@ -169,7 +179,7 @@ stats(const std::vector<std::string>& args)
     }
     // Workaround for GitHub issue #9 (crash because approximate data structure
     // is initialized even though we are not using it)
-    else if (param.exact && param.nsamples == 0) {
+    if (param.nsamples == 0) {
       param.nsamples = h.attr.nodes;
     }
 
@@ -182,7 +192,12 @@ stats(const std::vector<std::string>& args)
     log(LOG_INFO) << "Creating Networkit graph\n";
     NetworKit::Graph g(h.attr.nodes, true, false);
     for (auto& e : ev) {
-      g.addEdge(e.index.i, e.index.j, e.scores[param.tpos].s);
+      double weight =
+        param.trank ? e.scores[param.tpos].r : e.scores[param.tpos].s;
+      // We do higher=better calculations first, so we need to inverse weight
+      // if it represents a distance
+      weight = param.w_is_dist ? 1 / weight : weight;
+      g.addEdge(e.index.i, e.index.j, weight);
     }
 
     g.indexEdges();
@@ -203,32 +218,83 @@ stats(const std::vector<std::string>& args)
       log(LOG_INFO) << "Calculating PageRank\n";
       NetworKit::PageRank prv(g);
       prv.run();
-      h.attr.pagerank_calc = 1;
+      // h.attr.pagerank_calc = 1;
+      centrality_names.emplace_back("PageRank");
       for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.pagerank.push_back(prv.score(i));
+        centrality_data.push_back(prv.score(i));
       }
     }
 
-    if (comp == 1 && in_string("CLO", param.metrics)) {
+    if (in_string("STR", param.metrics)) {
+      log(LOG_INFO) << "Calculating Node Strength\n";
+      // h.attr.strength_calc = 1;
+      centrality_names.emplace_back("Strength");
+      for (uint64_t i = 0; i < h.attr.nodes; i++) {
+        centrality_data.push_back(g.weightedDegree(i));
+      }
+    }
+
+    if (in_string("EV", param.metrics)) {
+      log(LOG_INFO) << "Calculating Eigenvector centrality\n";
+      NetworKit::EigenvectorCentrality evv(g);
+      evv.run();
+      // h.attr.eigenvector_calc = 1;
+      centrality_names.emplace_back("Eigenvector");
+      for (uint32_t i = 0; i < h.attr.nodes; i++) {
+        centrality_data.push_back(evv.score(i));
+      }
+    }
+
+    if (in_string("KTZ", param.metrics)) {
+      log(LOG_INFO) << "Calculating Katz centrality\n";
+      NetworKit::KatzCentrality kav(g);
+      kav.run();
+      // h.attr.katz_calc = 1;
+      centrality_names.emplace_back("Katz");
+      for (uint32_t i = 0; i < h.attr.nodes; i++) {
+        centrality_data.push_back(kav.score(i));
+      }
+    }
+
+    if (in_string("LPC", param.metrics)) {
+      log(LOG_INFO) << "Calculating Laplacian centrality\n";
+      NetworKit::LaplacianCentrality lav(g);
+      lav.run();
+      // h.attr.katz_calc = 1;
+      centrality_names.emplace_back("Laplacian");
+      for (uint32_t i = 0; i < h.attr.nodes; i++) {
+        centrality_data.push_back(lav.score(i));
+      }
+    }
+
+    // If weight is a distance it was inversed before and we need to now
+    // undo that. If it's a similarity we need to turn it into a distance.
+    // In any case, we inverse again
+    for (const auto e : g.edgeWeightRange()) {
+      g.setWeight(e.u, e.v, 1.0 / e.weight);
+    }
+
+    if (in_string("CLO", param.metrics)) {
       log(LOG_INFO) << "Calculating " << (param.exact ? "exact" : "approximate")
                     << " Closeness\n";
+
+      if (comp > 1) {
+        log(LOG_WARN)
+          << "Graph is disconnected, switching to exact variant...\n";
+      }
+
       NetworKit::ApproxCloseness clv(g, param.nsamples);
-      NetworKit::Closeness clve(g);
-      if (param.exact) {
+      NetworKit::Closeness clve(
+        g, false, NetworKit::ClosenessVariant::generalized);
+      if (param.exact || comp > 1) {
         clve.run();
       } else {
         clv.run();
       }
       for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.closeness.push_back(param.exact ? clve.score(i) : clv.score(i));
+        centrality_data.push_back(param.exact ? clve.score(i) : clv.score(i));
       }
-      h.attr.closeness_calc = 1;
-    } else if (in_string("CLO", param.metrics)) {
-      log(LOG_WARN) << "Graph is disconnected. Closeness is not defined\n";
-      for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.closeness.push_back(0);
-      }
-      h.attr.closeness_calc = 0;
+      centrality_names.emplace_back("Closeness");
     }
 
     std::vector<double> ebv;
@@ -252,39 +318,12 @@ stats(const std::vector<std::string>& args)
         btv.run();
       }
       for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.betweenness.push_back((param.exact || in_string("EBC", param.metrics))
-                                  ? btve.score(i)
-                                  : btv.score(i));
+        centrality_data.push_back(
+          (param.exact || in_string("EBC", param.metrics)) ? btve.score(i)
+                                                           : btv.score(i));
       }
-      h.attr.betweenness_calc = 1;
-    }
-
-    if (in_string("EV", param.metrics)) {
-      log(LOG_INFO) << "Calculating Eigenvector centrality\n";
-      NetworKit::EigenvectorCentrality evv(g);
-      evv.run();
-      h.attr.eigenvector_calc = 1;
-      for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.eigenvector.push_back(evv.score(i));
-      }
-    }
-
-    if (in_string("KTZ", param.metrics)) {
-      log(LOG_INFO) << "Calculating Katz centrality\n";
-      NetworKit::KatzCentrality kav(g);
-      kav.run();
-      h.attr.katz_calc = 1;
-      for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        h.katz.push_back(kav.score(i));
-      }
-    }
-
-    if (in_string("STR", param.metrics)) {
-      log(LOG_INFO) << "Calculating Node Strength\n";
-      h.attr.strength_calc = 1;
-      for (uint64_t i = 0; i < h.attr.nodes; i++) {
-        h.strength.push_back(g.weightedDegree(i));
-      }
+      centrality_names.emplace_back("Betweenness");
+      // h.attr.betweenness_calc = 1;
     }
 
     std::vector<double> spv;
@@ -339,6 +378,11 @@ stats(const std::vector<std::string>& args)
     SeidrFile tf(param.tempfile.c_str());
     tf.open("w");
 
+    h.centrality_data = centrality_data;
+    h.centrality_names = centrality_names;
+    h.attr.pagerank_calc = centrality_names.size();
+    // We update header version or else bad stuff happens
+    h.version_from_char(_XSTR(VERSION));
     h.serialize(tf);
 
     for (uint64_t i = 0; i < ev.size(); i++) {

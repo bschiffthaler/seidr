@@ -165,27 +165,38 @@ print_centrality(const seidr_param_view_t& param,
                  std::ostream& out)
 {
   if (param.titles) {
-    std::vector<std::string> headers = { "Node" };
-    if (h.attr.pagerank_calc != 0) {
-      headers.emplace_back("PageRank");
-    }
-    if (h.attr.closeness_calc != 0) {
-      headers.emplace_back("Closeness");
-    }
-    if (h.attr.betweenness_calc != 0) {
-      headers.emplace_back("Betweenness");
-    }
-    if (h.attr.strength_calc != 0) {
-      headers.emplace_back("Strength");
-    }
-    if (h.attr.eigenvector_calc != 0) {
-      headers.emplace_back("Eigenvector");
-    }
-    if (h.attr.katz_calc != 0) {
-      headers.emplace_back("Katz");
-    }
-    for (uint32_t i = 0; i < headers.size(); i++) {
-      out << headers[i] << (i == headers.size() - 1 ? '\n' : '\t');
+    if (h.version.major == 0 && h.version.minor < 14) {
+      std::vector<std::string> headers = { "Node" };
+      if (h.attr.pagerank_calc != 0) {
+        headers.emplace_back("PageRank");
+      }
+      if (h.attr.closeness_calc != 0) {
+        headers.emplace_back("Closeness");
+      }
+      if (h.attr.betweenness_calc != 0) {
+        headers.emplace_back("Betweenness");
+      }
+      if (h.attr.strength_calc != 0) {
+        headers.emplace_back("Strength");
+      }
+      if (h.attr.eigenvector_calc != 0) {
+        headers.emplace_back("Eigenvector");
+      }
+      if (h.attr.katz_calc != 0) {
+        headers.emplace_back("Katz");
+      }
+      for (uint32_t i = 0; i < headers.size(); i++) {
+        out << headers[i] << (i == headers.size() - 1 ? '\n' : '\t');
+      }
+    } else {
+      // Version >= 0.14
+      std::vector<std::string> headers = { "Node" };
+      for (const auto s : h.centrality_names) {
+        headers.push_back(s);
+      }
+      for (uint32_t i = 0; i < headers.size(); i++) {
+        out << headers[i] << (i == headers.size() - 1 ? '\n' : '\t');
+      }
     }
   }
   h.print_centrality(out);
@@ -394,8 +405,9 @@ view(const std::vector<std::string>& args)
   try {
 
     // NOLINTNEXTLINE: Magic numbers sane
-    op_prec_char = { { '<', 10 }, { '>', 10 }, { '=', 9 }, { '&', 5 },
-                     { '|', 4 },  { '(', 0 },  { ')', 0 }, { '+', 12 }, // NOLINT
+    op_prec_char = { { '<', 10 }, { '>', 10 }, { '=', 9 },
+                     { '&', 5 },  { '|', 4 },  { '(', 0 },
+                     { ')', 0 },  { '+', 12 },                // NOLINT
                      { '-', 12 }, { '/', 13 }, { '*', 13 } }; // NOLINT
 
     seidr_param_view_t param;

@@ -87,7 +87,7 @@ extern "C"
                                  "Algorithms\n");
     }
     for (uint32_t i = 0; i < attr.nsupp; i++) {
-      header_alg hs;
+      header_supp hs;
       const char* cn = supp[i].c_str();
       strncpy(hs.data, cn, HEADER_SUPP_SIZE);
       n = bgzf_write(file.bgzfile, &hs, sizeof(header_supp));
@@ -95,65 +95,22 @@ extern "C"
         throw std::runtime_error("Couldn't write SeidrFileHeader "
                                  "supplementary information\n");
     }
-    if (attr.pagerank_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = pagerank[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "pagerank\n");
-      }
+    for (uint8_t i = 0; i < attr.pagerank_calc; i++) {
+      header_supp hc;
+      const char* cn = centrality_names[i].c_str();
+      strncpy(hc.data, cn, HEADER_SUPP_SIZE);
+      n = bgzf_write(file.bgzfile, &hc, sizeof(header_supp));
+      if (n == 0)
+        throw std::runtime_error("Couldn't write SeidrFileHeader "
+                                 "centrality information\n");
     }
-    if (attr.closeness_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = closeness[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "closeness\n");
-      }
-    }
-    if (attr.betweenness_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = betweenness[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "betweenness\n");
-      }
-    }
-    if (attr.strength_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = strength[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "strength\n");
-      }
-    }
-    if (attr.eigenvector_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = eigenvector[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "eigenvector\n");
-      }
-    }
-    if (attr.katz_calc) {
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        c.data = katz[i];
-        n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't write SeidrFileHeader "
-                                   "katz\n");
-      }
+    for (uint64_t i = 0; i < centrality_data.size(); i++) {
+      header_centrality c;
+      c.data = centrality_data[i];
+      n = bgzf_write(file.bgzfile, &c, sizeof(header_centrality));
+      if (n == 0)
+        throw std::runtime_error("Couldn't write SeidrFileHeader "
+                                 "centrality data\n");
     }
     int success = bgzf_flush(file.bgzfile);
     if (success != 0)
@@ -164,97 +121,142 @@ extern "C"
   {
     ssize_t n = 0;
     n = bgzf_read(file.bgzfile, &attr, sizeof(header_attr));
-    if (n == 0)
+    if (n == 0) {
       throw std::runtime_error("Couldn't read SeidrFileHeader attributes\n");
+    }
+    version = version_t(attr.version);
     nodes.resize(attr.nodes);
     algs.resize(attr.nalgs);
     supp.resize(attr.nsupp);
     for (uint64_t i = 0; i < attr.nodes; i++) {
       header_node hn;
       n = bgzf_read(file.bgzfile, &hn, sizeof(header_node));
-      if (n == 0)
+      if (n == 0) {
         throw std::runtime_error("Couldn't read SeidrFileHeader nodes\n");
+      }
       nodes[i] = std::string(hn.data);
     }
     for (uint64_t i = 0; i < attr.nalgs; i++) {
       header_alg ha;
       n = bgzf_read(file.bgzfile, &ha, sizeof(header_alg));
-      if (n == 0)
+      if (n == 0) {
         throw std::runtime_error("Couldn't read SeidrFileHeader algorithms\n");
+      }
       algs[i] = std::string(ha.data);
     }
     for (uint32_t i = 0; i < attr.nsupp; i++) {
       header_supp hs;
       n = bgzf_read(file.bgzfile, &hs, sizeof(header_supp));
-      if (n == 0)
+      if (n == 0) {
         throw std::runtime_error("Couldn't read SeidrFileHeader "
                                  "supplementary information\n");
+      }
       supp[i] = std::string(hs.data);
     }
-    if (attr.pagerank_calc) {
-      pagerank.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "pagerank\n");
-        pagerank[i] = c.data;
+    if (version.major == 0 && version.minor < 14) {
+      // VERSION < 0.14
+      uint8_t ncent = 0;
+      if (attr.pagerank_calc) {
+        ncent++;
+        centrality_names.emplace_back("PageRank");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "pagerank\n");
+          }
+          centrality_data.push_back(c.data);
+        }
       }
-    }
-    if (attr.closeness_calc) {
-      closeness.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "closeness\n");
-        closeness[i] = c.data;
+      if (attr.closeness_calc) {
+        ncent++;
+        centrality_names.emplace_back("Closeness");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "closeness\n");
+          }
+          centrality_data.push_back(c.data);
+        }
       }
-    }
-    if (attr.betweenness_calc) {
-      betweenness.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "betweenness\n");
-        betweenness[i] = c.data;
+      if (attr.betweenness_calc) {
+        ncent++;
+        centrality_names.emplace_back("Betweenness");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "betweenness\n");
+          }
+          centrality_data.push_back(c.data);
+        }
       }
-    }
-    if (attr.strength_calc) {
-      strength.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "strength\n");
-        strength[i] = c.data;
+      if (attr.strength_calc) {
+        ncent++;
+        centrality_names.emplace_back("Strength");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "strength\n");
+          }
+          centrality_data.push_back(c.data);
+        }
       }
-    }
-    if (attr.eigenvector_calc) {
-      eigenvector.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
-        header_centrality c;
-        n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
-          throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "eigenvector\n");
-        eigenvector[i] = c.data;
+      if (attr.eigenvector_calc) {
+        ncent++;
+        centrality_names.emplace_back("Eigenvector");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "eigenvector\n");
+          }
+          centrality_data.push_back(c.data);
+        }
       }
-    }
-    if (attr.katz_calc) {
-      katz.resize(attr.nodes);
-      for (uint32_t i = 0; i < attr.nodes; i++) {
+      if (attr.katz_calc) {
+        ncent++;
+        centrality_names.emplace_back("Katz");
+        for (uint32_t i = 0; i < attr.nodes; i++) {
+          header_centrality c;
+          n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
+          if (n == 0) {
+            throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                     "katz\n");
+          }
+          centrality_data.push_back(c.data);
+        }
+      }
+      attr.pagerank_calc = ncent;
+    } else {
+      // VERSION >= 0.14
+      uint64_t ncent = attr.pagerank_calc;
+      centrality_names.resize(ncent);
+      centrality_data.resize(ncent * attr.nodes);
+      for (uint64_t i = 0; i < ncent; i++) {
+        header_supp hc;
+        n = bgzf_read(file.bgzfile, &hc, sizeof(header_supp));
+        if (n == 0) {
+          throw std::runtime_error("Couldn't read SeidrFileHeader "
+                                   "centrality information\n");
+        }
+        centrality_names[i] = std::string(hc.data);
+      }
+      for (uint64_t i = 0; i < ncent * attr.nodes; i++) {
         header_centrality c;
         n = bgzf_read(file.bgzfile, &c, sizeof(header_centrality));
-        if (n == 0)
+        if (n == 0) {
           throw std::runtime_error("Couldn't read SeidrFileHeader "
-                                   "katz\n");
-        katz[i] = c.data;
+                                   "centrality data\n");
+        }
+        centrality_data[i] = c.data;
       }
     }
   }
@@ -264,12 +266,19 @@ extern "C"
     out << "# [G] Nodes: " << attr.nodes << '\n';
     out << "# [G] Edges: " << attr.edges << '\n';
     out << "# [G] Storage: " << (attr.dense ? "Dense\n" : "Sparse\n");
+
     out << "# [G] Algorithms #: " << attr.nalgs << '\n';
-    out << "# [G] Supplementary data #: " << attr.nsupp << '\n';
     for (auto& a : algs)
       out << "# [A] " << a << '\n';
+
+    out << "# [G] Supplementary data #: " << attr.nsupp << '\n';
     for (auto& s : supp)
       out << "# [S] " << s << '\n';
+
+    out << "# [G] Centrality #: " << centrality_names.size() << '\n';
+    for (auto& s : centrality_names)
+      out << "# [C] " << s << '\n';
+
     out << "# [R] Version: " << attr.version << '\n';
     out << "# [R] Cmd: " << attr.cmd << '\n';
     for (auto& n : nodes)
@@ -278,63 +287,16 @@ extern "C"
 
   void SeidrFileHeader::print_centrality(std::ostream& out) const
   {
-    uint32_t nmeasures = attr.pagerank_calc + attr.closeness_calc +
-                         attr.betweenness_calc + attr.strength_calc +
-                         attr.eigenvector_calc + attr.katz_calc;
-    if (nmeasures == 0)
-      throw std::runtime_error(
-        "At least one node centrality measure must be calculated\n");
-    for (uint32_t i = 0; i < attr.nodes; i++) {
+    uint64_t nmeasures = attr.pagerank_calc; // Cast up from uint8_t
+    for (uint64_t i = 0; i < attr.nodes; i++) {
       auto nm = nmeasures;
-      (out) << nodes[i] << '\t';
-      if (attr.pagerank_calc) {
-        (out) << pagerank[i];
-        nm--;
+      (out) << nodes[i] << (nmeasures == 0 ? '\n' : '\t');
+
+      for (uint64_t nm = 0; nm < nmeasures; nm++) {
+        uint64_t offset = (attr.nodes * nm) + i;
+        (out) << centrality_data[offset]
+              << (nm == (nmeasures - 1) ? '\n' : '\t');
       }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
-      if (attr.closeness_calc) {
-        (out) << closeness[i];
-        nm--;
-      }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
-      if (attr.betweenness_calc) {
-        (out) << betweenness[i];
-        nm--;
-      }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
-      if (attr.strength_calc) {
-        (out) << strength[i];
-        nm--;
-      }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
-      if (attr.eigenvector_calc) {
-        (out) << eigenvector[i];
-        nm--;
-      }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
-      if (attr.katz_calc) {
-        (out) << katz[i];
-        nm--;
-      }
-      if (nm == 0)
-        (out) << '\n';
-      else
-        (out) << '\t';
     }
   }
 
@@ -357,7 +319,7 @@ extern "C"
   }
 
   void SeidrFileHeader::cmd_from_args(const std::vector<std::string>& args,
-    std::string cmd)
+                                      std::string cmd)
   {
     for (const auto& arg : args) {
       cmd += " " + arg;

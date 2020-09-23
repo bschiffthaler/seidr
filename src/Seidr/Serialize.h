@@ -217,6 +217,38 @@ extern "C"
     }
   };
 
+  class version_t
+  {
+  public:
+    uint32_t major = 0;
+    uint32_t minor = 0;
+    uint32_t patch = 0;
+    version_t() = default;
+    version_t(char * V) {
+      std::string s;
+      uint32_t p = 0;
+      for (uint32_t i = 0; i < HEADER_VERSION_SIZE; i++) {
+        char c = V[i];
+        if (c == '.' || c == '\0') {
+          if (p == 0) {
+            major = std::stoul(s);
+          } else if (p == 1) {
+            minor = std::stoul(s);
+          } else if (p == 2) {
+            patch = std::stoul(s);
+          }
+          p++;
+          s.clear();
+          if (c == '\0') {
+            break;
+          }
+          continue;
+        }
+        s += c;
+      }
+    }
+  };
+
   class SeidrFile
   {
   public:
@@ -245,6 +277,7 @@ extern "C"
   {
   public:
     header_attr attr;
+    version_t version;
     uint16_t get_supp_ind(std::string supp_n);
     bool have_supp(std::string supp_n);
     std::vector<std::string> nodes;
@@ -262,6 +295,8 @@ extern "C"
     std::vector<double> strength;
     std::vector<double> eigenvector;
     std::vector<double> katz;
+    std::vector<std::string> centrality_names;
+    std::vector<double> centrality_data;
     void cmd_from_args(char** argv, int argc);
     void cmd_from_args(const std::vector<std::string>& args,
                        std::string cmd = "");

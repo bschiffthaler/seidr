@@ -28,6 +28,7 @@ If you have any questions, contact me at:
    source/aggregate/aggregate
    source/threshold/threshold
    source/backbone/backbone
+   source/stats/stats
 
 .. toctree::
    :caption: Algorithms

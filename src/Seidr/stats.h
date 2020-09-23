@@ -33,6 +33,7 @@ struct seidr_stats_param_t
   std::string metrics;
   std::string tempdir;
   std::string tempfile;
+  bool w_is_dist = false;
 };
 
 int

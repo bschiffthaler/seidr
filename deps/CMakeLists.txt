@@ -17,7 +17,7 @@ ExternalProject_Add(
   GIT_REPOSITORY https://github.com/networkit/networkit.git
   GIT_SHALLOW 1
   GIT_PROGRESS 1
-  GIT_TAG 6.1
+  GIT_TAG ${NETWORKIT_VERSION}
   UPDATE_DISCONNECTED ON
 )
 

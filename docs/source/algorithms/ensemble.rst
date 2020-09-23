@@ -69,7 +69,7 @@ Optional arguments for the Ensemble methods
 The sampling boundaries ``-X``, ``-x``, ``-P`` and ``-p`` default to 4/5th of 
 samples/predictors for the upper bound and 1/5th for the lower. In runs with small
 experiment sizes (<50) one should set this manually higher to avoid undersampling.
-In these cases, I suggest 90% for the upper boundary and 50% for the lower (in experiments).
+In these cases, I suggest 90% for the upper boundary and 50% for the lower (in experiments). These are *absolute* numbers. E.g., if you have 50 samples and you want 50% - 90% as a lower & upper bound, set ``-x 25 -X 45``. 
 
 Running ensembles for a subset of genes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
