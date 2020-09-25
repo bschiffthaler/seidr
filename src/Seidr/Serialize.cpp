@@ -651,25 +651,24 @@ extern "C"
       out << end;
     } else {
       std::stringstream ost;
-      ost << '\t';
-      if (header.attr.pagerank_calc)
-        ost << header.pagerank[xi] << '\t' << header.pagerank[xj] << '\t';
-      if (header.attr.closeness_calc)
-        ost << header.closeness[xi] << '\t' << header.closeness[xj] << '\t';
-      if (header.attr.betweenness_calc)
-        ost << header.betweenness[xi] << '\t' << header.betweenness[xj] << '\t';
-      if (header.attr.strength_calc)
-        ost << header.strength[xi] << '\t' << header.strength[xj] << '\t';
-      if (header.attr.eigenvector_calc)
-        ost << header.eigenvector[xi] << '\t' << header.eigenvector[xj] << '\t';
-      if (header.attr.katz_calc)
-        ost << header.katz[xi] << '\t' << header.katz[xj] << '\t';
-      std::string ox = ost.str();
-      if (ox.size() > 0) {
-        ox.back() = '\n';
+      uint64_t nmeasures = header.attr.pagerank_calc; // Cast up from uint8_t
+      auto nm = nmeasures;
+
+      if (nmeasures > 0) {
+        ost << '\t';
       } else {
-        ox += '\n';
+        ost << '\n';
       }
+
+      for (uint64_t nm = 0; nm < nmeasures; nm++) {
+        uint64_t offset1 = (header.attr.nodes * nm) + xi;
+        uint64_t offset2 = (header.attr.nodes * nm) + xj;
+        (ost) << header.centrality_data[offset1] 
+              << '\t' 
+              << header.centrality_data[offset2]
+              << (nm == (nmeasures - 1) ? '\n' : '\t');
+      }
+      std::string ox = ost.str();
       out << ox;
     }
   }
