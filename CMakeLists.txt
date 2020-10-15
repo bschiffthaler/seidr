@@ -363,6 +363,7 @@ target_link_libraries(seidr PUBLIC ${ZLIB_LIBRARIES})
 
 if(SEIDR_PSTL)
   find_package(TBB REQUIRED)
+  target_include_directories(seidr PRIVATE ${CMAKE_PROJECT_DIR}/external/pstl/include)
   target_include_directories(seidr PRIVATE ${TBB_INCLUDE_DIR})
   target_link_libraries(seidr PUBLIC ${TBB_LIBRARIES})
 endif()
@@ -545,6 +546,15 @@ check_ipo_supported(RESULT ipo_f_supported OUTPUT ipo_f_supp_output LANGUAGES
                     Fortran)
 if(result AND CMAKE_ENABLE_IPO)
   set_property(TARGET seidr-glmnet PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+#
+# Tests
+#
+
+if(CMAKE_ENABLE_TESTS)
+  enable_testing()
+  add_subdirectory(test)
 endif()
 
 #
