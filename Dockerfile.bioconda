@@ -1,0 +1,9 @@
+FROM bioconda/bioconda-utils-build-env
+COPY src /build/src
+COPY deps /build/deps
+COPY CMakeModules /build/CMakeModules
+COPY CMakeLists.txt /build
+COPY external /build/external
+COPY conda /build/conda
+COPY LICENCE /build
+COPY README.md /build

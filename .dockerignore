@@ -1,0 +1,5 @@
+build/
+bugs/
+example/
+*test/
+bundle/

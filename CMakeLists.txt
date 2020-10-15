@@ -182,6 +182,10 @@ endif()
 # Everything incudes Common
 include_directories(src/Common src/Seidr external/bgzf external/BSlogger/src)
 
+if (SEIDR_PSTL)
+  include_directories(external/pstl/include)
+endif()
+
 # Create library from common files to avoid re-compiling them
 add_library(seidr-common src/Common/common.cpp src/Common/fs.cpp "${MPI_SRC}")
 target_include_directories(seidr-common PRIVATE src/Seidr)
@@ -363,7 +367,6 @@ target_link_libraries(seidr PUBLIC ${ZLIB_LIBRARIES})
 
 if(SEIDR_PSTL)
   find_package(TBB REQUIRED)
-  target_include_directories(seidr PRIVATE ${CMAKE_PROJECT_DIR}/external/pstl/include)
   target_include_directories(seidr PRIVATE ${TBB_INCLUDE_DIR})
   target_link_libraries(seidr PUBLIC ${TBB_LIBRARIES})
 endif()
