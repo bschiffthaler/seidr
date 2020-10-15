@@ -1,5 +1,5 @@
 // -*- C++ -*-
-//===----------------------------------------------------------------------===//
+//===-- utils.h -----------------------------------------------------------===//
 //
 // Copyright (C) 2017-2019 Intel Corporation
 //
@@ -13,20 +13,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _PSTL_UTILS_H
-#define _PSTL_UTILS_H
+#ifndef __PSTL_utils_H
+#define __PSTL_utils_H
 
 #include <new>
 #include <iterator>
 
-namespace pstl
+namespace __pstl
 {
-namespace __internal
+namespace internal
 {
 
 template <typename _Fp>
 typename std::result_of<_Fp()>::type
-__except_handler(_Fp __f)
+except_handler(_Fp __f)
 {
     try
     {
@@ -44,46 +44,46 @@ __except_handler(_Fp __f)
 
 template <typename _Fp>
 void
-__invoke_if(std::true_type, _Fp __f)
+invoke_if(std::true_type, _Fp __f)
 {
     __f();
 }
 
 template <typename _Fp>
 void
-__invoke_if(std::false_type, _Fp __f)
+invoke_if(std::false_type, _Fp __f)
 {
 }
 
 template <typename _Fp>
 void
-__invoke_if_not(std::false_type, _Fp __f)
+invoke_if_not(std::false_type, _Fp __f)
 {
     __f();
 }
 
 template <typename _Fp>
 void
-__invoke_if_not(std::true_type, _Fp __f)
+invoke_if_not(std::true_type, _Fp __f)
 {
 }
 
 template <typename _F1, typename _F2>
 typename std::result_of<_F1()>::type
-__invoke_if_else(std::true_type, _F1 __f1, _F2 __f2)
+invoke_if_else(std::true_type, _F1 __f1, _F2 __f2)
 {
     return __f1();
 }
 
 template <typename _F1, typename _F2>
 typename std::result_of<_F2()>::type
-__invoke_if_else(std::false_type, _F1 __f1, _F2 __f2)
+invoke_if_else(std::false_type, _F1 __f1, _F2 __f2)
 {
     return __f2();
 }
 
 //! Unary operator that returns reference to its argument.
-struct __no_op
+struct no_op
 {
     template <typename _Tp>
     _Tp&&
@@ -95,12 +95,12 @@ struct __no_op
 
 //! Logical negation of a predicate
 template <typename _Pred>
-class __not_pred
+class not_pred
 {
     _Pred _M_pred;
 
   public:
-    explicit __not_pred(_Pred __pred) : _M_pred(__pred) {}
+    explicit not_pred(_Pred __pred) : _M_pred(__pred) {}
 
     template <typename... _Args>
     bool
@@ -111,12 +111,12 @@ class __not_pred
 };
 
 template <typename _Pred>
-class __reorder_pred
+class reorder_pred
 {
     _Pred _M_pred;
 
   public:
-    explicit __reorder_pred(_Pred __pred) : _M_pred(__pred) {}
+    explicit reorder_pred(_Pred __pred) : _M_pred(__pred) {}
 
     template <typename _FTp, typename _STp>
     bool
@@ -129,10 +129,10 @@ class __reorder_pred
 //! "==" comparison.
 /** Not called "equal" to avoid (possibly unfounded) concerns about accidental invocation via
     argument-dependent name lookup by code expecting to find the usual std::equal. */
-class __pstl_equal
+class pstl_equal
 {
   public:
-    explicit __pstl_equal() {}
+    explicit pstl_equal() {}
 
     template <typename _Xp, typename _Yp>
     bool
@@ -143,9 +143,11 @@ class __pstl_equal
 };
 
 //! "<" comparison.
-class __pstl_less
+class pstl_less
 {
   public:
+    explicit pstl_less() {}
+
     template <typename _Xp, typename _Yp>
     bool
     operator()(_Xp&& __x, _Yp&& __y) const
@@ -154,53 +156,15 @@ class __pstl_less
     }
 };
 
-//! "<" comparison.
-class __pstl_greater
-{
-  public:
-    template <typename _Xp, typename _Yp>
-    bool
-    operator()(_Xp&& __x, _Yp&& __y) const
-    {
-        return std::forward<_Xp>(__x) > std::forward<_Yp>(__y);
-    }
-};
-
-//! min calculation.
-class __pstl_min
-{
-  public:
-    template <typename _Xp, typename _Yp>
-    auto
-    operator()(_Xp&& __x, _Yp&& __y) const
-        -> decltype((std::forward<_Xp>(__x) < std::forward<_Yp>(__y)) ? std::forward<_Xp>(__x) : std::forward<_Yp>(__y))
-    {
-        return (std::forward<_Xp>(__x) < std::forward<_Yp>(__y)) ? std::forward<_Xp>(__x) : std::forward<_Yp>(__y);
-    }
-};
-
-//! max calculation.
-class __pstl_max
-{
-  public:
-    template <typename _Xp, typename _Yp>
-    auto
-    operator()(_Xp&& __x, _Yp&& __y) const
-        -> decltype((std::forward<_Xp>(__x) > std::forward<_Yp>(__y)) ? std::forward<_Xp>(__x) : std::forward<_Yp>(__y))
-    {
-        return (std::forward<_Xp>(__x) > std::forward<_Yp>(__y)) ? std::forward<_Xp>(__x) : std::forward<_Yp>(__y);
-    }
-};
-
 //! Like a polymorphic lambda for pred(...,value)
 template <typename _Tp, typename _Predicate>
-class __equal_value_by_pred
+class equal_value_by_pred
 {
     const _Tp& _M_value;
     _Predicate _M_pred;
 
   public:
-    __equal_value_by_pred(const _Tp& __value, _Predicate __pred) : _M_value(__value), _M_pred(__pred) {}
+    equal_value_by_pred(const _Tp& __value, _Predicate __pred) : _M_value(__value), _M_pred(__pred) {}
 
     template <typename _Arg>
     bool
@@ -212,12 +176,12 @@ class __equal_value_by_pred
 
 //! Like a polymorphic lambda for ==value
 template <typename _Tp>
-class __equal_value
+class equal_value
 {
     const _Tp& _M_value;
 
   public:
-    explicit __equal_value(const _Tp& __value) : _M_value(__value) {}
+    explicit equal_value(const _Tp& __value) : _M_value(__value) {}
 
     template <typename _Arg>
     bool
@@ -229,12 +193,12 @@ class __equal_value
 
 //! Logical negation of ==value
 template <typename _Tp>
-class __not_equal_value
+class not_equal_value
 {
     const _Tp& _M_value;
 
   public:
-    explicit __not_equal_value(const _Tp& __value) : _M_value(__value) {}
+    explicit not_equal_value(const _Tp& __value) : _M_value(__value) {}
 
     template <typename _Arg>
     bool
@@ -246,7 +210,7 @@ class __not_equal_value
 
 template <typename _ForwardIterator, typename _Compare>
 _ForwardIterator
-__cmp_iterators_by_values(_ForwardIterator __a, _ForwardIterator __b, _Compare __comp)
+cmp_iterators_by_values(_ForwardIterator __a, _ForwardIterator __b, _Compare __comp)
 {
     if (__a < __b)
     { // we should return closer iterator
@@ -258,7 +222,7 @@ __cmp_iterators_by_values(_ForwardIterator __a, _ForwardIterator __b, _Compare _
     }
 }
 
-} // namespace __internal
-} // namespace pstl
+} // namespace internal
+} // namespace __pstl
 
-#endif /* _PSTL_UTILS_H */
+#endif /* __PSTL_utils_H */

@@ -13,18 +13,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _TEST_SUPPORT_STDLIB_NUMERIC
-#define _TEST_SUPPORT_STDLIB_NUMERIC
+#ifndef __PSTL_numeric
+#define __PSTL_numeric
 
-#include <pstl/internal/pstl_config.h>
+#include "internal/pstl_config.h"
 
-#if _PSTL_EXECUTION_POLICIES_DEFINED
+#if __PSTL_EXECUTION_POLICIES_DEFINED
 // If <execution> has already been included, pull in implementations
-#    include <pstl/internal/glue_numeric_impl.h>
+#include "internal/glue_numeric_impl.h"
 #else
 // Otherwise just pull in forward declarations
-#    include <pstl/internal/glue_numeric_defs.h>
-#    define _PSTL_NUMERIC_FORWARD_DECLARED 1
+#include "internal/glue_numeric_defs.h"
+#define __PSTL_NUMERIC_FORWARD_DECLARED 1
 #endif
 
-#endif /* _TEST_SUPPORT_STDLIB_NUMERIC */
+#endif /* __PSTL_numeric */

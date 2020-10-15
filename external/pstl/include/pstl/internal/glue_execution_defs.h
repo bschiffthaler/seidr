@@ -1,5 +1,5 @@
 // -*- C++ -*-
-//===----------------------------------------------------------------------===//
+//===-- glue_execution_defs.h ---------------------------------------------===//
 //
 // Copyright (C) 2017-2019 Intel Corporation
 //
@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _PSTL_GLUE_EXECUTION_DEFS_H
-#define _PSTL_GLUE_EXECUTION_DEFS_H
+#ifndef __PSTL_glue_execution_defs_H
+#define __PSTL_glue_execution_defs_H
 
 #include <type_traits>
 
@@ -23,40 +23,36 @@
 namespace std
 {
 // Type trait
-using pstl::execution::is_execution_policy;
-#if _PSTL_CPP14_VARIABLE_TEMPLATES_PRESENT
-#    if __INTEL_COMPILER
+using __pstl::execution::is_execution_policy;
+#if __PSTL_CPP14_VARIABLE_TEMPLATES_PRESENT
+#if __INTEL_COMPILER
 template <class T>
 constexpr bool is_execution_policy_v = is_execution_policy<T>::value;
-#    else
-using pstl::execution::is_execution_policy_v;
-#    endif
+#else
+using __pstl::execution::is_execution_policy_v;
+#endif
 #endif
 
 namespace execution
 {
 // Standard C++ policy classes
-using pstl::execution::sequenced_policy;
-#if _PSTL_USE_PAR_POLICIES
-using pstl::execution::parallel_policy;
-using pstl::execution::parallel_unsequenced_policy;
+using __pstl::execution::sequenced_policy;
+#if __PSTL_USE_PAR_POLICIES
+using __pstl::execution::parallel_policy;
+using __pstl::execution::parallel_unsequenced_policy;
 #endif
 // Standard predefined policy instances
-using pstl::execution::seq;
-#if _PSTL_USE_PAR_POLICIES
-using pstl::execution::par;
-using pstl::execution::par_unseq;
+using __pstl::execution::seq;
+#if __PSTL_USE_PAR_POLICIES
+using __pstl::execution::par;
+using __pstl::execution::par_unseq;
 #endif
 // Implementation-defined names
 // Unsequenced policy is not yet standard, but for consistency
 // we include it into namespace std::execution as well
-using pstl::execution::unseq;
-using pstl::execution::unsequenced_policy;
+using __pstl::execution::unseq;
+using __pstl::execution::unsequenced_policy;
 } // namespace execution
 } // namespace std
 
-#include "algorithm_impl.h"
-#include "numeric_impl.h"
-#include "parallel_backend.h"
-
-#endif /* _PSTL_GLUE_EXECUTION_DEFS_H */
+#endif /* __PSTL_glue_execution_defs_H */
