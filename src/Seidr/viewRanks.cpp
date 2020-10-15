@@ -368,30 +368,39 @@ print_titles(const seidr_param_view_t& param,
   }
   if (param.full) {
     std::stringstream ost;
-    if (h.attr.pagerank_calc != 0) {
-      ost << "PageRank_Source\tPageRank_target\t";
+    std::string ox;
+    if (h.version.major == 0 && h.version.minor < 14) {
+      if (h.attr.pagerank_calc != 0) {
+        ost << "PageRank_Source\tPageRank_target\t";
+      }
+      if (h.attr.closeness_calc != 0) {
+        ost << "Closeness_Source\tCloseness_target\t";
+      }
+      if (h.attr.betweenness_calc != 0) {
+        ost << "Betweenness_Source\tBetweenness_target\t";
+      }
+      if (h.attr.strength_calc != 0) {
+        ost << "Strength_Source\tStrength_target\t";
+      }
+      if (h.attr.eigenvector_calc != 0) {
+        ost << "Eigenvector_Source\tEigenvector_target\t";
+      }
+      if (h.attr.katz_calc != 0) {
+        ost << "Katz_Source\tKatz_target\t";
+      }
+      ox = ost.str();
+    } else {
+      for (const auto s : h.centrality_names) {
+        ost << s << "_Source\t" << s + "_Target" << '\t';
+      }
+      ox = ost.str();
     }
-    if (h.attr.closeness_calc != 0) {
-      ost << "Closeness_Source\tCloseness_target\t";
-    }
-    if (h.attr.betweenness_calc != 0) {
-      ost << "Betweenness_Source\tBetweenness_target\t";
-    }
-    if (h.attr.strength_calc != 0) {
-      ost << "Strength_Source\tStrength_target\t";
-    }
-    if (h.attr.eigenvector_calc != 0) {
-      ost << "Eigenvector_Source\tEigenvector_target\t";
-    }
-    if (h.attr.katz_calc != 0) {
-      ost << "Katz_Source\tKatz_target\t";
-    }
-    std::string ox = ost.str();
     if (!ox.empty()) {
       ox.back() = '\n';
     } else {
       ox += '\n';
     }
+
     out << ox;
   }
 }
