@@ -71,9 +71,10 @@ main(int argc, char** argv)
       "absolute,a",
       po::bool_switch(&param.abs)->default_value(false),
       "Report absolute values")(
-      "scale,s",
-      po::bool_switch(&param.do_scale)->default_value(false),
-      "Transform data to z-scores")(
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "no-scale,S",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "sft,b",
       po::value<uint64_t>(&param.sft)->default_value(0),
       "Soft threshold to apply (0 for autodetection)")(
@@ -81,7 +82,8 @@ main(int argc, char** argv)
       po::value<uint64_t>(&param.max_power)->default_value(TOM_DEF_MAX_POW),
       "Maximum power to check for SFT test in auto detection mode")(
       "sft-cutoff,S",
-      po::value<double>(&param.sft_cutoff)->default_value(TOM_DEF_FIT, _XSTR(TOM_DEF_FIT)),
+      po::value<double>(&param.sft_cutoff)
+        ->default_value(TOM_DEF_FIT, _XSTR(TOM_DEF_FIT)),
       "Soft threshold R^2 cutoff in autodetection mode")(
       "tom-type,T",
       po::value<std::string>(&param.tom_type)->default_value("signed"),
@@ -109,6 +111,12 @@ main(int argc, char** argv)
     po::notify(vm);
 
     log.set_log_level(param.verbosity);
+
+    if (vm.count("scale") > 0) {
+      log(LOG_WARN)
+        << "--scale is deprecated as it is now default. Use --no-scale"
+        << " to turn scaling off.\n";
+    }
 
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);

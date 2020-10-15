@@ -128,8 +128,11 @@ main(int argc, char** argv)
 
     po::options_description svmopt("SVM options");
     svmopt.add_options()("scale,s",
-                         po::bool_switch(&param.do_scale)->default_value(false),
-                         "Transform data to z-scores")(
+                         po::bool_switch(),
+                         "(deprecated) Transform data to z-scores")(
+      "no-scale",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "type,y",
       po::value<std::string>(&param.svm_type)->default_value("EPSILON_SVR"),
       "SVM type [NU_SVR, EPSILON_SVR]")(
@@ -180,6 +183,12 @@ main(int argc, char** argv)
 
     if (vm.count("targets") != 0) {
       param.mode = SVM_PARTIAL;
+    }
+
+    if (vm.count("scale") > 0) {
+      log << "--scale is deprecated as it is now default. Use --no-scale"
+          << " to turn scaling off.\n";
+      log.log(LOG_WARN);
     }
 
     // Normalize paths

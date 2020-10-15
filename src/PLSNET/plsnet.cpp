@@ -83,9 +83,11 @@ main(int argc, char** argv)
       "Verbosity level (lower is less verbose)");
 
     po::options_description algopt("PLSNET Options");
-    algopt.add_options()("scale,s",
-                         po::bool_switch(&param.do_scale)->default_value(false),
-                         "Transform data to z-scores")(
+    algopt.add_options()(
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "no-scale,S",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "components,c",
       po::value<seidr_uword_t>(&param.ncomp)->default_value(PLSNET_DEF_NCOMP),
       "The number of PLS components to be considered");
@@ -134,6 +136,12 @@ main(int argc, char** argv)
     po::notify(vm);
 
     seidr_mpi_logger::set_log_level(param.verbosity);
+
+    if (vm.count("scale") > 0) {
+      log << "--scale is deprecated as it is now default. Use --no-scale"
+          << " to turn scaling off.\n";
+      log.log(LOG_WARN);
+    }
 
     if (vm.count("targets") != 0) {
       param.mode = PLSNET_PARTIAL;

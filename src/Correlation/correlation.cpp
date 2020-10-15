@@ -69,8 +69,11 @@ main(int argc, char** argv)
                             po::bool_switch(&param.abs)->default_value(false),
                             "Report absolute values")(
       "scale,s",
-      po::bool_switch(&param.do_scale)->default_value(false),
-      "Transform data to z-scores");
+      po::bool_switch(),
+      "(deprecated) Transform data to z-scores")(
+      "no-scale",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -120,6 +123,12 @@ main(int argc, char** argv)
       assert_no_overwrite(param.outfile);
     }
     assert_arg_constraint<std::string>({ "pearson", "spearman" }, param.method);
+
+    if (vm.count("scale") > 0) {
+      log(LOG_WARN)
+        << "--scale is deprecated as it is now default. Use --no-scale"
+        << " to turn scaling off.\n";
+    }
 
     arma::mat gm;
     gm.load(param.infile, arma::raw_ascii);

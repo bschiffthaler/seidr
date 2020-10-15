@@ -82,9 +82,11 @@ main(int argc, char** argv)
       "Verbosity level (lower is less verbose)");
 
     po::options_description algopt("GENIE3 Options");
-    algopt.add_options()("scale,s",
-                         po::bool_switch(&param.do_scale)->default_value(false),
-                         "Transform data to z-scores")(
+    algopt.add_options()(
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "no-scale",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "min-node-size,N",
       po::value<uint64_t>(&param.min_node_size)
         ->default_value(GENIE3_DEF_MIN_NODE_SIZE),
@@ -140,6 +142,12 @@ main(int argc, char** argv)
     po::notify(vm);
 
     seidr_mpi_logger::set_log_level(param.verbosity);
+
+    if (vm.count("scale") > 0) {
+      log << "--scale is deprecated as it is now default. Use --no-scale"
+          << " to turn scaling off.\n";
+      log.log(LOG_WARN);
+    }
 
     if (vm.count("targets") > 0) {
       param.mode = GENIE3_PARTIAL;

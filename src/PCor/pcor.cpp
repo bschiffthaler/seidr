@@ -65,9 +65,10 @@ main(int argc, char** argv)
     algopt.add_options()("absolute,a",
                          po::bool_switch(&param.abs)->default_value(false),
                          "Report absolute values")(
-      "scale,s",
-      po::bool_switch(&param.do_scale)->default_value(false),
-      "Transform data to z-scores");
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "no-scale",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -92,6 +93,12 @@ main(int argc, char** argv)
 
     log.set_log_level(param.verbosity);
 
+    if (vm.count("scale") > 0) {
+      log(LOG_WARN)
+        << "--scale is deprecated as it is now default. Use --no-scale"
+        << " to turn scaling off.\n";
+    }
+
     param.outfile = to_absolute(param.outfile);
     param.infile = to_absolute(param.infile);
     param.gene_file = to_absolute(param.gene_file);
@@ -104,7 +111,6 @@ main(int argc, char** argv)
     assert_can_read(param.infile);
     assert_no_cr(param.gene_file);
     assert_no_cr(param.infile);
-
 
     if (vm.count("targets") != 0) {
       param.targets_file = to_absolute(param.targets_file);

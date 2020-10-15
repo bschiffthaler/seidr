@@ -224,7 +224,8 @@ extern "C"
     uint32_t minor = 0;
     uint32_t patch = 0;
     version_t() = default;
-    version_t(char * V) {
+    version_t(char* V)
+    {
       std::string s;
       uint32_t p = 0;
       for (uint32_t i = 0; i < HEADER_VERSION_SIZE; i++) {

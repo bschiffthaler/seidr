@@ -127,8 +127,11 @@ main(int argc, char** argv)
 
     po::options_description svmopt("SVM options");
     svmopt.add_options()("scale,s",
-                         po::bool_switch(&param.do_scale)->default_value(false),
-                         "Transform data to z-scores")(
+                         po::bool_switch(),
+                         "(deprecated) Transform data to z-scores")(
+      "no-scale",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "penalty,C",
       po::value<double>(&param.svparam.C)->default_value(1, "1"),
       "Penalty C value")(
@@ -162,6 +165,12 @@ main(int argc, char** argv)
     assert_mutually_exclusive(vm, { "resume-from", "save-resume" });
 
     seidr_mpi_logger::set_log_level(param.verbosity);
+
+    if (vm.count("scale") > 0) {
+      log << "--scale is deprecated as it is now default. Use --no-scale"
+          << " to turn scaling off.\n";
+      log.log(LOG_WARN);
+    }
 
     if (vm.count("targets") != 0) {
       param.mode = SVM_PARTIAL;

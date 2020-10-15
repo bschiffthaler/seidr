@@ -66,7 +66,8 @@ main(int argc, char** argv)
       " of genes of interest. The network will only be"
       " calculated using these as the sources of potential connections.")(
       "outfile,o",
-      po::value<std::string>(&param.outfile)->default_value("tigress_scores.tsv"),
+      po::value<std::string>(&param.outfile)
+        ->default_value("tigress_scores.tsv"),
       "Output file path")("save-resume",
                           po::value<std::string>(&param.cmd_file),
                           "Path to a file that stores job resume info.")(
@@ -82,9 +83,11 @@ main(int argc, char** argv)
       "Force overwrite if output already exists");
 
     po::options_description algopt("TIGRESS Options");
-    algopt.add_options()("scale,s",
-                         po::bool_switch(&param.do_scale)->default_value(false),
-                         "Transform data to z-scores")(
+    algopt.add_options()(
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "no-scale,S",
+      po::bool_switch(&param.do_scale)->default_value(true),
+      "Do not transform data to z-scores")(
       "nlambda,n",
       po::value<seidr_uword_t>(&param.nsteps)
         ->default_value(TIGRESS_DEF_NSTEPS),
@@ -142,6 +145,12 @@ main(int argc, char** argv)
 
     if (vm.count("targets") != 0) {
       param.mode = TIGLM_PARTIAL;
+    }
+
+    if (vm.count("scale") > 0) {
+      log << "--scale is deprecated as it is now default. Use --no-scale"
+          << " to turn scaling off.\n";
+      log.log(LOG_WARN);
     }
 
     // Normalize paths
