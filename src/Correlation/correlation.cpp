@@ -59,7 +59,8 @@ main(int argc, char** argv)
       "Verbosity level (lower is less verbose)")(
       "force,f",
       po::bool_switch(&param.force)->default_value(false),
-      "Force overwrite if output already exists");
+      "Force overwrite if output already exists")(
+      "version,V", po::bool_switch(), "Print the program version");
 
     po::options_description algopt("Correlation specific Options");
     algopt.add_options()(
@@ -68,9 +69,7 @@ main(int argc, char** argv)
       "Correlation method")("absolute,a",
                             po::bool_switch(&param.abs)->default_value(false),
                             "Report absolute values")(
-      "scale,s",
-      po::bool_switch(),
-      "(deprecated) Transform data to z-scores")(
+      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
       "no-scale",
       po::bool_switch(&param.do_scale)->default_value(true),
       "Do not transform data to z-scores");
@@ -92,6 +91,11 @@ main(int argc, char** argv)
     if (vm.count("help") > 0 || argc == 1) {
       std::cerr << umbrella << '\n';
       return 1;
+    }
+
+    if (vm.count("version") > 0) {
+      std::cout << _XSTR(SEIDR_VERSION) << '\n';
+      return 0;
     }
 
     po::notify(vm);

@@ -79,7 +79,8 @@ main(int argc, char** argv)
       "verbosity,v",
       po::value<unsigned>(&param.verbosity)
         ->default_value(GENIE3_DEF_VERBOSITY),
-      "Verbosity level (lower is less verbose)");
+      "Verbosity level (lower is less verbose)")(
+      "version,V", po::bool_switch(), "Print the program version");
 
     po::options_description algopt("GENIE3 Options");
     algopt.add_options()(
@@ -137,6 +138,12 @@ main(int argc, char** argv)
     if (vm.count("help") != 0 || argc == 1) {
       std::cerr << umbrella << '\n';
       return 1;
+    }
+
+    if (vm.count("version") > 0) {
+      std::cout << _XSTR(SEIDR_VERSION) << '\n';
+      SEIDR_MPI_FINALIZE();
+      return 0;
     }
 
     po::notify(vm);

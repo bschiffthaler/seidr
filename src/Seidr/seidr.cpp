@@ -91,6 +91,7 @@ std::string usage_msg =
   "\n"
   "[Other utility]\n"
   "  reheader                  \t Modify SeidrFile headers.\n"
+  "  version                   \t Print version.\n"
   "\n"
   "Version " +
   version + "\n";
@@ -156,6 +157,9 @@ main(int argc, char* argv[])
       ret = threshold(args);
     } else if (task == "top") {
       ret = top(args);
+    } else if (task == "version") {
+      std::cout << version << '\n';
+      return 0;
     } else if (task == "view") {
       ret = view(args);
     } else if (task == "test") {
