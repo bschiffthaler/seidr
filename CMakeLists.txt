@@ -167,8 +167,8 @@ endif()
 # ##############################################################################
 find_package(MPI)
 
-if(SEIDR_WITHOUT_MPI) # Explicitly disable MPI
-  if (SEIDR_WITH_MPI)
+if(SEIDR_WITHOUT_MPI OR NOT MPI_FOUND) # Explicitly disable MPI
+  if (SEIDR_WITH_MPI AND SEIDR_WITHOUT_MPI)
     message(FATAL_ERROR "SEIDR_WITH_MPI and SEIDR_WITHOUT_MPI are mutually exclusive")
   endif()
   set(SEIDR_WITH_MPI OFF)
@@ -191,8 +191,8 @@ include_directories(src/Common src/Seidr external/bgzf external/BSlogger/src)
 
 find_package(TBB)
 
-if (SEIDR_WITHOUT_PSTL)
-  if (SEIDR_WITH_PSTL)
+if (SEIDR_WITHOUT_PSTL OR NOT TBB_FOUND)
+  if (SEIDR_WITH_PSTL AND SEIDR_WITHOUT_PSTL)
     message(FATAL_ERROR "SEIDR_WITH_PSTL and SEIDR_WITHOUT_PSTL are mutually exclusive")
   endif()
   set (SEIDR_PSTL OFF)
@@ -203,8 +203,8 @@ endif()
 
 find_package(CLP)
 
-if (NARROMI_WITHOUT_CLP)
-  if (NARROMI_WITH_CLP)
+if (NARROMI_WITHOUT_CLP OR NOT CLP_FOUND)
+  if (NARROMI_WITH_CLP AND NARROMI_WITHOUT_CLP)
     message(FATAL_ERROR "NARROMI_WITH_CLP and NARROMI_WITHOUT_CLP are mutually exclusive")
   endif()
   set (NARROMI_USE_CLP OFF)

@@ -53,6 +53,30 @@ requirements:
 
 about:
   home: https://github.com/bschiffthaler/seidr
-  license: GPL-3
+  license: GPL-2.0-or-later
   license_file: LICENCE
   summary: Community gene network inference and exploration toolkit
+
+test:
+  commands:
+    - seidr version 
+    - anoverence -V 
+    - correlation -V 
+    - el-ensemble -V # [mpi == 'nompi']
+    - el-ensemble -V # [mpi != 'nompi']
+    - genie3 -V # [mpi == 'nompi']
+    - genie3 -V # [mpi != 'nompi']
+    - llr-ensemble -V # [mpi == 'nompi']
+    - llr-ensemble -V # [mpi != 'nompi']
+    - mi -V # [mpi == 'nompi']
+    - mi -V # [mpi != 'nompi']
+    - narromi -V # [mpi == 'nompi']
+    - narromi -V # [mpi != 'nompi']
+    - pcor -V 
+    - plsnet -V # [mpi == 'nompi']
+    - plsnet -V # [mpi != 'nompi']
+    - svm-ensemble -V # [mpi == 'nompi']
+    - svm-ensemble -V # [mpi != 'nompi']
+    - tigress -V # [mpi == 'nompi']
+    - tigress -V # [mpi != 'nompi']
+    - tomsimilarity -V 
