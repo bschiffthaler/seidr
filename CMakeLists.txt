@@ -165,11 +165,18 @@ endif()
 # ##############################################################################
 # Are we building MPI? ##
 # ##############################################################################
-if(SEIDR_WITH_MPI)
+find_package(MPI)
+
+if(SEIDR_WITHOUT_MPI) # Explicitly disable MPI
+  if (SEIDR_WITH_MPI)
+    message(FATAL_ERROR "SEIDR_WITH_MPI and SEIDR_WITHOUT_MPI are mutually exclusive")
+  endif()
+  set(SEIDR_WITH_MPI OFF)
+  set(MPI_SRC "src/Common/mpi_dummy.cpp")
+elseif(MPI_FOUND OR SEIDR_WITH_MPI)
+  set(SEIDR_WITH_MPI ON)
   set(MPI_SRC "src/Common/mpiomp.cpp")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEIDR_WITH_MPI")
-else()
-  set(MPI_SRC "src/Common/mpi_dummy.cpp")
 endif()
 
 # Enable building seidr with float as a default floating point datatype in case
@@ -182,8 +189,30 @@ endif()
 # Everything incudes Common
 include_directories(src/Common src/Seidr external/bgzf external/BSlogger/src)
 
-if (SEIDR_PSTL)
-  include_directories(external/pstl/include)
+find_package(TBB)
+
+if (SEIDR_WITHOUT_PSTL)
+  if (SEIDR_WITH_PSTL)
+    message(FATAL_ERROR "SEIDR_WITH_PSTL and SEIDR_WITHOUT_PSTL are mutually exclusive")
+  endif()
+  set (SEIDR_PSTL OFF)
+elseif (TBB_FOUND OR SEIDR_WITH_PSTL)
+    set (SEIDR_PSTL ON)
+    include_directories(external/pstl/include)
+endif()
+
+find_package(CLP)
+
+if (NARROMI_WITHOUT_CLP)
+  if (NARROMI_WITH_CLP)
+    message(FATAL_ERROR "NARROMI_WITH_CLP and NARROMI_WITHOUT_CLP are mutually exclusive")
+  endif()
+  set (NARROMI_USE_CLP OFF)
+  set(IP_SRC "src/Narromi/IP_LPT.cpp")
+elseif(NARROMI_WITH_CLP OR CLP_FOUND)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNARROMI_USE_CLP")
+  set(IP_SRC "src/Narromi/IP_LPT2.cpp")
+  set (NARROMI_USE_CLP ON)
 endif()
 
 # Create library from common files to avoid re-compiling them
@@ -195,7 +224,7 @@ add_library(seidr-glmnet STATIC external/glmnet/src/glmnet5dp.f)
 add_library(seidr-bgzf STATIC external/bgzf/bgzf.c)
 
 # Build a custom library from the ranger and networkit sources
-set(NETWORKIT_VERSION "7.0")
+set(NETWORKIT_VERSION "7.1")
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 
 # Build executables: Seidr
@@ -258,12 +287,6 @@ add_executable(
 target_include_directories(llr-ensemble PRIVATE external/liblinear src/SVM)
 
 # Narromi
-if(NARROMI_USE_CLP)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNARROMI_USE_CLP")
-  set(IP_SRC "src/Narromi/IP_LPT2.cpp")
-else()
-  set(IP_SRC "src/Narromi/IP_LPT.cpp")
-endif()
 add_executable(narromi src/Narromi/stats_fun.cpp ${IP_SRC}
                        src/Narromi/narromi_fun.cpp src/Narromi/narromi.cpp)
 target_include_directories(narromi PRIVATE src/Narromi)
@@ -301,6 +324,7 @@ target_include_directories(genie3 PRIVATE external/ranger/src src/GENIE3
                                           ${CMAKE_BINARY_DIR}/deps/include)
 
 # Link libraries
+## Common
 target_link_libraries(seidr PUBLIC seidr-common)
 target_link_libraries(tigress PUBLIC seidr-common)
 target_link_libraries(svm-ensemble PUBLIC seidr-common)
@@ -314,17 +338,16 @@ target_link_libraries(mi PUBLIC seidr-common)
 target_link_libraries(plsnet PUBLIC seidr-common)
 target_link_libraries(pcor PUBLIC seidr-common)
 target_link_libraries(genie3 PUBLIC seidr-common)
-
+## GLMNet
 target_link_libraries(tigress PUBLIC seidr-glmnet)
 target_link_libraries(el-ensemble PUBLIC seidr-glmnet)
-
+## Networkit-static
 target_link_libraries(seidr PUBLIC networkit)
 target_link_libraries(seidr PUBLIC tlx)
-
+## libbs
 target_link_libraries(seidr PUBLIC bs)
-
+## ranger
 target_link_libraries(genie3 PUBLIC ranger)
-# target_link_libraries(genie3 PUBLIC pthread)
 
 # Make libraries position independent
 set_target_properties(seidr-common PROPERTIES COMPILE_FLAGS
