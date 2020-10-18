@@ -25,6 +25,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <set>
 #include <sstream>

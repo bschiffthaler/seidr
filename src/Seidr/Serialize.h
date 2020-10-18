@@ -25,6 +25,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <functional>
 #include <set>
 #include <string>
 #include <vector>
