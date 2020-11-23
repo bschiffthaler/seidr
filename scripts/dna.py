@@ -32,8 +32,10 @@ def exit_trap_clean():
 
 # Gets a persistent tempfile and also registers it to be cleaned if the
 # program exits for any reason.
-def get_persistent_tempfile(return_open_handle=False):
-    handle = NamedTemporaryFile(mode="w", delete=False)
+def get_persistent_tempfile(return_open_handle=False, n_dir=None, prefix=None):
+    if not os.path.exists(n_dir):
+        os.makedirs(n_dir)
+    handle = NamedTemporaryFile(mode="w", delete=False, dir=n_dir, prefix=prefix)
     EXIT_TRAP_CLEAN.add(handle.name)
     if return_open_handle:
         return handle
@@ -42,8 +44,8 @@ def get_persistent_tempfile(return_open_handle=False):
         return handle.name
 
 
-def remove_persistent_tempfile(name):
-    if os.path.exists(name):
+def remove_persistent_tempfile(name, override=False):
+    if os.path.exists(name) and not override:
         os.remove(name)
     if name in EXIT_TRAP_CLEAN:
         EXIT_TRAP_CLEAN.remove(name)
@@ -85,6 +87,10 @@ def calc_p(ref, test, nboot):
     if p > 1:
         p = 1
     return p
+
+
+def calc_p2(ref, test, nboot):
+    return scipy.stats.mannwhitneyu([np.mean(ref)], test, alternative="less").pvalue
 
 
 ###############################
@@ -283,13 +289,20 @@ class JoinedMatrix(object):
 
         logging.debug("Filtered shapes: {} || {}".format(X1_.shape, X2_.shape))
         self.data = np.concatenate([X1_, X2_])
+        self.data_ori = self.data.copy()
 
         logging.debug("Concat shape: {}".format(self.data.shape))
         self.row_index = np.arange(self.data.shape[0])
+        self.row_index_ori = self.row_index.copy()
 
     def permute(self):
         self.row_index = np.random.permutation(self.row_index)
-        self.data = self.data[self.row_index, :]
+        self.data = self.data_ori.copy()[self.row_index, :]
+        logging.debug(f"Permute: {self.row_index}")
+
+    def reset(self):
+        self.data = self.data_ori.copy()
+        self.row_index = self.row_index_ori.copy()
 
     def get_subset(self, genes):
         index = []
@@ -302,7 +315,7 @@ class JoinedMatrix(object):
         s1 = self.shapes[0][0]
         s2 = self.shapes[1][0]
 
-        X_ = self.data[:, index]
+        X_ = self.data.copy()[:, index]
 
         return (X_[0:s1, :], X_[s1 : (s1 + s2), :], header)
 
@@ -358,12 +371,16 @@ class RunDict(object):
             else:
                 self.permuted[al].append(d)
 
+            if i < nref:
+                if len(self.ref[al]) != (i + 1):
+                    raise ValueError("Bad dict state - should not happen")
+
     def calculate_p(self):
         for j in range(self.na):
             al = self.algos[j]
             desc1 = scipy.stats.describe([x["All"] for x in self.ref[al]])
             desc2 = scipy.stats.describe([x["All"] for x in self.permuted[al]])
-            pc = calc_p(
+            pc = calc_p2(
                 [x["All"] for x in self.ref[al]],
                 [x["All"] for x in self.permuted[al]],
                 self.nboot,
@@ -380,7 +397,7 @@ class RunDict(object):
             for i in range(len(self.header)):
                 desc1 = scipy.stats.describe([x["Sub"][i] for x in self.ref[al]])
                 desc2 = scipy.stats.describe([x["Sub"][i] for x in self.permuted[al]])
-                pc = calc_p(
+                pc = calc_p2(
                     [x["Sub"][i] for x in self.ref[al]],
                     [x["Sub"][i] for x in self.permuted[al]],
                     self.nboot,
@@ -413,7 +430,20 @@ class RunDict(object):
 class SeidrWrapper(object):
     """docstring for SeidrWrapper"""
 
-    def __init__(self, expr, genes, threads, shape, ensemble, fail_on_error=False):
+    def __init__(
+        self,
+        expr,
+        genes,
+        threads,
+        shape,
+        ensemble,
+        fail_on_error=False,
+        tmpdir="/tmp",
+        keep_seidrfiles=False,
+        keep_result_files=False,
+        keep_aggregate=False,
+        keep_adjacencies=False,
+    ):
         super(SeidrWrapper, self).__init__()
         self.genes = genes
         self.expr = expr
@@ -426,6 +456,11 @@ class SeidrWrapper(object):
         self.ensemble = str(ensemble)
         self.fail_on_error = fail_on_error
         self.algos = []
+        self.tmpdir = tmpdir
+        self.keep_seidrfiles = keep_seidrfiles
+        self.keep_adjacencies = keep_adjacencies
+        self.keep_aggregate = keep_aggregate
+        self.keep_result_files = keep_result_files
 
     def run_seidr_proc(self, cmd):
         p = subprocess.run(cmd, capture_output=True)
@@ -435,7 +470,7 @@ class SeidrWrapper(object):
                 raise RuntimeError(f"Command ${p.args} failed")
 
     def pearson(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="pearson_result")
         cmd = [
             "correlation",
             "-m",
@@ -452,7 +487,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring Pearson")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="pearson_import")
         cmd = [
             "seidr",
             "import",
@@ -475,11 +510,11 @@ class SeidrWrapper(object):
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
         self.algos.append("Pearson")
 
     def spearman(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="spearman_result")
         cmd = [
             "correlation",
             "-m",
@@ -496,7 +531,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring Spearman")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="spearman_import")
         cmd = [
             "seidr",
             "import",
@@ -519,16 +554,16 @@ class SeidrWrapper(object):
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
         self.algos.append("Spearman")
 
     def pcor(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="pcor_result")
         cmd = ["pcor", "-i", self.expr, "-g", self.genes, "-s", "-f", "-o", handle]
         logging.debug("Inferring PCor")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="pcor_import")
         cmd = [
             "seidr",
             "import",
@@ -551,11 +586,61 @@ class SeidrWrapper(object):
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
         self.algos.append("PCor")
 
+    def tomsimilarity(self):
+        handle = get_persistent_tempfile(
+            n_dir=self.tmpdir, prefix="tomsimilarity_result"
+        )
+        cmd = [
+            "tomsimilarity",
+            "-m",
+            "bicor",
+            "-i",
+            self.expr,
+            "-g",
+            self.genes,
+            "-b",
+            "8",
+            "-s",
+            "-f",
+            "-o",
+            handle,
+        ]
+        logging.debug("Inferring TOM Similarity")
+        logging.debug("Running cmd: {}".format(cmd))
+        self.run_seidr_proc(cmd)
+        handle_i = get_persistent_tempfile(
+            n_dir=self.tmpdir, prefix="tomsimilarity_import"
+        )
+        cmd = [
+            "seidr",
+            "import",
+            "-A",
+            "-r",
+            "-u",
+            "-i",
+            handle,
+            "-g",
+            self.genes,
+            "-f",
+            "-n",
+            "tomsimilarity",
+            "-o",
+            handle_i,
+            "-F",
+            "lm",
+        ]
+        logging.debug("Importing TOM Similarity")
+        logging.debug("Running cmd: {}".format(cmd))
+        self.run_seidr_proc(cmd)
+        self.results.append(handle_i)
+        remove_persistent_tempfile(handle, self.keep_result_files)
+        self.algos.append("TOMSimilarity")
+
     def mi(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="mi_result")
         cmd = [
             "mi",
             "-m",
@@ -577,7 +662,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring MI")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="mi_import")
         cmd = [
             "seidr",
             "import",
@@ -602,7 +687,7 @@ class SeidrWrapper(object):
         self.algos.append("MI")
         mi_raw = handle
 
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="clr_result")
         cmd = [
             "mi",
             "-m",
@@ -620,7 +705,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring CLR")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_j = get_persistent_tempfile()
+        handle_j = get_persistent_tempfile(n_dir=self.tmpdir, prefix="clr_import")
         cmd = [
             "seidr",
             "import",
@@ -643,9 +728,9 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_j)
         self.algos.append("CLR")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="aracne_result")
         cmd = [
             "mi",
             "-m",
@@ -663,7 +748,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring ARACNE")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_k = get_persistent_tempfile()
+        handle_k = get_persistent_tempfile(n_dir=self.tmpdir, prefix="aracne_import")
         cmd = [
             "seidr",
             "import",
@@ -686,11 +771,11 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_k)
         self.algos.append("ARACNE")
-        remove_persistent_tempfile(handle)
-        remove_persistent_tempfile(mi_raw)
+        remove_persistent_tempfile(handle, self.keep_result_files)
+        remove_persistent_tempfile(mi_raw, self.keep_result_files)
 
     def plsnet(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="plsnet_result")
         cmd = [
             "plsnet",
             "-i",
@@ -713,7 +798,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring PLSNet")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="plsnet_import")
         cmd = [
             "seidr",
             "import",
@@ -736,10 +821,10 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("PLSNet")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def narromi(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="narromi_result")
         cmd = [
             "narromi",
             "-i",
@@ -757,7 +842,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring Narromi")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="narromi_import")
         cmd = [
             "seidr",
             "import",
@@ -779,10 +864,10 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("Narromi")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def llr(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="llr_result")
         cmd = [
             "llr-ensemble",
             "-i",
@@ -811,7 +896,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring LLR")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="llr_import")
         cmd = [
             "seidr",
             "import",
@@ -834,10 +919,10 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("LLR")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def elnet(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="elnet_result")
         cmd = [
             "el-ensemble",
             "-i",
@@ -866,7 +951,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring ElNet")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="elnet_import")
         cmd = [
             "seidr",
             "import",
@@ -889,10 +974,10 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("ElNet")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def tigress(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="tigress_result")
         cmd = [
             "tigress",
             "-i",
@@ -913,7 +998,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring Tigress")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="tigress_import")
         cmd = [
             "seidr",
             "import",
@@ -936,10 +1021,10 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("Tigress")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def genie3(self):
-        handle = get_persistent_tempfile()
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="genie3_result")
         cmd = [
             "genie3",
             "-i",
@@ -962,7 +1047,7 @@ class SeidrWrapper(object):
         logging.debug("Inferring GENIE3")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
-        handle_i = get_persistent_tempfile()
+        handle_i = get_persistent_tempfile(n_dir=self.tmpdir, prefix="genie3_import")
         cmd = [
             "seidr",
             "import",
@@ -985,20 +1070,24 @@ class SeidrWrapper(object):
         self.run_seidr_proc(cmd)
         self.results.append(handle_i)
         self.algos.append("GENIE3")
-        remove_persistent_tempfile(handle)
+        remove_persistent_tempfile(handle, self.keep_result_files)
 
     def aggregate(self):
-        handle = get_persistent_tempfile()
-        cmd = ["seidr", "aggregate", "-f", "-m", "irp", "-o", handle]
-
+        handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix="aggregate")
+        cmd = ["seidr", "aggregate", "-f", "-m", "irp", "-o", handle] + [
+            r for r in self.results
+        ]
         logging.debug("Aggregating data")
         logging.debug("Running cmd: {}".format(cmd))
         self.run_seidr_proc(cmd)
         self.aggregated = handle
+        self.results.append(handle)
+        self.algos.append("IRP")
 
     def adjacency(self):
         for r in self.results:
-            handle = get_persistent_tempfile()
+            p = os.path.basename(r) + "_adjacency"
+            handle = get_persistent_tempfile(n_dir=self.tmpdir, prefix=p)
             cmd = ["seidr", "adjacency", "-f", "-o", handle, r]
             logging.debug("Getting graph adjacency")
             logging.debug("Running cmd: {}".format(cmd))
@@ -1007,12 +1096,11 @@ class SeidrWrapper(object):
 
     def clean(self):
         for r in self.results:
-            remove_persistent_tempfile(r)
+            remove_persistent_tempfile(r, self.keep_seidrfiles)
         for a in self.adjacencies:
-            remove_persistent_tempfile(a)
-        remove_persistent_tempfile(self.aggregated)
-        remove_persistent_tempfile(self.adj)
-
+            remove_persistent_tempfile(a, self.keep_adjacencies)
+        remove_persistent_tempfile(self.aggregated, self.keep_aggregate)
+        remove_persistent_tempfile(self.adj, self.keep_adjacencies)
 
 def main(args):
 
@@ -1062,20 +1150,31 @@ def main(args):
 
     for pw in pathways:
 
+        tmp = os.path.join(args.tempdir, pw)
+
         logging.info("Starting pathway {}".format(pw))
         logging.info("{} genes in this pathway".format(len(pw_map.map[pw])))
         X1_, X2_, header = X.get_subset(pw_map.map[pw])
-        logging.info("{} genes with expression data".format(len(header)))
+        logging.info("{} genes with expression data\n".format(len(header)))
 
         if len(header) < args.min_pathway_membership:
             logging.warning(
-                "Only {} genes with expression data in pathway {}. Skipping...".format(
+                "Only {} genes with expression data in pathway {}. Skipping...\n".format(
                     len(header), pw
                 )
             )
             continue
+        if len(header) > args.max_pathway_membership:
+            logging.warning(
+                "More than {} ({}) genes with expression data in pathway {}. Skipping...\n".format(
+                    args.max_pathway_membership, len(header), pw
+                )
+            )
+            continue
 
-        handle_g = get_persistent_tempfile(return_open_handle=True)
+        handle_g = get_persistent_tempfile(
+            return_open_handle=True, n_dir=tmp, prefix="genes"
+        )
         for g in header:
             handle_g.write("{}\n".format(g))
         handle_g.close()
@@ -1086,79 +1185,193 @@ def main(args):
 
         rd = RunDict(header, pw, nboot)
 
-        for i in progressbar.progressbar(range(nboot + nref)):
-            if i >= nref:
-                X.permute()
+        na = 4
+        if not args.fastest:
+            na = 6
+            if not args.faster:
+                na = 11
+        na += 2
+        pbar_ctr = 0
+
+
+        widgets = [
+            progressbar.Counter(),
+            "/",
+            str((nboot + nref) * na * 2),
+            "|",
+            progressbar.Percentage(),
+            "|",
+            progressbar.MultiProgressBar("jobs"),
+            "|",
+            progressbar.Timer(),
+            "|",
+            progressbar.ETA()
+        ]
+        jobs = [[0, na * 2] for i in range(nboot + nref)]
+        with progressbar.ProgressBar(
+            max_value=(nboot + nref) * na * 2, widgets=widgets
+        ) as bar:
+            bar.start()
+            for i in range(nboot + nref):
+                X.row_index = X.row_index_ori.copy()
+                if i >= nref:
+                    X.permute()
+                else:
+                    X.reset()
+
+                tmp = os.path.join(args.tempdir, pw, str(i))
+
+                if args.keep_input:
+                    row_index = X.row_index
+                    handle_ind = get_persistent_tempfile(
+                        return_open_handle=True, n_dir=tmp, prefix="row_index"
+                    )
+                    for row_i in row_index:
+                        handle_ind.write(str(row_i) + "\n")
+                    handle_ind.close()
+                    # Activate override
+                    remove_persistent_tempfile(handle_ind.name, True)
+
                 X1_, X2_, header = X.get_subset(pw_map.map[pw])
-            logging.debug("Shapes after subset: {} || {}".format(X1_.shape, X2_.shape))
-            handle_1 = get_persistent_tempfile(return_open_handle=True)
-            handle_2 = get_persistent_tempfile(return_open_handle=True)
+                logging.debug(
+                    "Shapes after subset: {} || {}".format(X1_.shape, X2_.shape)
+                )
+                handle_1 = get_persistent_tempfile(
+                    return_open_handle=True, n_dir=tmp, prefix="expr1"
+                )
+                handle_2 = get_persistent_tempfile(
+                    return_open_handle=True, n_dir=tmp, prefix="expr2"
+                )
 
-            np.savetxt(handle_1, X1_, delimiter="\t")
-            np.savetxt(handle_2, X2_, delimiter="\t")
+                np.savetxt(handle_1, X1_, delimiter="\t")
+                np.savetxt(handle_2, X2_, delimiter="\t")
 
-            handle_1.close()
-            handle_2.close()
+                handle_1.close()
+                handle_2.close()
 
-            wrapper_1 = SeidrWrapper(
-                handle_1.name,
-                handle_g.name,
-                str(args.threads),
-                X1_.shape,
-                args.ensemble,
-                fail_on_error=args.strict,
-            )
-            wrapper_2 = SeidrWrapper(
-                handle_2.name,
-                handle_g.name,
-                str(args.threads),
-                X2_.shape,
-                args.ensemble,
-                fail_on_error=args.strict,
-            )
+                wrapper_1 = SeidrWrapper(
+                    handle_1.name,
+                    handle_g.name,
+                    str(args.threads),
+                    X1_.shape,
+                    args.ensemble,
+                    fail_on_error=args.strict,
+                    tmpdir=os.path.join(tmp, "left"),
+                    keep_adjacencies=args.keep_adjacencies,
+                    keep_aggregate=args.keep_aggregate,
+                    keep_seidrfiles=args.keep_seidrfiles,
+                    keep_result_files=args.keep_results,
+                )
+                wrapper_2 = SeidrWrapper(
+                    handle_2.name,
+                    handle_g.name,
+                    str(args.threads),
+                    X2_.shape,
+                    args.ensemble,
+                    fail_on_error=args.strict,
+                    tmpdir=os.path.join(tmp, "right"),
+                    keep_adjacencies=args.keep_adjacencies,
+                    keep_aggregate=args.keep_aggregate,
+                    keep_seidrfiles=args.keep_seidrfiles,
+                    keep_result_files=args.keep_results,
+                )
 
-            wrapper_1.pearson()
-            wrapper_1.spearman()
-            wrapper_1.pcor()
-            if not args.fastest:
-                wrapper_1.mi()
-                wrapper_1.narromi()
-                if not args.faster:
-                    wrapper_1.plsnet()
-                    wrapper_1.llr()
-                    wrapper_1.tigress()
-                    wrapper_1.genie3()
-                    wrapper_1.elnet()
-            # wrapper_1.aggregate()
-            wrapper_1.adjacency()
+                wrapper_1.pearson()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_1.spearman()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_1.pcor()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_1.tomsimilarity()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                if not args.fastest:
+                    wrapper_1.mi()
+                    jobs[i][0] += 1
+                    bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                    wrapper_1.narromi()
+                    jobs[i][0] += 1
+                    bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                    if not args.faster:
+                        wrapper_1.plsnet()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_1.llr()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_1.tigress()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_1.genie3()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_1.elnet()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_1.aggregate()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_1.adjacency()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
 
-            wrapper_2.pearson()
-            wrapper_2.spearman()
-            wrapper_2.pcor()
-            if not args.fastest:
-                wrapper_2.mi()
-                wrapper_2.narromi()
-                if not args.faster:
-                    wrapper_2.plsnet()
-                    wrapper_2.llr()
-                    wrapper_2.tigress()
-                    wrapper_2.genie3()
-                    wrapper_2.elnet()
-            # wrapper_2.aggregate()
-            wrapper_2.adjacency()
+                wrapper_2.pearson()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_2.spearman()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_2.pcor()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_2.tomsimilarity()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                if not args.fastest:
+                    wrapper_2.mi()
+                    jobs[i][0] += 1
+                    bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                    wrapper_2.narromi()
+                    jobs[i][0] += 1
+                    bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                    if not args.faster:
+                        wrapper_2.plsnet()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_2.llr()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_2.tigress()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_2.genie3()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                        wrapper_2.elnet()
+                        jobs[i][0] += 1
+                        bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_2.aggregate()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
+                wrapper_2.adjacency()
+                jobs[i][0] += 1
+                bar.update(sum([x[0] for x in jobs]), jobs=jobs, force=True)
 
-            rd.update(wrapper_1, wrapper_2, nref, p, i)
+                rd.update(wrapper_1, wrapper_2, nref, p, i)
 
-            remove_persistent_tempfile(handle_1.name)
-            remove_persistent_tempfile(handle_2.name)
-            wrapper_1.clean()
-            wrapper_2.clean()
-
-        remove_persistent_tempfile(handle_g.name)
-        # # Calculate P values as in the paper
-        rd.calculate_p()
-        rd.print()
-        out_data[pw] = rd
+                remove_persistent_tempfile(handle_1.name, args.keep_input)
+                remove_persistent_tempfile(handle_2.name, args.keep_input)
+                wrapper_1.clean()
+                wrapper_2.clean()
+            bar.finish()
+            remove_persistent_tempfile(handle_g.name, args.keep_input)
+            # # Calculate P values as in the paper
+            rd.calculate_p()
+            rd.print()
+            out_data[pw] = rd
 
     with open("out_data.pickle", "wb") as od:
         pickle.dump(out_data, od)
@@ -1209,6 +1422,38 @@ if __name__ == "__main__":
         default=1,
         type=int,
         help="Number of threads for Seidr GRN inference",
+    )
+    parser.add_argument(
+        "-T",
+        "--tempdir",
+        default="/tmp",
+        type=str,
+        help="Prefix where temporary files are stored",
+    )
+    parser.add_argument(
+        "--keep-adjacencies",
+        action="store_true",
+        help="Do not delete temporary adjacency files",
+    )
+    parser.add_argument(
+        "--keep-seidrfiles",
+        action="store_true",
+        help="Do not delete temporary seidr import files",
+    )
+    parser.add_argument(
+        "--keep-aggregate",
+        action="store_true",
+        help="Do not delete temporary seidr aggregate files",
+    )
+    parser.add_argument(
+        "--keep-results",
+        action="store_true",
+        help="Do not delete temporary seidr algorithm results files",
+    )
+    parser.add_argument(
+        "--keep-input",
+        action="store_true",
+        help="Do not delete temporary expression input files",
     )
     parser.add_argument(
         "-n", "--p-norm", default=2, type=int, help="Value of p for matrix p-norm"
