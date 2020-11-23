@@ -1,8 +1,10 @@
+<p align=center>
+<img src="https://raw.githubusercontent.com/bschiffthaler/seidr/devel/docs/resources/logo.svg" width=150px height=150px>
+</p>
+
 # Seiðr
 
-![seidr](docs/resources/logo.svg)
-
-Toolkit to create crowd networks
+Harness the wisdom of the crowd for gene network inference.
 
 # Questions?
 
