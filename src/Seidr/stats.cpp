@@ -42,6 +42,7 @@
 #include <networkit/centrality/Betweenness.hpp>
 #include <networkit/centrality/Centrality.hpp>
 #include <networkit/centrality/Closeness.hpp>
+#include <networkit/centrality/DegreeCentrality.hpp>
 #include <networkit/centrality/EigenvectorCentrality.hpp>
 #include <networkit/centrality/EstimateBetweenness.hpp>
 #include <networkit/centrality/KPathCentrality.hpp>
@@ -50,6 +51,7 @@
 #include <networkit/centrality/PageRank.hpp>
 #include <networkit/centrality/SpanningEdgeCentrality.hpp>
 #include <networkit/components/ConnectedComponents.hpp>
+#include <networkit/components/StronglyConnectedComponents.hpp>
 #include <networkit/graph/Graph.hpp>
 
 namespace po = boost::program_options;
@@ -93,6 +95,12 @@ stats(const std::vector<std::string>& args)
       po::value<std::string>(&param.metrics)
         ->default_value("PR,CLO,BTW,STR,EV,KTZ,LPC,SEC,EBC"),
       "String describing metrics to calculate")(
+      "directed,d",
+      po::bool_switch(&param.directed)->default_value(false),
+      "(Experimental) Use directionality information.")(
+      "eigenvector-tol",
+      po::value<double>(&param.ev_tol)->default_value(SEIDR_STATS_DEF_EV_TOL),
+      "Eigenvector centrality convergence tolerance")(
       "exact,e",
       po::bool_switch(&param.exact)->default_value(false),
       "Calculate exact stats.")(
@@ -190,27 +198,60 @@ stats(const std::vector<std::string>& args)
       h, rf, -std::numeric_limits<double>::infinity(), param.tpos, false);
 
     log(LOG_INFO) << "Creating Networkit graph\n";
-    NetworKit::Graph g(h.attr.nodes, true, false);
+    NetworKit::Graph g(h.attr.nodes, true, param.directed);
+    uint64_t ud = 0;
+    uint64_t ab = 0;
+    uint64_t ba = 0;
     for (auto& e : ev) {
       double weight =
         param.trank ? e.scores[param.tpos].r : e.scores[param.tpos].s;
       // We do higher=better calculations first, so we need to inverse weight
       // if it represents a distance
       weight = param.w_is_dist ? 1 / weight : weight;
-      g.addEdge(e.index.i, e.index.j, weight);
+      if (param.directed) {
+        if (EDGE_IS_DIRECT(e.attr.flag)) {
+          if (EDGE_IS_AB(e.attr.flag)) {
+            g.addEdge(e.index.i, e.index.j, weight);
+            ab++;
+          } else {
+            g.addEdge(e.index.j, e.index.i, weight);
+            ba++;
+          }
+        } else {
+          // No direction so we add both i->j and j->i
+          g.addEdge(e.index.i, e.index.j, weight);
+          g.addEdge(e.index.j, e.index.i, weight);
+          ab++;
+          ba++;
+        }
+      } else {
+        g.addEdge(e.index.i, e.index.j, weight);
+        ud++;
+      }
     }
 
     g.indexEdges();
 
     log(LOG_INFO) << "Have graph with " << g.numberOfNodes() << " nodes and "
                   << g.numberOfEdges() << " edges\n";
+    if (param.directed) {
+      log(LOG_INFO) << ab << " edges in direction A->B, " << ba << " edges "
+                    << "in direction A<-B\n";
+    }
 
     rf.close();
 
     log(LOG_INFO) << "Calculating connected components\n";
-    NetworKit::ConnectedComponents ccn(g);
-    ccn.run();
-    uint64_t comp = ccn.numberOfComponents();
+    uint64_t comp = 0;
+    if (param.directed) {
+      NetworKit::StronglyConnectedComponents ccn(g);
+      ccn.run();
+      comp = ccn.numberOfComponents();
+    } else {
+      NetworKit::ConnectedComponents ccn(g);
+      ccn.run();
+      comp = ccn.numberOfComponents();
+    }
 
     log(LOG_INFO) << "Have " << comp << " components\n";
 
@@ -228,15 +269,30 @@ stats(const std::vector<std::string>& args)
     if (in_string("STR", param.metrics)) {
       log(LOG_INFO) << "Calculating Node Strength\n";
       // h.attr.strength_calc = 1;
-      centrality_names.emplace_back("Strength");
+      if (param.directed) {
+        centrality_names.emplace_back("OutStrength");
+      } else {
+        centrality_names.emplace_back("Strength");
+      }
+      
+      std::vector<double> indeg;
       for (uint64_t i = 0; i < h.attr.nodes; i++) {
-        centrality_data.push_back(g.weightedDegree(i));
+        double xdeg = g.weightedDegree(i);
+        double xindeg = g.weightedDegreeIn(i);
+        centrality_data.push_back(xdeg);
+        indeg.push_back(xindeg);
+      }
+      if (param.directed) {
+        centrality_names.emplace_back("InStrength");
+        for (uint64_t i = 0; i < h.attr.nodes; i++) {
+          centrality_data.push_back(indeg[i]);
+        }
       }
     }
 
     if (in_string("EV", param.metrics)) {
       log(LOG_INFO) << "Calculating Eigenvector centrality\n";
-      NetworKit::EigenvectorCentrality evv(g);
+      NetworKit::EigenvectorCentrality evv(g, param.ev_tol);
       evv.run();
       // h.attr.eigenvector_calc = 1;
       centrality_names.emplace_back("Eigenvector");
@@ -292,7 +348,7 @@ stats(const std::vector<std::string>& args)
         clv.run();
       }
       for (uint32_t i = 0; i < h.attr.nodes; i++) {
-        centrality_data.push_back(param.exact ? clve.score(i) : clv.score(i));
+        centrality_data.push_back((param.exact || comp > 1) ? clve.score(i) : clv.score(i));
       }
       centrality_names.emplace_back("Closeness");
     }
@@ -307,8 +363,8 @@ stats(const std::vector<std::string>& args)
                       << (param.exact ? "exact" : "approximate")
                       << " Betweenness\n";
       }
-      NetworKit::EstimateBetweenness btv(g, param.nsamples, false, param.exact);
-      NetworKit::Betweenness btve(g, false, true);
+      NetworKit::EstimateBetweenness btv(g, param.nsamples, false, true);
+      NetworKit::Betweenness btve(g, false, in_string("EBC", param.metrics));
       if (param.exact || in_string("EBC", param.metrics)) {
         btve.run();
         if (in_string("EBC", param.metrics)) {
@@ -336,7 +392,7 @@ stats(const std::vector<std::string>& args)
       } else {
         spc.runParallelApproximation();
       }
-      spv = spc.scores(true);
+      spv = spc.scores();
     }
 
     log(LOG_INFO) << "Writing results\n";
@@ -407,7 +463,6 @@ stats(const std::vector<std::string>& args)
     tf.close();
 
     rename(param.tempfile, param.infile);
-
   } catch (const po::error& e) {
     log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
     return 1;

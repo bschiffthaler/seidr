@@ -22,6 +22,7 @@
 #include <vector>
 
 constexpr double SEIDR_STATS_DEF_SAMPLES = 0.1;
+constexpr double SEIDR_STATS_DEF_EV_TOL = 1e-8;
 
 struct seidr_stats_param_t
 {
@@ -34,6 +35,8 @@ struct seidr_stats_param_t
   std::string tempdir;
   std::string tempfile;
   bool w_is_dist = false;
+  bool directed = false;
+  double ev_tol = SEIDR_STATS_DEF_EV_TOL;
 };
 
 int
