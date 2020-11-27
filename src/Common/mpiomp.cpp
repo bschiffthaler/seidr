@@ -201,6 +201,8 @@ seidr_mpi_logger::seidr_mpi_logger()
   _nam = std::string(mpi_get_host());
   MPI_Comm_rank(MPI_COMM_WORLD,
                 &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+  this->send(LOG_INFO); 
 }
 
 seidr_mpi_logger::seidr_mpi_logger(const std::string & nam)
@@ -209,6 +211,8 @@ seidr_mpi_logger::seidr_mpi_logger(const std::string & nam)
 {
   MPI_Comm_rank(MPI_COMM_WORLD,
                 &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+  this->send(LOG_INFO); 
 }
 
 // DEPRECATED: seidr_mpi_logger::send() handles both

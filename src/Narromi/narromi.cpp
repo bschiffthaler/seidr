@@ -81,7 +81,7 @@ main(int argc, char** argv)
       po::value<unsigned>(&param.verbosity)
         ->default_value(NARROMI_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)")(
-      "version,V", po::bool_switch(), "Print the program version");
+      "version,V", "Print the program version");
 
     po::options_description algopt("NARROMI Options");
     algopt.add_options()(

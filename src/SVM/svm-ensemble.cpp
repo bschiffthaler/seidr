@@ -81,7 +81,7 @@ main(int argc, char** argv)
       "verbosity,v",
       po::value<unsigned>(&param.verbosity)->default_value(SVM_DEF_VERBOSITY),
       "Verbosity level (lower is less verbose)")(
-      "version,V", po::bool_switch(), "Print the program version");
+      "version,V", "Print the program version");
 
     po::options_description mpiopt("MPI Options");
     mpiopt.add_options()("batch-size,B",
@@ -129,7 +129,6 @@ main(int argc, char** argv)
 
     po::options_description svmopt("SVM options");
     svmopt.add_options()("scale,s",
-                         po::bool_switch(),
                          "(deprecated) Transform data to z-scores")(
       "no-scale",
       po::bool_switch(&param.do_scale)->default_value(true),

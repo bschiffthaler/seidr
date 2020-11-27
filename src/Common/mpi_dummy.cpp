@@ -78,12 +78,17 @@ seidr_mpi_logger::seidr_mpi_logger()
   : _rank(0)
 {
   _nam = std::string(mpi_get_host());
+  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+  this->send(LOG_INFO); 
 }
 
 seidr_mpi_logger::seidr_mpi_logger(std::string nam)
   : _rank(0)
   , _nam(std::move(nam))
-{}
+{
+  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+  this->send(LOG_INFO); 
+}
 
 // DEPRECATED: seidr_mpi_logger::send() handles both
 // master and slave logging now

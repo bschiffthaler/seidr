@@ -81,11 +81,11 @@ main(int argc, char** argv)
       "force,f",
       po::bool_switch(&param.force)->default_value(false),
       "Force overwrite if output already exists")(
-      "version,V", po::bool_switch(), "Print the program version");
+      "version,V", "Print the program version");
 
     po::options_description algopt("TIGRESS Options");
     algopt.add_options()(
-      "scale,s", po::bool_switch(), "(deprecated) Transform data to z-scores")(
+      "scale,s", "(deprecated) Transform data to z-scores")(
       "no-scale,S",
       po::bool_switch(&param.do_scale)->default_value(true),
       "Do not transform data to z-scores")(
