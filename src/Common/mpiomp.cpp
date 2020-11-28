@@ -29,6 +29,7 @@
 
 // Static members
 unsigned int seidr_mpi_logger::_loglevel = LOG_DEFAULT;
+bool seidr_mpi_logger::first_instance = true;
 
 seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
                              const arma::mat& data,
@@ -201,18 +202,24 @@ seidr_mpi_logger::seidr_mpi_logger()
   _nam = std::string(mpi_get_host());
   MPI_Comm_rank(MPI_COMM_WORLD,
                 &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
-  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
-  this->send(LOG_INFO); 
+  if (first_instance) {
+    (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+    this->send(LOG_INFO);
+    first_instance = false;
+  }
 }
 
-seidr_mpi_logger::seidr_mpi_logger(const std::string & nam)
+seidr_mpi_logger::seidr_mpi_logger(const std::string& nam)
   : _rank(0)
   , _nam(std::move(nam))
 {
   MPI_Comm_rank(MPI_COMM_WORLD,
                 &_rank); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
-  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
-  this->send(LOG_INFO); 
+  if (first_instance) {
+    (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+    this->send(LOG_INFO);
+    first_instance = false;
+  }
 }
 
 // DEPRECATED: seidr_mpi_logger::send() handles both

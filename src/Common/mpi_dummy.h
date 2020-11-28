@@ -126,6 +126,7 @@ private:
   int _rank;
   std::string _nam;
   std::string _host;
+  static bool first_instance;
 };
 
 template<typename T>

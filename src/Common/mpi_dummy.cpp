@@ -28,6 +28,7 @@
 
 // Static members
 unsigned int seidr_mpi_logger::_loglevel = LOG_DEFAULT;
+bool seidr_mpi_logger::first_instance = true;
 
 seidr_mpi_omp::seidr_mpi_omp(const uint64_t& bs,
                              const arma::mat& data,
@@ -68,7 +69,8 @@ seidr_mpi_omp::get_more_work()
   _my_indices.clear();
 }
 
-bool seidr_mpi_omp::check_logs(
+bool
+seidr_mpi_omp::check_logs(
   const std::string& bn) // NOLINT(clang-diagnostic-unused-parameter)
 {
   return false;
@@ -78,16 +80,22 @@ seidr_mpi_logger::seidr_mpi_logger()
   : _rank(0)
 {
   _nam = std::string(mpi_get_host());
-  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
-  this->send(LOG_INFO); 
+  if (first_instance) {
+    (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+    this->send(LOG_INFO);
+    first_instance = false;
+  }
 }
 
 seidr_mpi_logger::seidr_mpi_logger(std::string nam)
   : _rank(0)
   , _nam(std::move(nam))
 {
-  (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
-  this->send(LOG_INFO); 
+  if (first_instance) {
+    (*this) << "This is seidr v." << _XSTR(SEIDR_VERSION) << '\n';
+    this->send(LOG_INFO);
+    first_instance = false;
+  }
 }
 
 // DEPRECATED: seidr_mpi_logger::send() handles both
