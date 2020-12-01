@@ -82,7 +82,7 @@ main(int argc, char** argv)
       "max-power,M",
       po::value<uint64_t>(&param.max_power)->default_value(TOM_DEF_MAX_POW),
       "Maximum power to check for SFT test in auto detection mode")(
-      "sft-cutoff,S",
+      "sft-cutoff,c",
       po::value<double>(&param.sft_cutoff)
         ->default_value(TOM_DEF_FIT, to_rounded_str(TOM_DEF_FIT)),
       "Soft threshold R^2 cutoff in autodetection mode")(
