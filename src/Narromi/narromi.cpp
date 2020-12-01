@@ -90,7 +90,7 @@ main(int argc, char** argv)
       "Method for linear programming "
       "optimisaton. One of 'interior-point' or 'simplex'.")(
       "alpha,a",
-      po::value<double>(&param.alpha)->default_value(NARROMI_DEF_ALPHA, "0.05"),
+      po::value<double>(&param.alpha)->default_value(NARROMI_DEF_ALPHA, to_rounded_str(NARROMI_DEF_ALPHA)),
       "Alpha cutoff for MI selection.");
 
     po::options_description mpiopt("MPI Options");

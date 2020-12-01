@@ -143,22 +143,22 @@ main(int argc, char** argv)
       po::value<int>(&param.svparam.degree)->default_value(SVM_DEF_POLY_DEGREE),
       "Polynomial degree (for POLY kernel)")(
       "gamma,G",
-      po::value<double>(&param.svparam.gamma)->default_value(SVM_DEF_GAMMA, _XSTR(SVM_DEF_GAMMA)),
+      po::value<double>(&param.svparam.gamma)->default_value(SVM_DEF_GAMMA, to_rounded_str(SVM_DEF_GAMMA)),
       "Kernel coefficient for POLY/RBF/SIGMOID kernels")(
       "coef,c",
-      po::value<double>(&param.svparam.coef0)->default_value(SVM_DEF_COEF0, _XSTR(SVM_DEF_COEF0)),
+      po::value<double>(&param.svparam.coef0)->default_value(SVM_DEF_COEF0, to_rounded_str(SVM_DEF_COEF0)),
       "Independent term in kernel function (for POLY/SIGMOID kernels)")(
       "nu,n",
-      po::value<double>(&param.svparam.nu)->default_value(SVM_DEF_NU, _XSTR(SVM_DEF_NU)),
+      po::value<double>(&param.svparam.nu)->default_value(SVM_DEF_NU, to_rounded_str(SVM_DEF_NU)),
       "nu value (for NU_SVR)")(
       "penalty,C",
-      po::value<double>(&param.svparam.C)->default_value(SVM_DEF_C, _XSTR(SVM_DEF_C)),
+      po::value<double>(&param.svparam.C)->default_value(SVM_DEF_C, to_rounded_str(SVM_DEF_C)),
       "Penalty C value")(
       "tol,l",
-      po::value<double>(&param.svparam.eps)->default_value(SVM_DEF_EPS, _XSTR(SVM_DEF_EPS)),
+      po::value<double>(&param.svparam.eps)->default_value(SVM_DEF_EPS, to_rounded_str(SVM_DEF_EPS)),
       "Epsilon/tolerance (stopping criterion)")(
       "eps,E",
-      po::value<double>(&param.svparam.p)->default_value(SVM_DEF_P, _XSTR(SVM_DEF_P)),
+      po::value<double>(&param.svparam.p)->default_value(SVM_DEF_P, to_rounded_str(SVM_DEF_P)),
       "Epsilon (for EPSILON_SVR)")(
       "shrinking,S",
       po::value<int>(&param.svparam.shrinking)->default_value(1),

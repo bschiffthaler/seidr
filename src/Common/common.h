@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <armadillo>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -227,3 +228,13 @@ is_seidr_tmpfile(const std::string& path);
 inline void
 no_delete(void*)
 {}
+
+template<typename T>
+std::string
+to_rounded_str(const T& s, const uint64_t& digits = 2)
+{
+  std::stringstream ss;
+  ss << std::setprecision(digits);
+  ss << s;
+  return ss.str();
+}

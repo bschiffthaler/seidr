@@ -38,6 +38,7 @@ constexpr unsigned LLR_DEF_VERBOSITY = 3;
 constexpr arma::uword LLR_DEF_ENSEMBLE = 1000;
 constexpr double LLR_DEF_TOLERANCE = 0.001;
 constexpr double LLR_DEF_EPSILON = 0.1;
+constexpr double LLR_DEF_C = 1;
 
 struct seidr_llr_param_t
 {

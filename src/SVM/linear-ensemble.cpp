@@ -133,15 +133,15 @@ main(int argc, char** argv)
       po::bool_switch(&param.do_scale)->default_value(true),
       "Do not transform data to z-scores")(
       "penalty,C",
-      po::value<double>(&param.svparam.C)->default_value(1, "1"),
+      po::value<double>(&param.svparam.C)->default_value(LLR_DEF_C, to_rounded_str(LLR_DEF_C)),
       "Penalty C value")(
       "tol,l",
       po::value<double>(&param.svparam.eps)
-        ->default_value(LLR_DEF_TOLERANCE, _XSTR(LLR_DEF_TOLERANCE)),
+        ->default_value(LLR_DEF_TOLERANCE, to_rounded_str(LLR_DEF_TOLERANCE)),
       "Epsilon/tolerance (stopping criterion)")(
       "eps,E",
       po::value<double>(&param.svparam.p)
-        ->default_value(LLR_DEF_EPSILON, _XSTR(LLR_DEF_EPSILON)),
+        ->default_value(LLR_DEF_EPSILON, to_rounded_str(LLR_DEF_EPSILON)),
       "Epsilon (for EPSILON_SVR)")(
       "solver,S",
       po::value<std::string>(&param.solver)->default_value("L2R_L2LOSS_SVR"),

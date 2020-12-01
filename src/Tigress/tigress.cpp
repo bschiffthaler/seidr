@@ -95,7 +95,7 @@ main(int argc, char** argv)
       "The maximum number of lambda values")(
       "min-lambda,l",
       po::value<double>(&param.fmin)
-        ->default_value(TIGRESS_DEF_FMIN, _XSTR(TIGRESS_DEF_FMIN)),
+        ->default_value(TIGRESS_DEF_FMIN, to_rounded_str(TIGRESS_DEF_FMIN)),
       "The minimum lambda as a fraction of the maximum.")(
       "allow-low-var",
       po::bool_switch(&param.allow_low_var)->default_value(false),

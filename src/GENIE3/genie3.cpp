@@ -93,10 +93,10 @@ main(int argc, char** argv)
         ->default_value(GENIE3_DEF_MIN_NODE_SIZE),
       "Minimum node size")("min-prop,p",
                            po::value<double>(&param.minprop)
-                             ->default_value(GENIE3_DEF_MINPROP, "0.1"),
+                             ->default_value(GENIE3_DEF_MINPROP, to_rounded_str(GENIE3_DEF_MINPROP)),
                            "Minimal proportion in random forest")(
       "alpha,a",
-      po::value<double>(&param.alpha)->default_value(GENIE3_DEF_ALPHA, "0.5"),
+      po::value<double>(&param.alpha)->default_value(GENIE3_DEF_ALPHA, to_rounded_str(GENIE3_DEF_ALPHA)),
       "Alpha value for random forests");
 
     po::options_description bootopt("Bootstrap Options");

@@ -86,10 +86,10 @@ main(int argc, char** argv)
       po::value<seidr_uword_t>(&param.nlam)->default_value(ELNET_DEF_NLAM),
       "The maximum number of lambda values")(
       "min-lambda,l",
-      po::value<double>(&param.flmin)->default_value(ELNET_DEF_FLMIN, "0.3"),
+      po::value<double>(&param.flmin)->default_value(ELNET_DEF_FLMIN, to_rounded_str(ELNET_DEF_FLMIN)),
       "The minimum lambda as a fraction of the maximum.")(
       "alpha,a",
-      po::value<double>(&param.alpha)->default_value(ELNET_DEF_ALPHA, "0.3"),
+      po::value<double>(&param.alpha)->default_value(ELNET_DEF_ALPHA,  to_rounded_str(ELNET_DEF_ALPHA)),
       "The elastic net mixing value alpha. 1.0 is "
       "LASSO, 0 is Ridge.");
 

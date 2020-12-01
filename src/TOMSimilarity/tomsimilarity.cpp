@@ -84,7 +84,7 @@ main(int argc, char** argv)
       "Maximum power to check for SFT test in auto detection mode")(
       "sft-cutoff,S",
       po::value<double>(&param.sft_cutoff)
-        ->default_value(TOM_DEF_FIT, _XSTR(TOM_DEF_FIT)),
+        ->default_value(TOM_DEF_FIT, to_rounded_str(TOM_DEF_FIT)),
       "Soft threshold R^2 cutoff in autodetection mode")(
       "tom-type,T",
       po::value<std::string>(&param.tom_type)->default_value("signed"),
