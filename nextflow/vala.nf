@@ -8,6 +8,92 @@ if (targets != '' ) {
   targets = '-t ' + targets
 }
 
+if (params.mi) {
+
+  process mi {
+    errorStrategy params.error_strategy
+    cpus params.mi_settings.cores
+    memory params.mi_settings.memory
+    publishDir params.out + '/networks/mi'
+    queue params.slurm_partition
+    clusterOptions '-n ' + params.mi_settings.tasks + ' -A ' + params.slurm_account
+    time params.mi_settings.ptime
+
+    input:
+    file expr
+    file genes
+    val targets
+
+    output:
+    file 'mi_network.tsv' into mi_network_raw, mi_for_aracne, mi_for_clr
+    
+    script:
+    if (params.executor == 'slurm')
+    {
+      """
+      ${params.mi_settings.preamble}
+      srun \
+      mi -m RAW -o mi_network.tsv \
+         -b ${params.mi_settings.bins} -s ${params.mi_settings.spline} \
+         -i ${expr} -g ${genes} -O ${params.mi_settings.cores} ${targets}
+      ${params.mi_settings.epilog}
+      """
+    }
+    else
+    {
+      """
+      ${params.mi_settings.preamble}
+      mpirun -np ${params.mi_settings.tasks} \
+      mi -m RAW -o mi_network.tsv \
+         -b ${params.mi_settings.bins} -s ${params.mi_settings.spline} \
+         -i ${expr} -g ${genes} -O ${params.mi_settings.cores} ${targets}
+      ${params.mi_settings.epilog}
+      """
+    }
+  }
+
+  process mi_import {
+    errorStrategy params.error_strategy
+    validExitStatus 0,3
+    cpus params.mi_settings.importcores
+    memory params.mi_settings.importmem
+    publishDir params.out + '/networks/mi'
+    queue params.slurm_partition
+    clusterOptions '-n ' + params.mi_settings.tasks + ' -A ' + params.slurm_account
+    time params.mi_settings.itime
+
+    input:
+    file genes
+    file mi_net from mi_network_raw
+    output:
+    file 'mi_network.sf' into mi_sf
+
+    script:
+    if (targets == '')
+    {
+      """
+      ${params.mi_settings.preamble}
+      seidr import -F lm -u -r -z -n ${params.mi_settings.importname} \
+                   -i ${mi_net} -g ${genes} -o mi_network.sf \
+                   -O ${params.mi_settings.importcores}
+      ${params.mi_settings.epilog}
+      """
+    }
+    else
+    {
+      """
+      ${params.mi_settings.preamble}
+      seidr import -F el -u -r -z -n ${params.mi_settings.importname} \
+                   -i ${mi_net} -g ${genes} -o mi_network.sf \
+                   -O ${params.mi_settings.importcores}
+      ${params.mi_settings.epilog}
+      """
+    }
+  }
+} else { 
+  Channel.empty().set {mi_sf} 
+}
+
 if (params.clr) {
 
   process clr {
@@ -22,6 +108,7 @@ if (params.clr) {
     input:
     file expr
     file genes
+    file mi_net from mi_for_clr
     val targets
 
     output:
@@ -33,7 +120,8 @@ if (params.clr) {
       """
       ${params.clr_settings.preamble}
       srun \
-      mi -m CLR -o clr_network.tsv -B ${params.clr_settings.batchsize} \
+      mi -m CLR -o clr_network.tsv \
+         -M ${mi_net} \
          -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.clr_settings.cores} ${targets}
       ${params.clr_settings.epilog}
@@ -44,7 +132,8 @@ if (params.clr) {
       """
       ${params.clr_settings.preamble}
       mpirun -np ${params.clr_settings.tasks} \
-      mi -m CLR -o clr_network.tsv -B ${params.clr_settings.batchsize} \
+      mi -m CLR -o clr_network.tsv \
+         -M ${mi_net} \
          -b ${params.clr_settings.bins} -s ${params.clr_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.clr_settings.cores} ${targets}
       ${params.clr_settings.epilog}
@@ -59,7 +148,7 @@ if (params.clr) {
     memory params.clr_settings.importmem
     publishDir params.out + '/networks/clr'
     queue params.slurm_partition
-    clusterOptions '-n 1 -A ' + params.slurm_account
+    clusterOptions '-n ' + params.clr_settings.tasks + ' -A ' + params.slurm_account
     time params.clr_settings.itime
 
     input:
@@ -90,6 +179,8 @@ if (params.clr) {
       """
     }
   }
+} else { 
+  Channel.empty().set {clr_sf} 
 }
 
 if (params.aracne) {
@@ -106,6 +197,7 @@ if (params.aracne) {
     input:
     file expr
     file genes
+    file mi_net from mi_for_aracne
     val targets
 
     output:
@@ -117,7 +209,8 @@ if (params.aracne) {
       """
       ${params.aracne_settings.preamble}
       srun \
-      mi -m ARACNE -o aracne_network.tsv -B ${params.aracne_settings.batchsize} \
+      mi -m ARACNE -o aracne_network.tsv \
+         -M ${mi_net} \
          -b ${params.aracne_settings.bins} -s ${params.aracne_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.aracne_settings.cores} ${targets}
       ${params.aracne_settings.epilog}
@@ -128,7 +221,8 @@ if (params.aracne) {
       """
       ${params.aracne_settings.preamble}
       mpirun -n ${params.aracne_settings.tasks} \
-      mi -m ARACNE -o aracne_network.tsv -B ${params.aracne_settings.batchsize} \
+      mi -m ARACNE -o aracne_network.tsv \
+         -M ${mi_net} \
          -b ${params.aracne_settings.bins} -s ${params.aracne_settings.spline} \
          -i ${expr} -g ${genes} -O ${params.aracne_settings.cores} ${targets}
       ${params.aracne_settings.epilog}
@@ -143,7 +237,7 @@ if (params.aracne) {
     memory params.aracne_settings.importmem
     publishDir params.out + '/networks/aracne'
     queue params.slurm_partition
-    clusterOptions '-n 1 -A ' + params.slurm_account
+    clusterOptions '-n ' + params.aracne_settings.tasks + ' -A ' + params.slurm_account
     time params.aracne_settings.itime
 
     input:
@@ -175,6 +269,8 @@ if (params.aracne) {
       """
     }
   }
+} else { 
+  Channel.empty().set {aracne_sf} 
 }
 
 if (params.anova) {
@@ -245,6 +341,8 @@ if (params.anova) {
       """
     }
   }
+} else { 
+  Channel.empty().set {anova_sf} 
 }
 
 if (params.pearson) {
@@ -315,6 +413,8 @@ if (params.pearson) {
       """
     }
   }
+} else { 
+  Channel.empty().set {pearson_sf} 
 }
 
 if (params.spearman) {
@@ -385,6 +485,8 @@ if (params.spearman) {
       """
     }
   }
+} else { 
+  Channel.empty().set {spearman_sf} 
 }
 
 if (params.elnet) {
@@ -413,7 +515,7 @@ if (params.elnet) {
       """
       ${params.elnet_settings.preamble}
       srun  \
-      el-ensemble -o elnet_network.tsv -B ${params.elnet_settings.batchsize} \
+      el-ensemble -o elnet_network.tsv \
          -l ${params.elnet_settings.min_lambda} -a ${params.elnet_settings.alpha} \
          -n ${params.elnet_settings.nlambda} \
          -X ${params.elnet_settings.max_experiment_size} \
@@ -431,7 +533,7 @@ if (params.elnet) {
       """
       ${params.elnet_settings.preamble}
       mpirun -np ${params.elnet_settings.tasks}  \
-      el-ensemble -o elnet_network.tsv -B ${params.elnet_settings.batchsize} \
+      el-ensemble -o elnet_network.tsv \
          -l ${params.elnet_settings.min_lambda} -a ${params.elnet_settings.alpha} \
          -n ${params.elnet_settings.nlambda} \
          -X ${params.elnet_settings.max_experiment_size} \
@@ -454,7 +556,7 @@ if (params.elnet) {
     publishDir params.out + '/networks/elnet'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.elnet_settings.itime
 
     input:
     file genes
@@ -484,6 +586,8 @@ if (params.elnet) {
       """
     }
   }
+} else { 
+  Channel.empty().set {elnet_sf} 
 }
 
 if (params.svm) {
@@ -511,7 +615,7 @@ if (params.svm) {
       """
       ${params.svm_settings.preamble}
       srun \
-      svm-ensemble -o svm_network.tsv -B ${params.svm_settings.batchsize} \
+      svm-ensemble -o svm_network.tsv \
          -X ${params.svm_settings.max_experiment_size} \
          -x ${params.svm_settings.min_experiment_size} \
          -P ${params.svm_settings.max_predictor_size} \
@@ -527,7 +631,7 @@ if (params.svm) {
       """
       ${params.svm_settings.preamble}
       mpirun -np ${params.svm_settings.tasks} \
-      svm-ensemble -o svm_network.tsv -B ${params.svm_settings.batchsize} \
+      svm-ensemble -o svm_network.tsv \
          -X ${params.svm_settings.max_experiment_size} \
          -x ${params.svm_settings.min_experiment_size} \
          -P ${params.svm_settings.max_predictor_size} \
@@ -548,7 +652,7 @@ if (params.svm) {
     publishDir params.out + '/networks/svm'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.svm_settings.itime
 
     input:
     file genes
@@ -579,6 +683,8 @@ if (params.svm) {
       """
     }
   }
+} else { 
+  Channel.empty().set {svm_sf} 
 }
 
 if (params.llr) {
@@ -606,7 +712,7 @@ if (params.llr) {
       """
       ${params.llr_settings.preamble}
       srun \
-      llr-ensemble -o llr_network.tsv -B ${params.llr_settings.batchsize} \
+      llr-ensemble -o llr_network.tsv \
          -X ${params.llr_settings.max_experiment_size} \
          -x ${params.llr_settings.min_experiment_size} \
          -P ${params.llr_settings.max_predictor_size} \
@@ -622,7 +728,7 @@ if (params.llr) {
       """
       ${params.llr_settings.preamble}
       mpirun -np ${params.llr_settings.tasks} \
-      llr-ensemble -o llr_network.tsv -B ${params.llr_settings.batchsize} \
+      llr-ensemble -o llr_network.tsv \
          -X ${params.llr_settings.max_experiment_size} \
          -x ${params.llr_settings.min_experiment_size} \
          -P ${params.llr_settings.max_predictor_size} \
@@ -643,7 +749,7 @@ if (params.llr) {
     publishDir params.out + '/networks/llr'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.llr_settings.itime
 
     input:
     file genes
@@ -674,6 +780,8 @@ if (params.llr) {
       """
     }
   }
+} else { 
+  Channel.empty().set {llr_sf} 
 }
 
 if (params.pcor) {
@@ -709,7 +817,7 @@ if (params.pcor) {
     publishDir params.out + '/networks/pcor'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.pcor_settings.itime
 
     input:
     file genes
@@ -740,6 +848,8 @@ if (params.pcor) {
       """
     }
   }
+} else { 
+  Channel.empty().set {pcor_sf} 
 }
 
 if (params.narromi) {
@@ -767,7 +877,7 @@ if (params.narromi) {
       """
       ${params.narromi_settings.preamble}
       srun \
-      narromi -o narromi_network.tsv -B ${params.narromi_settings.batchsize} \
+      narromi -o narromi_network.tsv \
          -a ${params.narromi_settings.alpha} \
          -m ${params.narromi_settings.method} \
          -i ${expr} -g ${genes} \
@@ -780,7 +890,7 @@ if (params.narromi) {
       """
       ${params.narromi_settings.preamble}
       mpirun -np ${params.narromi_settings.tasks} \
-      narromi -o narromi_network.tsv -B ${params.narromi_settings.batchsize} \
+      narromi -o narromi_network.tsv \
          -a ${params.narromi_settings.alpha} \
          -m ${params.narromi_settings.method} \
          -i ${expr} -g ${genes} \
@@ -798,7 +908,7 @@ if (params.narromi) {
     publishDir params.out + '/networks/narromi'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.narromi_settings.itime
 
     input:
     file genes
@@ -829,6 +939,8 @@ if (params.narromi) {
       """
     }
   }
+} else { 
+  Channel.empty().set {narromi_sf} 
 }
 
 if (params.tigress) {
@@ -856,7 +968,7 @@ if (params.tigress) {
       """
       ${params.tigress_settings.preamble}
       srun \
-      tigress -o tigress_network.tsv -B ${params.tigress_settings.batchsize} \
+      tigress -o tigress_network.tsv \
          -n ${params.tigress_settings.nlambda} \
          -l ${params.tigress_settings.min_lambda} \
          ${params.tigress_settings.scale} \
@@ -870,7 +982,7 @@ if (params.tigress) {
       """
       ${params.tigress_settings.preamble}
       mpirun -np ${params.tigress_settings.tasks} \
-      tigress -o tigress_network.tsv -B ${params.tigress_settings.batchsize} \
+      tigress -o tigress_network.tsv \
          -n ${params.tigress_settings.nlambda} \
          -l ${params.tigress_settings.min_lambda} \
          ${params.tigress_settings.scale} \
@@ -889,7 +1001,7 @@ if (params.tigress) {
     publishDir params.out + '/networks/tigress'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.tigress_settings.itime
 
     input:
     file genes
@@ -920,6 +1032,8 @@ if (params.tigress) {
       """
     }
   }
+} else { 
+  Channel.empty().set {tigress_sf} 
 }
 
 if (params.genie3) {
@@ -947,7 +1061,7 @@ if (params.genie3) {
       """
       ${params.genie3_settings.preamble}
       srun \
-      genie3 -o genie3_network.tsv -B ${params.genie3_settings.batchsize} \
+      genie3 -o genie3_network.tsv \
          -p ${params.genie3_settings.min_prop} \
          -a ${params.genie3_settings.alpha} \
          -N ${params.genie3_settings.min_node_size} \
@@ -964,7 +1078,7 @@ if (params.genie3) {
       """
       ${params.genie3_settings.preamble}
       mpirun -np ${params.genie3_settings.tasks} \
-      genie3 -o genie3_network.tsv -B ${params.genie3_settings.batchsize} \
+      genie3 -o genie3_network.tsv \
          -p ${params.genie3_settings.min_prop} \
          -a ${params.genie3_settings.alpha} \
          -N ${params.genie3_settings.min_node_size} \
@@ -986,7 +1100,7 @@ if (params.genie3) {
     publishDir params.out + '/networks/genie3'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.genie3_settings.itime
 
     input:
     file genes
@@ -1017,6 +1131,8 @@ if (params.genie3) {
       """
     }
   }
+} else { 
+  Channel.empty().set {genie3_sf} 
 }
 
 if (params.plsnet) {
@@ -1044,7 +1160,7 @@ if (params.plsnet) {
       """
       ${params.plsnet_settings.preamble}
       srun \
-      plsnet -o plsnet_network.tsv -B ${params.plsnet_settings.batchsize} \
+      plsnet -o plsnet_network.tsv \
          -c ${params.plsnet_settings.components} \
          -p ${params.plsnet_settings.predictors} \
          -e ${params.plsnet_settings.ensemble} \
@@ -1059,7 +1175,7 @@ if (params.plsnet) {
       """
       ${params.plsnet_settings.preamble}
       mpirun -np ${params.plsnet_settings.tasks} \
-      plsnet -o plsnet_network.tsv -B ${params.plsnet_settings.batchsize} \
+      plsnet -o plsnet_network.tsv \
          -c ${params.plsnet_settings.components} \
          -p ${params.plsnet_settings.predictors} \
          -e ${params.plsnet_settings.ensemble} \
@@ -1079,7 +1195,7 @@ if (params.plsnet) {
     publishDir params.out + '/networks/plsnet'
     queue params.slurm_partition
     clusterOptions '-n 1 -A ' + params.slurm_account
-    time params.spearman_settings.itime
+    time params.plsnet_settings.itime
     
     input:
     file genes
@@ -1109,5 +1225,170 @@ if (params.plsnet) {
       ${params.plsnet_settings.epilog}
       """
     }
+  }
+} else { 
+  Channel.empty().set {plsnet_sf} 
+}
+
+if (params.tomsimilarity) {
+
+  process tomsimilarity {
+    errorStrategy params.error_strategy
+    cpus params.tomsimilarity_settings.cores
+    memory params.tomsimilarity_settings.memory
+    publishDir params.out + '/networks/tomsimilarity'
+    queue params.slurm_partition
+    clusterOptions '-n ' + params.tomsimilarity_settings.tasks + ' -A ' + params.slurm_account
+    time params.tomsimilarity_settings.ptime
+
+    input:
+    file expr
+    file genes
+    val targets
+
+    output:
+    file 'tomsimilarity_network.tsv' into tomsimilarity_network_raw
+
+    script:
+    if (params.executor == 'slurm')
+    {
+      """
+      ${params.tomsimilarity_settings.preamble}
+      srun \
+      tomsimilarity -o tomsimilarity_network.tsv \
+         -m ${params.tomsimilarity_settings.method} \
+         -b ${params.tomsimilarity_settings.sft} \
+         -M ${params.tomsimilarity_settings.max_power} \
+         --sft-cutoff ${params.tomsimilarity_settings.sftcutoff} \
+         -T ${params.tomsimilarity_settings.tomtype} \
+         ${params.tomsimilarity_settings.scale} \
+         ${params.tomsimilarity_settings.absolute} \
+         -i ${expr} -g ${genes} \
+          ${targets}
+      ${params.tomsimilarity_settings.epilog}
+      """
+    }
+    else
+    {
+      """
+      ${params.tomsimilarity_settings.preamble}
+      mpirun -np ${params.tomsimilarity_settings.tasks} \
+      tomsimilarity -o tomsimilarity_network.tsv \
+         -m ${params.tomsimilarity_settings.method} \
+         -b ${params.tomsimilarity_settings.sft} \
+         -M ${params.tomsimilarity_settings.max_power} \
+         --sft-cutoff ${params.tomsimilarity_settings.sftcutoff} \
+         -T ${params.tomsimilarity_settings.tomtype} \
+         ${params.tomsimilarity_settings.scale} \
+         ${params.tomsimilarity_settings.absolute} \
+         -i ${expr} -g ${genes} \
+          ${targets}
+      ${params.tomsimilarity_settings.epilog}
+      """
+    }
+  }
+
+  process tomsimilarity_import {
+    errorStrategy params.error_strategy
+    validExitStatus 0,3
+    cpus params.tomsimilarity_settings.importcores
+    memory params.tomsimilarity_settings.importmem
+    publishDir params.out + '/networks/tomsimilarity'
+    queue params.slurm_partition
+    clusterOptions '-n 1 -A ' + params.slurm_account
+    time params.tomsimilarity_settings.itime
+    
+    input:
+    file genes
+    file tomsimilarity_net from tomsimilarity_network_raw
+
+    output:
+    file 'tomsimilarity_network.sf' into tomsimilarity_sf
+
+    script:
+    if (targets == '')
+    {
+      """
+      ${params.tomsimilarity_settings.preamble}
+      seidr import -F lm -r -u -n ${params.tomsimilarity_settings.importname} \
+                   -i ${tomsimilarity_net} -g ${genes} -o tomsimilarity_network.sf \
+                   -O ${params.tomsimilarity_settings.importcores}
+      ${params.tomsimilarity_settings.epilog}
+      """
+    }
+    else
+    {
+      """
+      ${params.tomsimilarity_settings.preamble}
+      seidr import -F el -r -u -n ${params.tomsimilarity_settings.importname} \
+                   -i ${tomsimilarity_net} -g ${genes} -o tomsimilarity_network.sf \
+                   -O ${params.tomsimilarity_settings.importcores}
+      ${params.tomsimilarity_settings.epilog}
+      """
+    }
+  }
+} else { 
+  Channel.empty().set {tomsimilarity_sf} 
+}
+
+if (params.aggregate) {
+
+  process aggregate {
+
+    errorStrategy params.error_strategy
+    validExitStatus 0,3
+    cpus params.aggregate_settings.cores
+    memory params.aggregate_settings.importmem
+    publishDir params.out + '/aggregated'
+    queue params.slurm_partition
+    clusterOptions '-n 1 -A ' + params.slurm_account
+    time params.aggregate_settings.itime
+
+    input:
+
+    file mi_file from mi_sf.collect().ifEmpty([])
+    file clr_file from clr_sf.collect().ifEmpty([])
+    file aracne_file from aracne_sf.collect().ifEmpty([])
+    file anova_file from anova_sf.collect().ifEmpty([])
+    file tomsimilarity_file from tomsimilarity_sf.collect().ifEmpty([])
+    file pearson_file from pearson_sf.collect().ifEmpty([])
+    file elnet_file from elnet_sf.collect().ifEmpty([])
+    file spearman_file from spearman_sf.collect().ifEmpty([])
+    file svm_file from svm_sf.collect().ifEmpty([])
+    file llr_file from llr_sf.collect().ifEmpty([])
+    file pcor_file from pcor_sf.collect().ifEmpty([])
+    file narromi_file from narromi_sf.collect().ifEmpty([])
+    file tigress_file from tigress_sf.collect().ifEmpty([])
+    file genie3_file from genie3_sf.collect().ifEmpty([])
+    file plsnet_file from plsnet_sf.collect().ifEmpty([])
+
+    output:
+    file 'aggregated.sf' into aggregated_sf
+
+    script:
+      """
+      ${params.aggregate_settings.preamble}
+      srun \
+      seidr aggregate -o aggregated.sf \
+         -m ${params.aggregate_settings.method} \
+         ${mi_file} \
+         ${clr_file} \
+         ${aracne_file} \
+         ${anova_file} \
+         ${tomsimilarity_file} \
+         ${pearson_file} \
+         ${elnet_file} \
+         ${spearman_file} \
+         ${svm_file} \
+         ${llr_file} \
+         ${pcor_file} \
+         ${narromi_file} \
+         ${tigress_file} \
+         ${genie3_file} \
+         ${plsnet_file} \
+         ${params.aggregate_settings.keep} \
+         -O ${params.aggregate_settings.cores}
+      ${params.aggregate_settings.epilog}
+      """
   }
 }
