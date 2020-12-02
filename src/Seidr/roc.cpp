@@ -482,6 +482,7 @@ roc(const std::vector<std::string>& args)
     }
 
     f.close();
+    out->flush();
 
   } catch (const po::error& e) {
     log(LOG_ERR) << "[Argument Error]: " << e.what() << '\n';
