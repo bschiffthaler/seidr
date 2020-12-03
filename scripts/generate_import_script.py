@@ -137,6 +137,16 @@ tigress = {
   'o': 'tigress.sf'
 }
 
+tomsimilarity = {
+  'r': True,
+  'z': False,
+  'u': True,
+  'a': False,
+  'F': 'lm',
+  'n': 'TOMSIMILARITY',
+  'o': 'tomsimilarity.sf'
+}
+
 class inputCtl(object):
   """docstring for inputCtl"""
   def __init__(self, args):
@@ -303,11 +313,15 @@ class scriptGenerator(object):
         gen = cmdGenerator(args, tigress)
         for arg in gen.get():
           self.cmd.append(arg)
+      elif re.search('tomsimilarity', args.input, flags=re.IGNORECASE):
+        gen = cmdGenerator(args, tomsimilarity)
+        for arg in gen.get():
+          self.cmd.append(arg)
       else:
         raise ValueError("Couldn't autodetect algorithm. Rerun with --algorithm.")
     else:
       ct = ['aracne', 'clr', 'elnet', 'genie3', 'llr', 'mi', 'narromi', 'svm',
-            'pearson', 'spearman', 'pcor', 'plsnet', 'tigress']
+            'pearson', 'spearman', 'pcor', 'plsnet', 'tigress', 'tomsimilarity']
       if not args.algorithm in ct:
         raise ValueError("Only the following arguments are supported with --algorithm: " +
                          ",".join(ct))
@@ -363,7 +377,11 @@ class scriptGenerator(object):
         gen = cmdGenerator(args, tigress)
         for arg in gen.get():
           self.cmd.append(arg)
-
+      if args.algorithm == 'tomsimilarity':
+        gen = cmdGenerator(args, tomsimilarity)
+        for arg in gen.get():
+          self.cmd.append(arg)
+          
     self.cmd.append('-i')
     self.cmd.append(args.input)
 
