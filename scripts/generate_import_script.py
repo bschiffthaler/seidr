@@ -131,7 +131,7 @@ tigress = {
   'r': True,
   'z': True,
   'u': False,
-  'a': False,
+  'a': True,
   'F': 'm',
   'n': 'TIGRESS',
   'o': 'tigress.sf'
@@ -141,7 +141,7 @@ tomsimilarity = {
   'r': True,
   'z': True,
   'u': True,
-  'a': False,
+  'a': True,
   'F': 'lm',
   'n': 'TOMSIMILARITY',
   'o': 'tomsimilarity.sf'
