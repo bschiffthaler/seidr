@@ -139,7 +139,7 @@ tigress = {
 
 tomsimilarity = {
   'r': True,
-  'z': False,
+  'z': True,
   'u': True,
   'a': False,
   'F': 'lm',
