@@ -1310,7 +1310,7 @@ if (params.tomsimilarity) {
     {
       """
       ${params.tomsimilarity_settings.preamble}
-      seidr import -F lm -r -u -n ${params.tomsimilarity_settings.importname} \
+      seidr import -F lm -A -z -r -u -n ${params.tomsimilarity_settings.importname} \
                    -i ${tomsimilarity_net} -g ${genes} -o tomsimilarity_network.sf \
                    -O ${params.tomsimilarity_settings.importcores}
       ${params.tomsimilarity_settings.epilog}
@@ -1320,7 +1320,7 @@ if (params.tomsimilarity) {
     {
       """
       ${params.tomsimilarity_settings.preamble}
-      seidr import -F el -r -u -n ${params.tomsimilarity_settings.importname} \
+      seidr import -F el -A -z -r -u -n ${params.tomsimilarity_settings.importname} \
                    -i ${tomsimilarity_net} -g ${genes} -o tomsimilarity_network.sf \
                    -O ${params.tomsimilarity_settings.importcores}
       ${params.tomsimilarity_settings.epilog}
