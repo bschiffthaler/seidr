@@ -70,7 +70,8 @@ top(const std::vector<std::string>& args)
 
     seidr_top_param_t param;
 
-    po::options_description umbrella("Show edges with highest scores");
+    po::options_description umbrella("Get edges with highest scores in a "
+                                     "memory friendly way.");
 
     po::options_description opt("Common Options");
     opt.add_options()("force,f",
@@ -148,7 +149,13 @@ top(const std::vector<std::string>& args)
     // NOLINTNEXTLINE: SeidrFileHeader& needs to be declared even if unused
     rf.each_edge([&](SeidrFileEdge& e, SeidrFileHeader& h) {
       double v = e.scores[param.tpos].s;
-      if (v > min) {
+      if (pq.size() < param.ntop) {
+        pq.push(expl_score_t(e, v));
+        if (v > max) {
+          max = v;
+        }
+        min = pq.top().second;
+      } else if (v > min || almost_equal(v, min)) {
         pq.push(expl_score_t(e, v));
         if (v > max) {
           max = v;
@@ -157,6 +164,7 @@ top(const std::vector<std::string>& args)
       }
       if (pq.size() > param.ntop) {
         pq.pop();
+        min = pq.top().second;
       }
     });
 
