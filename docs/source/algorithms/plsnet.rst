@@ -50,7 +50,7 @@ The output is a square matrix of scores::
 Optional arguments for PLSNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. Generally this should be *on*.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
 * ``-e, --ensemble``: Perform this many resampling iterations for each gene.
 * ``-c, --components``: The number of PLS components to be considered.
 * ``-p,  --predictor-size``: The number of predictors (genes) to be sampled at each iteration.

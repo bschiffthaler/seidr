@@ -51,7 +51,7 @@ The output is a lower triangular matrix of scores::
 Optional arguments for ``tomsimilarity``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. Generally this should be *on*.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
 * ``-m, --method``: Choose between "pearson" or "bicor" (`biweight midcorrelation <https://en.wikipedia.org/wiki/Biweight_midcorrelation>`_. The latter is typically a good choice unless you have a lot of outliers.)
 * ``-b, --sft``: The soft threshold power. This is the exponent for soft thresholding the correlation matrix. Unless you know why, leave it default.
 * ``-M, --max-power``: When auto-detecting the soft threshold power, this is the maximum value that will be tested. It's usually not a good idea to go above 30. If you cannot get a good fit, decrease the cutoff instead.

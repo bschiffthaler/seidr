@@ -53,7 +53,7 @@ The output is a square matrix of scores::
 Optional arguments for GENIE3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the regression calculation. Generally this should be *off*.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
 * ``-b, --ntree``: Grow this many trees for each gene.
 * ``-m, --mtry``: Sample this many features (genes) for each tree.
 * ``-p, --min-prop``: Lower quantile of covariate distribution to be considered for splitting.

@@ -81,14 +81,14 @@ In this section, we will create an all vs. all comparison, meaning we will estim
 Network inference
 """""""""""""""""
 
-Now that we have a data subset, we can get started with the inference. In this step, we'll create 13 different all vs. all networks using algorithms that seidr ships with. If you have any inference algorithm you would like to include that is not yet implemented in seidr, you can run that as well, but make sure its output is in a format seidr can import (:ref:`import-label`). Even though this is a sub-set, you'll probably need to set aside an hour for the inference. If you want a quicker run, you can leave out ``el-ensemble``. You'll see that we use the ``--scale`` option a number of times. This instructs seidr to perform `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization_(Z-score_Normalization)>`_ on the data, which, in general, will improve the results.:
+Now that we have a data subset, we can get started with the inference. In this step, we'll create 13 different all vs. all networks using algorithms that seidr ships with. If you have any inference algorithm you would like to include that is not yet implemented in seidr, you can run that as well, but make sure its output is in a format seidr can import (:ref:`import-label`). Even though this is a sub-set, you'll probably need to set aside an hour for the inference. If you want a quicker run, you can leave out ``el-ensemble``.
 
 .. code-block:: Bash
 
   # fast
-  correlation -m pearson -i expression_sub.tsv -g genes_sub.txt --scale
+  correlation -m pearson -i expression_sub.tsv -g genes_sub.txt
   correlation -m spearman -i expression_sub.tsv -g genes_sub.txt
-  pcor -i expression_sub.tsv -g genes_sub.txt --scale
+  pcor -i expression_sub.tsv -g genes_sub.txt
   
   # medium
   mi -m RAW -i expression_sub.tsv -g genes_sub.txt -o mi_scores.tsv
@@ -97,14 +97,14 @@ Now that we have a data subset, we can get started with the inference. In this s
 
   # slow
   narromi -m interior-point -i expression_sub.tsv -g genes_sub.txt -o narromi_scores.tsv
-  plsnet -i expression_sub.tsv -g genes_sub.txt -o plsnet_scores.tsv --scale
-  llr-ensemble -i expression_sub.tsv -g genes_sub.txt -o llr_scores.tsv --scale
-  svm-ensemble -k POLY -i expression_sub.tsv -g genes_sub.txt -o svm_scores.tsv --scale
-  genie3 -i expression_sub.tsv -g genes_sub.txt -o genie3_scores.tsv --scale
-  tigress -i expression_sub.tsv -g genes_sub.txt -o tigress_scores.tsv --scale
+  plsnet -i expression_sub.tsv -g genes_sub.txt -o plsnet_scores.tsv
+  llr-ensemble -i expression_sub.tsv -g genes_sub.txt -o llr_scores.tsv
+  svm-ensemble -k POLY -i expression_sub.tsv -g genes_sub.txt -o svm_scores.tsv
+  genie3 -i expression_sub.tsv -g genes_sub.txt -o genie3_scores.tsv
+  tigress -i expression_sub.tsv -g genes_sub.txt -o tigress_scores.tsv
 
   # very slow
-  el-ensemble -i expression_sub.tsv -g genes_sub.txt -o elnet_scores.tsv --scale
+  el-ensemble -i expression_sub.tsv -g genes_sub.txt -o elnet_scores.tsv
 
 Network ranking
 """""""""""""""

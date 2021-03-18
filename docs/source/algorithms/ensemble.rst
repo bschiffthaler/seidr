@@ -59,11 +59,11 @@ The output is a square matrix of scores::
 Optional arguments for the Ensemble methods
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the regression calculation. Generally this should be *on*.
-* ``-X, --max-experiment-size``: In each resampling iteration, choose maximally this many samples along rows (experiments) of the dataset.
-* ``-x, --min-experiment-size``: In each resampling iteration, choose minimally this many samples along rows (experiments) of the dataset.
-* ``-P, --max-predictor-size``: In each resampling iteration, choose maximally this many genes along columns (predictors) of the dataset.
-* ``-p, --min-predictor-size``: In each resampling iteration, choose minimally this many genes along columns (predictors) of the dataset.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
+* ``-X, --max-experiment-size``: In each resampling iteration, choose maximally this many samples along rows (experiments==samples) of the dataset.
+* ``-x, --min-experiment-size``: In each resampling iteration, choose minimally this many samples along rows (experiments==samples) of the dataset.
+* ``-P, --max-predictor-size``: In each resampling iteration, choose maximally this many genes along columns (predictors==genes) of the dataset.
+* ``-p, --min-predictor-size``: In each resampling iteration, choose minimally this many genes along columns (predictors==genes) of the dataset.
 * ``-e, --ensemble``: Perform this many resampling iterations for each gene.
 
 The sampling boundaries ``-X``, ``-x``, ``-P`` and ``-p`` default to 4/5th of 
