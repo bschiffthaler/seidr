@@ -1,3 +1,8 @@
+#### v0.14.3
+
+* Borda aggregation now uses the 2/3 majority vote scheme to decide on a directionality to keep for edges (irp always has used this since v0.14)
+* Documentation improvements
+
 #### v0.14.2
 
 * Changed SFT cutoff short flag to `-c` from `-S` since `-S` conflicts with `--no-scale`.

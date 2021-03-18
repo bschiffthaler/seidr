@@ -43,7 +43,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 # Define Version string
 set(SEIDR_MAJOR_VERSION 0)
 set(SEIDR_MINOR_VERSION 14)
-set(SEIDR_PATCH_VERSION 2)
+set(SEIDR_PATCH_VERSION 3)
 set(SEIDR_VERSION
     ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
 
@@ -224,7 +224,7 @@ add_library(seidr-glmnet STATIC external/glmnet/src/glmnet5dp.f)
 add_library(seidr-bgzf STATIC external/bgzf/bgzf.c)
 
 # Build a custom library from the ranger and networkit sources
-set(NETWORKIT_VERSION "7.1")
+set(NETWORKIT_VERSION "8.1")
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 
 # Build executables: Seidr
