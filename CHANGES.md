@@ -1,3 +1,7 @@
+#### v0.14.4
+
+* Fixed a segfault where resolve didn't check if the network file exists
+
 #### v0.14.3
 
 * Borda aggregation now uses the 2/3 majority vote scheme to decide on a directionality to keep for edges (irp always has used this since v0.14)
