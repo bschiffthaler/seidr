@@ -20,6 +20,7 @@
 
 // Seidr
 #include <common.h>
+#include <ensembles.h>
 #include <cp_resume.h>
 #include <fs.h>
 #ifdef SEIDR_WITH_MPI
@@ -115,7 +116,7 @@ main(int argc, char** argv)
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
         ->default_value(ELNET_DEF_PREDICTOR_SIZE_MIN, "20% of predictors"),
-      "The minimum absolute number of predictors (genes) to be sampled.")(
+      "The minimum absolute number of predictors (genes) to be sampled")(
       "max-predictor-size,P",
       po::value<seidr_uword_t>(&param.predictor_sample_size_max)
         ->default_value(ELNET_DEF_PREDICTOR_SIZE_MAX, "80% of predictors"),
@@ -164,6 +165,11 @@ main(int argc, char** argv)
       log << "--scale is deprecated as it is now default. Use --no-scale"
           << " to turn scaling off.\n";
       log.log(LOG_WARN);
+    }
+
+    int bs_par = check_bootstrap_params<seidr_elnet_param_t>(vm, param, log);
+    if (bs_par != 0) {
+      return bs_par;
     }
 
     // Normalize paths
@@ -274,6 +280,8 @@ main(int argc, char** argv)
       log << "Setting batch size to " << param.bs << '\n';
       log.log(LOG_INFO);
     }
+
+    
 
     if (param.min_sample_size == 0) {
       param.min_sample_size =
