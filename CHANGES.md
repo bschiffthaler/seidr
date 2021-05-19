@@ -1,6 +1,8 @@
 #### v0.14.4
 
 * Fixed a segfault where resolve didn't check if the network file exists
+* Added some sanity checking to bootstrapping parameters for
+  - `el-ensemble`
 
 #### v0.14.3
 
