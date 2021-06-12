@@ -71,6 +71,7 @@ std::string usage_msg =
   "[Calculate network statistics]\n"
   "  stats                     \t Compute node and edge centrality\n"
   "  graphstats                \t Calculate summary statistics of the network\n"
+  "  node2vec                  \t Calculate node2vec graph embeddings\n"
   "\n"
   "[Format conversion]\n"
   "  adjacency                 \t Convert a SeidrFile to an adjacency\n"
