@@ -230,6 +230,7 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 # Build executables: Seidr
 add_executable(
   seidr
+  src/Common/parallel_control.cpp
   src/Seidr/adjacency.cpp
   src/Seidr/aggregate.cpp
   src/Seidr/asp.cpp
@@ -242,19 +243,19 @@ add_executable(
   src/Seidr/import.cpp
   src/Seidr/index.cpp
   src/Seidr/neighbours.cpp
-  src/Common/parallel_control.cpp
+  src/Seidr/node2vec.cpp
   src/Seidr/reheader.cpp
   src/Seidr/resolve.cpp
   src/Seidr/roc.cpp
   src/Seidr/sample.cpp
+  src/Seidr/seidr.cpp
   src/Seidr/Serialize.cpp
   src/Seidr/stats.cpp
   src/Seidr/tau.cpp
   src/Seidr/test.cpp
   src/Seidr/threshold.cpp
   src/Seidr/top.cpp
-  src/Seidr/viewRanks.cpp
-  src/Seidr/seidr.cpp)
+  src/Seidr/viewRanks.cpp)
 target_include_directories(
   seidr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/deps/include
                 ${CMAKE_CURRENT_BINARY_DIR}/NetworKit/include

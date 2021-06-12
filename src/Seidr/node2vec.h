@@ -21,15 +21,25 @@
 #include <string>
 #include <vector>
 
-constexpr uint64_t SEIDR_GRAPHSTATS_DEF_SFT_NBINS = 200;
+constexpr uint64_t SEIDR_NODE2VEC_DEF_WALK_LENGTH = 80;
+constexpr uint64_t SEIDR_NODE2VEC_DEF_WALK_COUNT = 10;
+constexpr double SEIDR_NODE2VEC_DEF_WALK_RETURN = 1;
+constexpr double SEIDR_NODE2VEC_DEF_INOUT = 1;
+constexpr uint32_t SEIDR_NODE2VEC_DEF_DIMENSION = 128;
 
-struct seidr_graphstat_param_t
+struct seidr_node2vec_param_t
 {
   std::string infile;
   uint32_t tpos;
   bool force;
   std::string outfile;
+  bool directed;
+  double walk_return;
+  double walk_inout;
+  uint64_t walk_length;
+  uint64_t walk_count;
+  uint32_t dimension;
 };
 
 int
-graphstats(const std::vector<std::string>& args);
+node2vec(const std::vector<std::string>& args);

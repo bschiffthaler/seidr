@@ -19,11 +19,11 @@
 //
 
 // Seidr
-#include <BSlogger.hpp>
 #include <adjacency.h>
 #include <aggregate.h>
 #include <asp.h>
 #include <backbone.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <compare.h>
 #include <compare_clusters.h>
@@ -33,6 +33,7 @@
 #include <import.h>
 #include <index.h>
 #include <neighbours.h>
+#include <node2vec.h>
 #include <reheader.h>
 #include <resolve.h>
 #include <roc.h>
@@ -141,6 +142,8 @@ main(int argc, char* argv[])
       ret = index(args);
     } else if (task == "neighbours") {
       ret = neighbours(args);
+    } else if (task == "node2vec") {
+      ret = node2vec(args);
     } else if (task == "reheader") {
       ret = reheader(args);
     } else if (task == "resolve") {
