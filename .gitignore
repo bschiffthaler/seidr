@@ -25,3 +25,5 @@ _templates
 *.pyc
 *.pyd
 *.ipynb
+goldStandard
+goldStandard/
