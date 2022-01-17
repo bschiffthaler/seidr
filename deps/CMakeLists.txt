@@ -14,12 +14,15 @@ ExternalProject_Add(
     "-DNETWORKIT_STATIC=ON"
     "-DCMAKE_CXX_FLAGS='-include stdexcept'"
     "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/NetworKit"
+    "-DCMAKE_CXX_STANDARD=17"
   GIT_REPOSITORY https://github.com/networkit/networkit.git
   GIT_SHALLOW 1
   GIT_PROGRESS 1
   GIT_TAG ${NETWORKIT_VERSION}
   UPDATE_DISCONNECTED ON
 )
+
+set(CMAKE_CXX_STANDARD 11)
 
 # Build ranger as a library
 file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include/ranger)

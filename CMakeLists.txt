@@ -48,7 +48,7 @@ set(SEIDR_VERSION
     ${SEIDR_MAJOR_VERSION}.${SEIDR_MINOR_VERSION}.${SEIDR_PATCH_VERSION})
 
 # C++ Standard
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # Explicitly set build type if user hasn't chosen one
 if(NOT CMAKE_BUILD_TYPE)
@@ -224,7 +224,7 @@ add_library(seidr-glmnet STATIC external/glmnet/src/glmnet5dp.f)
 add_library(seidr-bgzf STATIC external/bgzf/bgzf.c)
 
 # Build a custom library from the ranger and networkit sources
-set(NETWORKIT_VERSION "8.1")
+set(NETWORKIT_VERSION "9.1.1")
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps")
 
 # Build executables: Seidr
