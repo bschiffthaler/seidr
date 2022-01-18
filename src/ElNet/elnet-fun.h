@@ -78,6 +78,7 @@ struct seidr_elnet_param_t
     ar& BOOST_SERIALIZATION_NVP(alpha);
     ar& BOOST_SERIALIZATION_NVP(flmin);
     ar& BOOST_SERIALIZATION_NVP(nlam);
+    ar& BOOST_SERIALIZATION_NVP(k);
     ar& BOOST_SERIALIZATION_NVP(nthreads);
   }
   std::string infile;
@@ -98,6 +99,7 @@ struct seidr_elnet_param_t
   double alpha;
   double flmin;
   arma::uword nlam;
+  uint16_t k;
   unsigned verbosity;
   std::string tempdir;
   bool resuming;
@@ -119,6 +121,7 @@ el_ensemble(const arma::mat& geneMatrix,
             const double& alpha,
             const double& flmin,
             const arma::uword& nlam,
+            const uint16_t& k,
             seidr_mpi_elnet* self);
 
 void

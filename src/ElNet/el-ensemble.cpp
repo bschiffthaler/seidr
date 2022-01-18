@@ -90,7 +90,10 @@ main(int argc, char** argv)
       "alpha,a",
       po::value<double>(&param.alpha)->default_value(ELNET_DEF_ALPHA,  to_rounded_str(ELNET_DEF_ALPHA)),
       "The elastic net mixing value alpha. 1.0 is "
-      "LASSO, 0 is Ridge.");
+      "LASSO, 0 is Ridge.")(
+      "k-fold-cv,K",
+      po::value<uint16_t>(&param.k)->default_value(0, "auto"),
+      "The number of cross validations to perform");
 
     po::options_description mpiopt("MPI Options");
     mpiopt.add_options()(
