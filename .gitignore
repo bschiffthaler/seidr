@@ -8,7 +8,9 @@
 a.out
 build/
 bundle/
+bugs/
 bin/
+dna-test/
 example
 *~
 test/

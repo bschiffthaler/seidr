@@ -80,9 +80,7 @@ main(int argc, char** argv)
     po::options_description algopt("ElNet Options");
     algopt.add_options()("scale,s",
                          "(deprecated) Transform data to z-scores")(
-      "no-scale",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores")(
+      "no-scale", "Do not transform data to z-scores")(
       "nlambda,n",
       po::value<seidr_uword_t>(&param.nlam)->default_value(ELNET_DEF_NLAM),
       "The maximum number of lambda values")(
@@ -165,6 +163,12 @@ main(int argc, char** argv)
       log << "--scale is deprecated as it is now default. Use --no-scale"
           << " to turn scaling off.\n";
       log.log(LOG_WARN);
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
     }
 
     int bs_par = check_bootstrap_params<seidr_elnet_param_t>(vm, param, log);

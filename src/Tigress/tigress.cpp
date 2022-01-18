@@ -86,9 +86,7 @@ main(int argc, char** argv)
     po::options_description algopt("TIGRESS Options");
     algopt.add_options()(
       "scale,s", "(deprecated) Transform data to z-scores")(
-      "no-scale,S",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores")(
+      "no-scale,S", "Do not transform data to z-scores")(
       "nlambda,n",
       po::value<seidr_uword_t>(&param.nsteps)
         ->default_value(TIGRESS_DEF_NSTEPS),
@@ -158,6 +156,12 @@ main(int argc, char** argv)
       log << "--scale is deprecated as it is now default. Use --no-scale"
           << " to turn scaling off.\n";
       log.log(LOG_WARN);
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
     }
 
     // Normalize paths
