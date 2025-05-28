@@ -53,12 +53,12 @@ namespace po = boost::program_options;
     "Error message: " x)
 
 #if defined(SEIDR_PSTL)
-#define SORT(start, end) std::sort(pstl::execution::par, start, end)
+#define SORT(start, end) std::sort(std::execution::par, start, end)
 #define SORTWCOMP(start, end, comp)                                            \
-  std::sort(pstl::execution::par, start, end, comp)
+  std::sort(std::execution::par, start, end, comp)
 #define SET_NUM_PSTL_THREADS(x)                                                \
   tbb::global_control(tbb::global_control::max_allowed_parallelism, x);
-#define GET_MAX_PSTL_THREADS() tbb::task_scheduler_init::default_num_threads()
+#define GET_MAX_PSTL_THREADS() tbb::info::default_concurrency()
 #else
 #define SORT(start, end) std::sort(start, end)
 #define SORTWCOMP(start, end, comp) std::sort(start, end, comp)

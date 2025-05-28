@@ -5,11 +5,12 @@
 #if defined(SEIDR_PSTL)
 #include <omp.h>
 #include <tbb/global_control.h>
-#include <tbb/task_scheduler_init.h>
+#include <tbb/task_arena.h>
 
 static tbb::global_control global_control(
   tbb::global_control::max_allowed_parallelism,
-  tbb::task_scheduler_init::default_num_threads());
+  tbb::info::default_concurrency()
+);
 
 void
 set_pstl_threads(int target)
@@ -17,7 +18,7 @@ set_pstl_threads(int target)
   logger log(std::cerr, "set_pstl_threads");
 #ifdef SEIDR_PSTL
   assert_in_range<int>(target, 1, GET_MAX_PSTL_THREADS(), "--threads");
-  tbb::task_scheduler_init init(target);
+  tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, 2);
   omp_set_num_threads(target);
 #else
   if (target > 1) {

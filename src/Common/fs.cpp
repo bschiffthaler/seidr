@@ -201,7 +201,7 @@ rename(const std::string& lhs, const std::string& rhs)
   }
   // Fall back to copying in case relinking doesn't work
   catch (const fs::filesystem_error& e) {
-    fs::copy_file(lhs, rhs, fs::copy_option::overwrite_if_exists);
+    fs::copy_file(lhs, rhs, fs::copy_options::overwrite_existing);
     fs::remove(lhs);
   }
 }

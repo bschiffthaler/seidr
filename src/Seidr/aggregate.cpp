@@ -27,8 +27,8 @@
 #include <parallel_control.h>
 // Parallel includes
 #if defined(SEIDR_PSTL)
-#include <pstl/algorithm>
-#include <pstl/execution>
+#include <execution>
+#include <algorithm>
 #else
 #include <algorithm>
 #endif

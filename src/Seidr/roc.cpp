@@ -27,9 +27,8 @@
 #include <roc.h>
 // Parallel includes
 #if defined(SEIDR_PSTL)
-#include <pstl/algorithm>
-#include <pstl/execution>
-#include <tbb/task_scheduler_init.h>
+#include <algorithm>
+#include <execution>
 #else
 #include <algorithm>
 #endif

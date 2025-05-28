@@ -139,7 +139,7 @@ public:
       return copy;
     }
 
-    if (_rank > 0) {
+    else {
       seidr_mpi_progbar<T> copy(*this);
       int ret = 1;
       MPI_Send(
