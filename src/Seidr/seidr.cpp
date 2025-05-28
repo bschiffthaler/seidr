@@ -19,11 +19,11 @@
 //
 
 // Seidr
-#include <BSlogger.hpp>
 #include <adjacency.h>
 #include <aggregate.h>
 #include <asp.h>
 #include <backbone.h>
+#include <BSlogger.hpp>
 #include <common.h>
 #include <compare.h>
 #include <compare_clusters.h>
@@ -33,6 +33,7 @@
 #include <import.h>
 #include <index.h>
 #include <neighbours.h>
+#include <node2vec.h>
 #include <reheader.h>
 #include <resolve.h>
 #include <roc.h>
@@ -70,6 +71,7 @@ std::string usage_msg =
   "[Calculate network statistics]\n"
   "  stats                     \t Compute node and edge centrality\n"
   "  graphstats                \t Calculate summary statistics of the network\n"
+  "  node2vec                  \t Calculate node2vec graph embeddings\n"
   "\n"
   "[Format conversion]\n"
   "  adjacency                 \t Convert a SeidrFile to an adjacency\n"
@@ -141,6 +143,8 @@ main(int argc, char* argv[])
       ret = index(args);
     } else if (task == "neighbours") {
       ret = neighbours(args);
+    } else if (task == "node2vec") {
+      ret = node2vec(args);
     } else if (task == "reheader") {
       ret = reheader(args);
     } else if (task == "resolve") {

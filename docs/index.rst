@@ -14,7 +14,8 @@ If you have any questions, contact me at:
    :caption: Getting Started
    :maxdepth: 3
    :titlesonly:
-
+   
+   source/building/install
    source/building/building
    source/getting_started/getting_started
 

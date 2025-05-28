@@ -55,7 +55,7 @@ Optional arguments to correlation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``-a, --absolute``: By default, the executable reports signed correlation values. Using this option will turn on reporting of the absolute value of the correlation coefficient. It is generally recommended to export correlation with signs (i.e. *not* absolute) and instead run ``seidr import`` in absolute mode, which will rank genes by their magnitude, but won't throw away the sign information.
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. Generally this should be *on* especially when calculating Pearson's rho.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
 
 Running Correlation for a subset of genes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

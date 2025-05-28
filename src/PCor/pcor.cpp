@@ -67,9 +67,7 @@ main(int argc, char** argv)
                          po::bool_switch(&param.abs)->default_value(false),
                          "Report absolute values")(
       "scale,s", "(deprecated) Transform data to z-scores")(
-      "no-scale",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores");
+      "no-scale", "Do not transform data to z-scores");
 
     po::options_description req("Required Options");
     req.add_options()("infile,i",
@@ -103,6 +101,12 @@ main(int argc, char** argv)
       log(LOG_WARN)
         << "--scale is deprecated as it is now default. Use --no-scale"
         << " to turn scaling off.\n";
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
     }
 
     param.outfile = to_absolute(param.outfile);

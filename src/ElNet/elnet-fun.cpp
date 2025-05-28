@@ -72,6 +72,7 @@ public:
   }
   void set_ensemble_size(arma::uword x) { _ensemble_size = x; }
   void set_targeted(bool x) { _targeted = x; }
+  void set_k(uint16_t x) { _k = x; }
 
 private:
   arma::uword _min_sample_size = 0;
@@ -83,6 +84,7 @@ private:
   double _flmin = 0;
   arma::uword _nlam = 0;
   bool _targeted = false;
+  uint16_t _k = 0;
 };
 
 void
@@ -107,6 +109,7 @@ seidr_mpi_elnet::entrypoint()
                 _alpha,
                 _flmin,
                 _nlam,
+                _k,
                 this);
     get_more_work();
   }
@@ -133,6 +136,7 @@ el_ensemble(const arma::mat& geneMatrix,
             const double& alpha,
             const double& flmin,
             const arma::uword& nlam,
+            const uint16_t& k,
             seidr_mpi_elnet* self)
 {
 
@@ -206,13 +210,19 @@ el_ensemble(const arma::mat& geneMatrix,
         glm elnet(pred_mat, target_exp, nlam, flmin, alpha);
 
         double nr = pred_mat.n_rows;
-        auto k = numeric_cast<arma::uword>(round(sqrt(nr)));
+        uint16_t nk = 0;
 
-        if (k > ELNET_DEF_MAX_K_CV) {
-          k = ELNET_DEF_MAX_K_CV;
+        if (k == 0) {
+          nk = numeric_cast<arma::uword>(round(sqrt(nr)));
+        } else {
+          nk = k;
         }
 
-        glm_cv_t glm_cv = elnet.k_fold_cv(k);
+        if (nk > ELNET_DEF_MAX_K_CV) {
+          nk = ELNET_DEF_MAX_K_CV;
+        }
+
+        glm_cv_t glm_cv = elnet.k_fold_cv(nk);
 
         arma::vec lambda{ glm_cv.lambda_min };
 
@@ -309,6 +319,7 @@ el_full(const arma::mat& GM,
   mpi.set_alpha(param.alpha);
   mpi.set_flmin(param.flmin);
   mpi.set_nlam(param.nlam);
+  mpi.set_k(param.k);
 
   mpi.entrypoint();
 
@@ -370,6 +381,7 @@ el_partial(const arma::mat& GM,
   mpi.set_flmin(param.flmin);
   mpi.set_nlam(param.nlam);
   mpi.set_targeted(true);
+  mpi.set_k(param.k);
 
   mpi.entrypoint();
 

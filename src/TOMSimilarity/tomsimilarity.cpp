@@ -73,9 +73,7 @@ main(int argc, char** argv)
       po::bool_switch(&param.abs)->default_value(false),
       "Report absolute values")(
       "scale,s", "(deprecated) Transform data to z-scores")(
-      "no-scale,S",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores")(
+      "no-scale,S", "Do not transform data to z-scores")(
       "sft,b",
       po::value<uint64_t>(&param.sft)->default_value(0),
       "Soft threshold to apply (0 for autodetection)")(
@@ -144,6 +142,12 @@ main(int argc, char** argv)
 
     if (vm["outfile"].defaulted()) {
       param.outfile = param.method + "_tom_scores.tsv";
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
     }
 
     if (!param.force) {

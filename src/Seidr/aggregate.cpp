@@ -262,13 +262,12 @@ aggr_borda(std::vector<SeidrFileHeader>&
   }
 
   if (ex_sum > 0) {
+    uint8_t dir = majority_dir_vote(flags);
     EDGE_SET_EXISTING(result.attr.flag);
-    if (EDGE_IS_DIRECT(v[index].attr.flag)) {
-      if (EDGE_IS_AB(v[index].attr.flag)) {
-        EDGE_SET_AB(result.attr.flag);
-      } else {
-        EDGE_SET_BA(result.attr.flag);
-      }
+    if (EDGE_IS_AB(dir)) {
+      EDGE_SET_AB(result.attr.flag);
+    } else if (EDGE_IS_BA(dir)) {
+      EDGE_SET_BA(result.attr.flag);
     }
   }
 }

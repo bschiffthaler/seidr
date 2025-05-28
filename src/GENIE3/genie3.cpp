@@ -85,9 +85,7 @@ main(int argc, char** argv)
     po::options_description algopt("GENIE3 Options");
     algopt.add_options()(
       "scale,s", "(deprecated) Transform data to z-scores")(
-      "no-scale",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores")(
+      "no-scale", "Do not transform data to z-scores")(
       "min-node-size,N",
       po::value<uint64_t>(&param.min_node_size)
         ->default_value(GENIE3_DEF_MIN_NODE_SIZE),
@@ -154,6 +152,12 @@ main(int argc, char** argv)
       log << "--scale is deprecated as it is now default. Use --no-scale"
           << " to turn scaling off.\n";
       log.log(LOG_WARN);
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
     }
 
     if (vm.count("targets") > 0) {

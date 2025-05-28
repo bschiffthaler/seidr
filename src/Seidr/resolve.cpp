@@ -155,6 +155,10 @@ resolve(const std::vector<std::string>& args)
     assert_exists(param.infile);
     assert_can_read(param.infile);
 
+    param.sf = to_absolute(param.sf);
+    assert_exists(param.sf);
+    assert_can_read(param.sf);
+
     if (param.outfile != "-") {
       param.outfile = to_absolute(param.outfile);
       if (!param.force) {

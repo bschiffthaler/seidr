@@ -20,6 +20,7 @@
 
 // Seidr
 #include <common.h>
+#include <ensembles.h>
 #include <cp_resume.h>
 #include <fs.h>
 #ifdef SEIDR_WITH_MPI
@@ -79,9 +80,7 @@ main(int argc, char** argv)
     po::options_description algopt("ElNet Options");
     algopt.add_options()("scale,s",
                          "(deprecated) Transform data to z-scores")(
-      "no-scale",
-      po::bool_switch(&param.do_scale)->default_value(true),
-      "Do not transform data to z-scores")(
+      "no-scale", "Do not transform data to z-scores")(
       "nlambda,n",
       po::value<seidr_uword_t>(&param.nlam)->default_value(ELNET_DEF_NLAM),
       "The maximum number of lambda values")(
@@ -91,7 +90,10 @@ main(int argc, char** argv)
       "alpha,a",
       po::value<double>(&param.alpha)->default_value(ELNET_DEF_ALPHA,  to_rounded_str(ELNET_DEF_ALPHA)),
       "The elastic net mixing value alpha. 1.0 is "
-      "LASSO, 0 is Ridge.");
+      "LASSO, 0 is Ridge.")(
+      "k-fold-cv,K",
+      po::value<uint16_t>(&param.k)->default_value(0, "auto"),
+      "The number of cross validations to perform");
 
     po::options_description mpiopt("MPI Options");
     mpiopt.add_options()(
@@ -115,7 +117,7 @@ main(int argc, char** argv)
       "min-predictor-size,p",
       po::value<seidr_uword_t>(&param.predictor_sample_size_min)
         ->default_value(ELNET_DEF_PREDICTOR_SIZE_MIN, "20% of predictors"),
-      "The minimum absolute number of predictors (genes) to be sampled.")(
+      "The minimum absolute number of predictors (genes) to be sampled")(
       "max-predictor-size,P",
       po::value<seidr_uword_t>(&param.predictor_sample_size_max)
         ->default_value(ELNET_DEF_PREDICTOR_SIZE_MAX, "80% of predictors"),
@@ -164,6 +166,17 @@ main(int argc, char** argv)
       log << "--scale is deprecated as it is now default. Use --no-scale"
           << " to turn scaling off.\n";
       log.log(LOG_WARN);
+    }
+
+    if (vm.count("no-scale") > 0) {
+      param.do_scale = false;
+    } else {
+      param.do_scale = true;
+    }
+
+    int bs_par = check_bootstrap_params<seidr_elnet_param_t>(vm, param, log);
+    if (bs_par != 0) {
+      return bs_par;
     }
 
     // Normalize paths
@@ -274,6 +287,8 @@ main(int argc, char** argv)
       log << "Setting batch size to " << param.bs << '\n';
       log.log(LOG_INFO);
     }
+
+    
 
     if (param.min_sample_size == 0) {
       param.min_sample_size =

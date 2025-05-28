@@ -52,7 +52,7 @@ The output is a square matrix of scores::
 Optional arguments for TIGRESS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``-s, --scale``: This triggers `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. Generally this should be *on*.
+* ``-S, --no-scale``: This turns off `feature scaling <https://en.wikipedia.org/wiki/Feature_scaling#Standardization>`_ of the expression matrix before the correlation calculation. By default scaling is enabled.
 * ``-B, --nbootstrap``: Perform this many resampling iterations for each gene.
 * ``-n, --nlambda``: Consider this many shrinkage lambdas.
 * ``-l, --min-lambda``: The minimum lambda value considered is this fraction of the maximum.

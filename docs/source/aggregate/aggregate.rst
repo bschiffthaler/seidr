@@ -33,3 +33,30 @@ Converted to text (with ``seidr view``) the file looks like this::
 
 We note that the final column stores the score of the aggregated network (IRP method).
 For all future purposes, this is the representative score unless otherwise specified.
+
+Directionality
+^^^^^^^^^^^^^^
+
+When there are directional algorithms in the aggregated set, seidr will attempt to create a directed aggregated edge as well. The exact procedure used depends on the aggregation algorithm:
+
+* ``-m irp`` and ``-m borda``: When an edge is aggregated with the IRP or Borda schemes, the resulting edge takes the direction of the two-thirds majority of the input set *for methods that have called a direction*. Example: We aggregate 10 methods. 5 of these methods predict A->B, 2 methods predict A<-B, 3 methods predict A-B. 7 methods call a direction, therefore a 2/3 majority is reached with :math:`2 \cdot \lfloor\frac{7}{3}\rfloor = 4`. The 5 votes of A->B are therefore taken as the final direction.
+
+* ``-m top1`` and ``-m top2``: For these methods the directionality of the selected edges is taken over into the final edge. For ``top2`` both methods have to agree, otherwise the edge is set to undirected.
+
+
+Flags
+^^^^^
+
+When running seidr aggregate with the ``-k, --keep`` flag, supplementary data with flags for each algorithm will be kept. This suplementary data is a bitwise flag describing the edge. Currently 3 bits are used::
+
+  000
+    ^____ Edge exists
+   ^_____ Edge is in direction A->B
+  ^______ Edge is in direction A<-B
+
+Resolving these bits to unsigned integers therefore results in:
+
+* ``0``: Edge does not exist
+* ``1``: Edge exists and is undirected
+* ``3``: Edge exists and is A->B
+* ``5``: Edge exists and is A<-B
