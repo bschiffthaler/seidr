@@ -20,6 +20,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <cstdint>
 
 constexpr uint16_t ADJACENCY_DEF_PRECISION = 8;
 

@@ -20,6 +20,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <cstdint>
 
 constexpr uint16_t ASP_DEF_PRECISION = 8;
 constexpr double ASP_DEF_MIN_WEIGHT = 1e-8;

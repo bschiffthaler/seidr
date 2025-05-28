@@ -20,6 +20,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <cstdint>
 
 struct seidr_backbone_param_t
 {
